@@ -236,10 +236,25 @@ def clean_email_body(html_content, max_chars=800):
     except:
         return str(html_content)[:max_chars]
 
-def fetch_emails_batch(service, days=3, max_results=15):
-    """Fetches emails from inbox efficiently."""
+def fetch_emails_batch(service, start_date=None, end_date=None, max_results=15):
+    """Fetches emails from inbox within a date range."""
     try:
-        query = f'newer_than:{days}d -category:promotions -category:social'
+        # Format dates for Gmail Query (YYYY/MM/DD)
+        # after:YYYY/MM/DD means FROM that date (inclusive)
+        # before:YYYY/MM/DD means UNTIL that date (exclusive, so we add 1 day usually or rely on just "after" for start)
+        
+        query_parts = ['-category:promotions', '-category:social']
+        
+        if start_date:
+            query_parts.append(f"after:{start_date.strftime('%Y/%m/%d')}")
+        if end_date:
+            # Gmail 'before' is exclusive, so to include end_date we go to end_date + 1 day
+            # OR we can just use the user provided range. Let's assume inclusive logic is desired.
+            next_day = end_date + datetime.timedelta(days=1)
+            query_parts.append(f"before:{next_day.strftime('%Y/%m/%d')}")
+            
+        query = " ".join(query_parts)
+        
         results = service.users().messages().list(userId='me', q=query, maxResults=max_results).execute()
         messages = results.get('messages', [])
         
@@ -1096,23 +1111,20 @@ def authenticated_main():
             
             c_d1, c_d2 = st.columns(2)
             with c_d1:
-                amount = st.number_input("Cantidad:", min_value=1, value=1, step=1)
+                start_date = st.date_input("Fecha Inicio", datetime.date.today() - datetime.timedelta(days=7))
             with c_d2:
-                unit = st.selectbox("Unidad:", ["Días", "Semanas", "Meses"])
+                end_date = st.date_input("Fecha Fin", datetime.date.today())
             
-            # Calculate total days
-            if unit == "Días": days_back = amount
-            elif unit == "Semanas": days_back = amount * 7
-            elif unit == "Meses": days_back = amount * 30
-            
-            max_fetch = st.slider("Max Correos a Leer:", 15, 500, 50, help="Mayor cantidad consume más tokens.")
+            # Global Limit check
+            global_limit = st.session_state.get('admin_max_emails', 50)
+            max_fetch = st.slider(f"Max Correos a Leer (Límite Admin: {global_limit}):", 5, global_limit, min(50, global_limit), help="Mayor cantidad consume más tokens.")
 
             if st.button("🔄 Conectar y Analizar Buźon"):
                  creds = get_gmail_credentials()
                  if creds:
                      service_gmail = build('gmail', 'v1', credentials=creds)
-                     with st.spinner(f"📩 Leyendo últimos {days_back} días (Max {max_fetch})..."):
-                         emails = fetch_emails_batch(service_gmail, days=days_back, max_results=max_fetch)
+                     with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
+                         emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
                      
                      if not emails:
                          st.warning("No se encontraron correos nuevos relevantes.")
@@ -1500,6 +1512,7 @@ def main():
 
                     if is_valid:
                         st.session_state.license_key = username_input # Usamos username como llave de sesión
+                        st.session_state.user_data_full = user_data # Store full data for role checks
                         st.session_state.authenticated = True
                         
                         # --- CARGAR CREDENCIALES DEL USUARIO ---
@@ -1550,6 +1563,55 @@ def main():
     else:
         # Sidebar Logout
         with st.sidebar:
+            st.divider()
+            
+            # --- ADMIN PANEL ---
+            # Check if user is admin (Rol = ADMIN or user=admin)
+            current_user = st.session_state.get('license_key', '')
+            user_data = st.session_state.get('user_data_full', {}) # Need to ensure we store this on login
+            
+            # Backdoor or DB Role
+            is_admin = (current_user == 'admin') or (str(user_data.get('rol', '')).upper() == 'ADMIN')
+            
+            if is_admin:
+                st.subheader("🛡️ Panel Admin")
+                
+                # 1. Configurar Límites
+                new_limit = st.number_input("Límite Global Correos IA", min_value=5, max_value=500, value=st.session_state.get('admin_max_emails', 50))
+                if new_limit != st.session_state.get('admin_max_emails', 50):
+                    st.session_state.admin_max_emails = new_limit
+                    st.toast(f"Límite actualizado a {new_limit}")
+                
+                st.divider()
+                
+                # 2. Simulador de Roles
+                st.caption("🎭 Simulador de Roles")
+                all_users = auth.get_all_users()
+                if all_users:
+                    user_opts = [f"{u.get('user')} ({u.get('rol', 'N/A')})" for u in all_users]
+                    selected_sim = st.selectbox("Impersonar a:", ["-- Seleccionar --"] + user_opts)
+                    
+                    if st.button("Simular Sesión"):
+                        if selected_sim != "-- Seleccionar --":
+                            target_user = selected_sim.split(" (")[0]
+                            # Find user data
+                            target_data = next((u for u in all_users if u.get('user') == target_user), {})
+                            if target_data:
+                                # Switch Session
+                                st.session_state.license_key = target_user
+                                st.session_state.user_data_full = target_data # Update context
+                                # Reload credentials logic (simplified)
+                                if 'notification_api_client' in target_data:
+                                     st.session_state.notif_creds = {
+                                         "client_id": target_data['notification_api_client'],
+                                         "client_secret": target_data['notification_api_secret'],
+                                         "to_email": target_data.get('email_send', '') 
+                                     }
+                                st.success(f"Ahora eres: {target_user}")
+                                st.rerun()
+                else:
+                    st.warning("No se pudieron cargar usuarios.")
+            
             st.divider()
         if 'notif_creds' in st.session_state:
             st.divider()

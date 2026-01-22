@@ -162,6 +162,27 @@ def login_user(username, password):
     
     return False, {}
 
+@st.cache_data(ttl=600)
+def get_all_users():
+    """Retorna todos los usuarios (para Admin/Simulador)."""
+    try:
+        # Reutilizar lógica de conexión
+        if "private_sheet_url" in st.secrets:
+             sheet_url = st.secrets["private_sheet_url"]
+        else:
+             sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        df.columns = df.columns.str.lower().str.strip()
+        
+        if 'user' in df.columns:
+            return df.to_dict('records')
+        return []
+    except Exception as e:
+        st.error(f"Error fetching users: {e}")
+        return []
+
 def save_license(username, password):
     """Guarda credenciales localmente."""
     try:
