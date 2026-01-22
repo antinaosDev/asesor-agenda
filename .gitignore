@@ -16,3 +16,5 @@ client_secret_*.json
 # Debug scripts
 debug_*.py
 update_secrets.py
+
+service_account.json

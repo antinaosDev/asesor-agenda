@@ -1092,7 +1092,7 @@ def authenticated_main():
                     st.rerun()
             # --------------------------------
 
-            st.info("ℹ️ Requiere `credentials.json` (OAuth Desktop App) en la carpeta del proyecto.")
+
             
             c_d1, c_d2 = st.columns(2)
             with c_d1:
