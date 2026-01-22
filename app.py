@@ -186,42 +186,40 @@ def get_gmail_credentials():
             st.error("⚠️ Falta configuración de Google (Secrets, Sheet o credentials.json).")
             return None
 
-        # Build Flow
-        flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-        # Force OOB (Manual Copy-Paste) for Cloud Compatibility
-        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob' 
+        # Build Flow (Web Client)
+        # Importar Flow manualmente si no está (aunque google_auth_oauthlib suele exportarlo)
+        from google_auth_oauthlib.flow import Flow
+        
+        flow = Flow.from_client_config(
+            client_config, 
+            scopes=SCOPES, 
+            redirect_uri='https://asesor-agenda.streamlit.app/'
+        )
 
-        st.warning("⚠️ **Autenticación requerida** (Para leer tu correo)")
-        auth_url, _ = flow.authorization_url(prompt='consent')
-        
-        st.markdown(f"""
-        1. [Haz clic aquí para autorizar en Google]({auth_url})
-        2. Selecciona la cuenta: **jefatura.tecnicadsm@gmail.com** (o la que corresponda)
-        3. Copia el código que aparece.
-        4. Pégalo abajo 👇
-        """)
-        
-        code = st.text_input("Ingresa el Código de Google:", key="auth_code")
-        
-        if code:
+        # Check for Authorization Code in URL
+        auth_code = st.query_params.get("code")
+
+        if auth_code:
             try:
-                flow.fetch_token(code=code)
+                flow.fetch_token(code=auth_code)
                 creds = flow.credentials
                 st.session_state.google_token = creds
                 
-                # Save locally if possible (Dev Mode) -> DISABLED per user request
-                # try:
-                #     with open('token.pickle', 'wb') as token:
-                #         pickle.dump(creds, token)
-                # except: pass
-                
-                st.success("✅ ¡Conectado! Recarga la página si es necesario.")
+                # Limpiar URL para no re-usar código
+                st.query_params.clear()
+                st.success("✅ ¡Conectado! Recargando...")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error de autenticación: {e}")
+                st.query_params.clear() # Limpiar para intentar de nuevo
                 return None
         else:
-            st.stop() # Stop execution until authed (prevents errors downstream)
+            # Mostrar botón de Login
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            
+            st.warning("⚠️ **Autenticación requerida** (Para leer tu correo)")
+            st.markdown(f'<a href="{auth_url}" target="_self" style="background-color:#F63366;color:white;padding:10px;text-decoration:none;border-radius:5px;">🔗 Conectar con Google (Clic Aquí)</a>', unsafe_allow_html=True)
+            st.stop()
     
     # 4. Obtener Email del Usuario (Validación Visual)
     try:
