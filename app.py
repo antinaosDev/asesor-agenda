@@ -20,7 +20,12 @@ load_dotenv()
 
 # Configuration
 SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', 'service_account.json')
+
+# Try loading from Environment (Local .env) or Secrets (Streamlit Cloud)
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+if not GROQ_API_KEY and "GROQ_API_KEY" in st.secrets:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+
 SCOPES = ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/tasks']
 
 # --- Page Config ---
