@@ -1571,7 +1571,8 @@ def main():
             user_data = st.session_state.get('user_data_full', {}) # Need to ensure we store this on login
             
             # Backdoor or DB Role
-            is_admin = (current_user == 'admin') or (str(user_data.get('rol', '')).upper() == 'ADMIN')
+            u_role = str(user_data.get('rol', '')).upper().strip()
+            is_admin = (current_user == 'admin') or (u_role in ['ADMIN', 'ADMINISTRADOR'])
             
             if is_admin:
                 st.subheader("🛡️ Panel Admin")
