@@ -1,0 +1,18 @@
+# General
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Google Auth & Secrets
+credentials.json
+token.pickle
+.license_key
+client_secret_*.json
+
+# Debug scripts
+debug_*.py
+update_secrets.py

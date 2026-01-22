@@ -1,0 +1,12 @@
+google-auth
+google-api-python-client
+groq
+python-dotenv
+streamlit
+watchdog
+pandas
+plotly
+google-auth-oauthlib
+beautifulsoup4
+st-gsheets-connection
+notificationapi-python-server-sdk
