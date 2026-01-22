@@ -816,7 +816,7 @@ def authenticated_main():
     with tab1:
         st.markdown("Escribe lo que necesites agendar. Yo me encargo de categorizarlo, ponerle íconos y color.")
         with st.form("input_form"):
-            text_input = st.text_area("✍️ Escribe aquí...", height=150, placeholder="Cita con dentista el martes a las 4 y luego reunión de equipo...")
+            text_input = st.text_area("✍️ Escribe aquí...", height=150, placeholder="Reunión de equipos a las X hrs...")
             submitted = st.form_submit_button("Analizar")
         
         if submitted and text_input:
