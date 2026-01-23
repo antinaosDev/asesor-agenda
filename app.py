@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials as UserCredentials
 from googleapiclient.discovery import build
 from groq import Groq
 from dotenv import load_dotenv
@@ -309,6 +310,7 @@ def get_gmail_credentials():
         
     # 2. Try to load token from Google Sheets (Persistent Storage - Priority 2)
     elif 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
+         # st.info("DEBUG: Buscando token en hoja...")
          try:
              token_raw = st.session_state.user_data_full.get('cod_val')
              if token_raw and isinstance(token_raw, str) and token_raw.strip():
@@ -318,11 +320,14 @@ def get_gmail_credentials():
                  if token_raw.startswith('"') and token_raw.endswith('"'): token_raw = token_raw[1:-1]
                  
                  found_info = json.loads(token_raw)
-                 creds = service_account.Credentials.from_authorized_user_info(found_info, SCOPES)
+                 # Use UserCredentials for OAuth User Tokens
+                 creds = UserCredentials.from_authorized_user_info(found_info, SCOPES)
                  st.session_state.google_token = creds # Save to session
-                 # st.toast("🔄 Sesión recuperada desde la nube")
+                 st.toast("🔄 Sesión recuperada desde la nube") 
+             else:
+                 pass # st.warning("DEBUG: Columna cod_val vacía.")
          except Exception as e:
-             # st.warning(f"Error recuperando sesión guardada: {e}")
+             st.error(f"Error recuperando sesión guardada: {e}")
              creds = None
 
     # 3. Refresh if expired

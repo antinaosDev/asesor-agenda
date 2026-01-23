@@ -213,7 +213,8 @@ def clear_license():
 
 def update_user_token(username, token_json):
     """
-    Guarda el token OAuth actualizado en la columna 'cod_val' del Google Sheet.
+    Guarda el token OAuth actualizado en la columna 'COD_VAL' del Google Sheet.
+    Respeta mayúsculas/minúsculas de la hoja original.
     """
     try:
         if "private_sheet_url" in st.secrets:
@@ -226,41 +227,37 @@ def update_user_token(username, token_json):
         # Read full df
         df = conn.read(spreadsheet=sheet_url, ttl=0)
         
-        # Identification Logic
-        # Assuming 'user' column is unique key
-        # We need to find the index of the row to update
+        # --- Column Identification (Case Insensitive) ---
+        target_col = None
+        user_col = None
         
-        # Clean columns just in case
-        clean_cols = df.columns.str.lower().str.strip()
-        df.columns = clean_cols
+        for c in df.columns:
+            if c.lower().strip() == 'cod_val': target_col = c
+            if c.lower().strip() == 'user': user_col = c
         
-        if 'user' not in df.columns:
-            st.error("No se puede guardar token: Falta columna 'user' en BD.")
+        if not user_col:
+            st.error("No se puede guardar token: Falta columna 'USER' (o similar) en BD.")
             return False
 
-        # Find row index
-        # We look for the exact username
-        idx_list = df.index[df['user'].astype(str).str.strip() == username.strip()].tolist()
+        if not target_col:
+            # Create if missing, defaulting to Uppercase as requested
+            target_col = "COD_VAL"
+            df[target_col] = "" # Add column
+        
+        # --- Find User Row ---
+        # Robust comparison
+        idx_list = df.index[df[user_col].astype(str).str.strip() == username.strip()].tolist()
         
         if not idx_list:
-            st.warning(f"Usuario {username} no encontrado para actualizar token.")
+            st.warning(f"Usuario {username} no encontrado en columna '{user_col}'.")
             return False
         
         idx = idx_list[0]
         
-        # Check if 'cod_val' column exists, if not create it (locally in DF, GSheets will handle it if mapped correctly)
-        if 'cod_val' not in df.columns:
-            df['cod_val'] = "" # Initialize column
-            
-        # Update value
-        # Ensure we treat it as string
-        df.at[idx, 'cod_val'] = str(token_json)
+        # --- Update Value ---
+        df.at[idx, target_col] = str(token_json)
         
-        # Verify update in memory
-        # st.write(f"DEBUG: Updated row {idx} with token len {len(str(token_json))}")
-        
-        # Write back
-        # Using write() which is the standard method for streamlit-gsheets-connection
+        # --- Write Back ---
         conn.write(df, spreadsheet=sheet_url)
         
         st.toast("🔐 Credenciales guardadas en la nube para futuro acceso.")
