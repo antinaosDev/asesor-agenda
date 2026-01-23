@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from groq import Groq
 from dotenv import load_dotenv
 import pandas as pd
+import time
 import plotly.express as px
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -26,7 +27,7 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 if not GROQ_API_KEY and "GROQ_API_KEY" in st.secrets:
     GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 
-SCOPES = ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/tasks']
+SCOPES = ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/tasks', 'https://www.googleapis.com/auth/spreadsheets']
 
 # --- Page Config ---
 st.set_page_config(
@@ -221,6 +222,56 @@ def get_tasks_service():
     return st.session_state.tasks_service
 
 
+def get_sheets_service():
+    """Authenticates and returns the Google Sheets service."""
+    if 'sheets_service' not in st.session_state:
+        try:
+            creds = None
+            
+            # PRIORIDAD 0: Service Account desde Google Sheets
+            if 'current_user_sa_creds' in st.session_state:
+                 try:
+                    sa_info = st.session_state.current_user_sa_creds
+                    creds = service_account.Credentials.from_service_account_info(
+                        sa_info, scopes=SCOPES
+                    )
+                 except: pass
+
+            # PRIORIDAD 1: Service Account Local
+            if not creds and os.path.exists('service_account.json'):
+                 try:
+                    creds = service_account.Credentials.from_service_account_file(
+                        'service_account.json', scopes=SCOPES
+                    )
+                 except: pass
+            
+            # Fallback Secrets
+            elif not creds and "service_account" in st.secrets:
+                try:
+                    sa_info = dict(st.secrets["service_account"])
+                    creds = service_account.Credentials.from_service_account_info(
+                        sa_info, scopes=SCOPES
+                    )
+                except: pass
+
+            if creds:
+                service = build('sheets', 'v4', credentials=creds, cache_discovery=False)
+                st.session_state.sheets_service = service
+                return service
+
+            # PRIORIDAD 2: OAuth User
+            creds = get_gmail_credentials() # Reuse the generic credential getter
+            if creds:
+                service = build('sheets', 'v4', credentials=creds, cache_discovery=False)
+                st.session_state.sheets_service = service
+            else:
+                 return None
+        except Exception as e:
+            st.error(f"Failed to authenticate Sheets: {e}")
+            return None
+    return st.session_state.sheets_service
+
+
 
 # --- Constants ---
 # Google Calendar Color IDs (Approximate standard mapping)
@@ -252,24 +303,37 @@ def get_gmail_credentials():
         return None
 
     creds = None
-    # 1. Try to load token from Session State ONLY (User Request: Distinct Sessions)
+    # 1. Try to load token from Session State (Priority 1)
     if 'google_token' in st.session_state:
         creds = st.session_state.google_token
-    # elif os.path.exists('token.pickle'):
-    #     try:
-    #         with open('token.pickle', 'rb') as token:
-    #             creds = pickle.load(token)
-    #     except: pass
-    
-    # 2. Refresh if expired
+        
+    # 2. Try to load token from Google Sheets (Persistent Storage - Priority 2)
+    elif 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
+         try:
+             token_raw = st.session_state.user_data_full.get('cod_val')
+             if token_raw and isinstance(token_raw, str) and token_raw.strip():
+                 # Cleanup formatting
+                 if '""' in token_raw: token_raw = token_raw.replace('""', '"')
+                 token_raw = token_raw.strip()
+                 if token_raw.startswith('"') and token_raw.endswith('"'): token_raw = token_raw[1:-1]
+                 
+                 found_info = json.loads(token_raw)
+                 creds = service_account.Credentials.from_authorized_user_info(found_info, SCOPES)
+                 st.session_state.google_token = creds # Save to session
+                 # st.toast("🔄 Sesión recuperada desde la nube")
+         except Exception as e:
+             # st.warning(f"Error recuperando sesión guardada: {e}")
+             creds = None
+
+    # 3. Refresh if expired
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
-            st.session_state.google_token = creds # Update session
+            st.session_state.google_token = creds 
         except:
             creds = None
 
-    # 3. New Login
+    # 4. New Login (If no valid creds found)
     if not creds or not creds.valid:
         # Load Client Config (from Secrets, Sheet-Config or File)
         client_config = None
@@ -314,10 +378,33 @@ def get_gmail_credentials():
                 flow.fetch_token(code=code)
                 creds = flow.credentials
                 st.session_state.google_token = creds
-
-                st.success("✅ ¡Conectado! Recarga la página si es necesario.")
-                st.rerun()
+                
+                # --- AUTO SAVE TO SHEET ---
+                if 'license_key' in st.session_state:
+                     user = st.session_state.license_key
+                     # Convert credentials to JSON string
+                     creds_json = creds.to_json()
+                     with st.spinner("Guardando tu sesión para el futuro..."):
+                         import modules.auth as auth_mod
+                         if auth_mod.update_user_token(user, creds_json):
+                             # CRITICAL: Update local session immediately so next rerun finds it
+                             if 'user_data_full' in st.session_state:
+                                  st.session_state.user_data_full['cod_val'] = creds_json
+                             st.toast("✅ Sesión guardada y actualizada.")
+                             st.success("✅ ¡Conectado y Guardado! Recargando...")
+                             time.sleep(2)
+                             st.rerun()
+                         else:
+                             st.error("⚠️ No se pudo guardar el token en Google Sheets.")
+                             st.info("La aplicación funcionará, pero tendrás que loguearte de nuevo la próxima vez.")
+                             st.warning("👉 Verifica que el bot 'freelance-project...' tenga permiso de EDITOR en la hoja.")
+                             # Do NOT rerun so user sees this
+                # --------------------------
             except Exception as e:
+                st.error(f"Error de autenticación: {e}")
+                return None
+                st.error(f"Error de autenticación: {e}")
+                return None
                 st.error(f"Error de autenticación: {e}")
                 return None
         else:
@@ -803,11 +890,34 @@ def get_existing_tasks_simple(service, tasklist='@default'):
         
 def add_event_to_calendar(service, event_data, calendar_id):
     try:
+        # Robust start/end parsing
+        s_raw = event_data['start_time']
+        e_raw = event_data['end_time']
+        
+        start = {}
+        end = {}
+        
+        # Heuristic: If it has "T" or " " (space) + time part, treat as dateTime
+        # If it looks like "YYYY-MM-DD", treat as date entire day
+        
+        if 'T' in s_raw or ' ' in s_raw:
+             # Normalize space to T for ISO inclusion if needed, or just pass strictly
+             formatted_s = s_raw.replace(' ', 'T')
+             start = {'dateTime': formatted_s, 'timeZone': 'America/Santiago'}
+        else:
+             start = {'date': s_raw}
+
+        if 'T' in e_raw or ' ' in e_raw:
+             formatted_e = e_raw.replace(' ', 'T')
+             end = {'dateTime': formatted_e, 'timeZone': 'America/Santiago'}
+        else:
+             end = {'date': e_raw}
+
         event_body = {
             'summary': event_data.get('summary', 'Untitled'),
             'description': event_data.get('description', ''),
-            'start': {'dateTime': event_data['start_time'], 'timeZone': 'America/Santiago'} if 'T' in event_data['start_time'] else {'date': event_data['start_time']},
-            'end': {'dateTime': event_data['end_time'], 'timeZone': 'America/Santiago'} if 'T' in event_data['end_time'] else {'date': event_data['end_time']},
+            'start': start,
+            'end': end,
             'colorId': event_data.get('colorId', '1')
         }
         service.events().insert(calendarId=calendar_id, body=event_body).execute()
@@ -874,7 +984,13 @@ def authenticated_main():
                     st.sidebar.success("Conexión OK")
                 except Exception as e:
                     if "404" in str(e):
-                        st.sidebar.error("❌ Calendario no encontrado. Verifica que el email sea correcto y que tengas permisos.")
+                        err_msg = "❌ Calendario no encontrado (404)."
+                        if 'current_user_sa_creds' in st.session_state:
+                             bot_mail = st.session_state.current_user_sa_creds.get('client_email', 'Bot Desconocido')
+                             err_msg += f"\n\n👉 SOLUCIÓN: Comparte tu calendario con: **{bot_mail}**"
+                        else:
+                             err_msg += "\n\nVerifica que hayas compartido tu calendario con el email del Service Account (service_account.json)."
+                        st.sidebar.error(err_msg)
                     else:
                         st.sidebar.error(f"Error: {e}")
 
@@ -949,7 +1065,9 @@ def authenticated_main():
                     color_name = COLOR_MAP.get(color_id, "Estándar")
                     with st.container(border=True):
                         st.markdown(f"**{event.get('summary')}**")
-                        st.caption(f"📅 {event.get('start_time').replace('T', ' ')}")
+                        # Handle potential space instead of T in display too
+                        st_display = event.get('start_time').replace('T', ' ')
+                        st.caption(f"📅 {st_display}")
                         st.text(event.get('description'))
                         st.caption(f"🎨 {color_name}")
             
@@ -959,11 +1077,38 @@ def authenticated_main():
                     service = get_calendar_service()
                     if service:
                         count = 0
+                        errors = []
                         for ev in st.session_state.pending_events:
-                            ok, _ = add_event_to_calendar(service, ev, calendar_id)
-                            if ok: count += 1
-                        st.success(f"¡{count} eventos agendados!")
-                        del st.session_state.pending_events
+                            ok, msg = add_event_to_calendar(service, ev, calendar_id)
+                            if ok: 
+                                count += 1
+                            else:
+                                errors.append(f"Fallo en '{ev.get('summary')}': {msg}")
+                        
+                        if count > 0:
+                            st.success(f"¡{count} eventos agendados!")
+                        
+                        if errors:
+                            for e_msg in errors:
+                                if "writer access" in str(e_msg) or "403" in str(e_msg):
+                                    sa_email = "Desconocido"
+                                    if 'current_user_sa_creds' in st.session_state:
+                                        sa_email = st.session_state.current_user_sa_creds.get('client_email', 'Desconocido')
+                                    
+                                    st.error("⛔ **Error de Permisos (403):** El Bot no tiene permiso para escribir en tu calendario.")
+                                    st.info(f"""
+                                    **Cómo solucionarlo:**
+                                    1. 📅 Ve a tu Google Calendar ({calendar_id}).
+                                    2. ⚙️ Configuración -> Compartir con personas específicas.
+                                    3. ➕ Añade este email:
+                                    """)
+                                    st.code(sa_email, language="text")
+                                    st.info("**Importante:** Selecciona el permiso **'Hacer cambios en eventos'**.")
+                                else:
+                                    st.error(e_msg)
+                                
+                        if count == len(st.session_state.pending_events):
+                             del st.session_state.pending_events
 
             if st.button("🗑️ Descartar"):
                 del st.session_state.pending_events

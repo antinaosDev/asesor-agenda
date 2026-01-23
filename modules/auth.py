@@ -211,3 +211,64 @@ def clear_license():
     if os.path.exists(LICENSE_FILE):
         os.remove(LICENSE_FILE)
 
+def update_user_token(username, token_json):
+    """
+    Guarda el token OAuth actualizado en la columna 'cod_val' del Google Sheet.
+    """
+    try:
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+             # Fallback known URL
+             sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        # Read full df
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Identification Logic
+        # Assuming 'user' column is unique key
+        # We need to find the index of the row to update
+        
+        # Clean columns just in case
+        clean_cols = df.columns.str.lower().str.strip()
+        df.columns = clean_cols
+        
+        if 'user' not in df.columns:
+            st.error("No se puede guardar token: Falta columna 'user' en BD.")
+            return False
+
+        # Find row index
+        # We look for the exact username
+        idx_list = df.index[df['user'].astype(str).str.strip() == username.strip()].tolist()
+        
+        if not idx_list:
+            st.warning(f"Usuario {username} no encontrado para actualizar token.")
+            return False
+        
+        idx = idx_list[0]
+        
+        # Check if 'cod_val' column exists, if not create it (locally in DF, GSheets will handle it if mapped correctly)
+        if 'cod_val' not in df.columns:
+            df['cod_val'] = "" # Initialize column
+            
+        # Update value
+        # Ensure we treat it as string
+        df.at[idx, 'cod_val'] = str(token_json)
+        
+        # Verify update in memory
+        # st.write(f"DEBUG: Updated row {idx} with token len {len(str(token_json))}")
+        
+        # Write back
+        # Using write() which is the standard method for streamlit-gsheets-connection
+        conn.write(df, spreadsheet=sheet_url)
+        
+        st.toast("🔐 Credenciales guardadas en la nube para futuro acceso.")
+        return True
+        
+    except Exception as e:
+        st.error(f"Error crítico guardando token: {e}")
+        st.write(f"Detalle Error: {e}")
+        print(f"❌ ERROR SAVE TOKEN: {e}")
+        return False
+
