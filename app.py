@@ -88,10 +88,25 @@ st.markdown("""
 # --- Logic (Adapted from register_events.py) ---
 
 def get_calendar_service():
-    """Authenticates and returns the Google Calendar service using OAuth."""
+    """Authenticates and returns the Google Calendar service using Service Account or OAuth."""
     if 'calendar_service' not in st.session_state:
         try:
-            # Use the SAME Credentials as Gmail/Tasks (OAuth User Flow)
+            # PRIORIDAD 1: Service Account (Backend / Bot)
+            # Esto permite acceder a calendarios compartidos con el service account (ej: mensajeria-rev...)
+            # sin que el usuario logueado tenga que tener permiso directo.
+            if os.path.exists('service_account.json'):
+                try:
+                    creds = service_account.Credentials.from_service_account_file(
+                        'service_account.json', scopes=SCOPES
+                    )
+                    service = build('calendar', 'v3', credentials=creds)
+                    st.session_state.calendar_service = service
+                    # st.sidebar.success("🔑 Usando Service Account") # Debug visual opcional
+                    return service
+                except Exception as e:
+                    st.error(f"Error Service Account: {e}")
+
+            # PRIORIDAD 2: Credenciales de Usuario (OAuth)
             creds = get_gmail_credentials()
             if creds:
                 service = build('calendar', 'v3', credentials=creds)
@@ -108,6 +123,18 @@ def get_tasks_service():
     """Authenticates and returns the Google Tasks service."""
     if 'tasks_service' not in st.session_state:
         try:
+            # PRIORIDAD 1: Service Account
+            if os.path.exists('service_account.json'):
+                 try:
+                    creds = service_account.Credentials.from_service_account_file(
+                        'service_account.json', scopes=SCOPES
+                    )
+                    service = build('tasks', 'v1', credentials=creds)
+                    st.session_state.tasks_service = service
+                    return service
+                 except: pass
+
+            # PRIORIDAD 2: OAuth User
             creds = get_gmail_credentials() # Reuse the generic credential getter
             if creds:
                 service = build('tasks', 'v1', credentials=creds)
