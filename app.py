@@ -315,9 +315,20 @@ def get_gmail_credentials():
              token_raw = st.session_state.user_data_full.get('cod_val')
              if token_raw and isinstance(token_raw, str) and token_raw.strip():
                  # Cleanup formatting
+                 # 1. Handle CSV double escaping ("" -> ")
                  if '""' in token_raw: token_raw = token_raw.replace('""', '"')
+                 
                  token_raw = token_raw.strip()
-                 if token_raw.startswith('"') and token_raw.endswith('"'): token_raw = token_raw[1:-1]
+                 
+                 # 2. Handle surrounding quotes from CSV export
+                 if token_raw.startswith('"') and token_raw.endswith('"'): 
+                     token_raw = token_raw[1:-1]
+                 
+                 # 3. Handle Python dict string representation (single quotes)
+                 # This happens if pandas read it as object/dict and str() converted it
+                 if "'" in token_raw and '"' not in token_raw:
+                     token_raw = token_raw.replace("'", '"')
+                     token_raw = token_raw.replace("Ooauth2", "oauth2") # Edge case fix
                  
                  found_info = json.loads(token_raw)
                  # Use UserCredentials for OAuth User Tokens
@@ -328,6 +339,9 @@ def get_gmail_credentials():
                  pass # st.warning("DEBUG: Columna cod_val vacía.")
          except Exception as e:
              st.error(f"Error recuperando sesión guardada: {e}")
+             if 'token_raw' in locals():
+                 st.code(token_raw, language="json")
+                 st.warning("⚠️ El formato del token en la hoja no es válido. Por favor, logueate nuevamente para sobreescribirlo.")
              creds = None
 
     # 3. Refresh if expired
