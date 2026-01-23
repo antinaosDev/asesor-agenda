@@ -314,34 +314,48 @@ def get_gmail_credentials():
          try:
              token_raw = st.session_state.user_data_full.get('cod_val')
              if token_raw and isinstance(token_raw, str) and token_raw.strip():
-                 # Cleanup formatting
-                 # 1. Handle CSV double escaping ("" -> ")
-                 if '""' in token_raw: token_raw = token_raw.replace('""', '"')
-                 
                  token_raw = token_raw.strip()
+                 found_info = None
                  
-                 # 2. Handle surrounding quotes from CSV export
-                 if token_raw.startswith('"') and token_raw.endswith('"'): 
-                     token_raw = token_raw[1:-1]
+                 # Attempt 1: Direct JSON parsing (Best Case)
+                 try:
+                     found_info = json.loads(token_raw)
+                 except json.JSONDecodeError:
+                     # Attempt 2: Handle surrounding quotes from CSV export
+                     if token_raw.startswith('"') and token_raw.endswith('"'):
+                         try:
+                             found_info = json.loads(token_raw[1:-1])
+                         except: pass
                  
-                 # 3. Handle Python dict string representation (single quotes)
-                 # This happens if pandas read it as object/dict and str() converted it
-                 if "'" in token_raw and '"' not in token_raw:
-                     token_raw = token_raw.replace("'", '"')
-                     token_raw = token_raw.replace("Ooauth2", "oauth2") # Edge case fix
+                 # Attempt 3: Handle CSV double escaping ("" -> ") ONLY if previous attempts failed
+                 if not found_info and '""' in token_raw:
+                     try:
+                         cleaned = token_raw.replace('""', '"')
+                         if cleaned.startswith('"') and cleaned.endswith('"'): cleaned = cleaned[1:-1]
+                         found_info = json.loads(cleaned)
+                     except: pass
                  
-                 found_info = json.loads(token_raw)
-                 # Use UserCredentials for OAuth User Tokens
-                 creds = UserCredentials.from_authorized_user_info(found_info, SCOPES)
-                 st.session_state.google_token = creds # Save to session
-                 st.toast("🔄 Sesión recuperada desde la nube") 
+                 # Attempt 4: Last resort - Python stringified dict
+                 if not found_info and "'" in token_raw:
+                     try:
+                         cleaned = token_raw.replace("'", '"').replace("Ooauth2", "oauth2")
+                         found_info = json.loads(cleaned)
+                     except: pass
+
+                 if found_info:
+                     # Use UserCredentials for OAuth User Tokens
+                     creds = UserCredentials.from_authorized_user_info(found_info, SCOPES)
+                     st.session_state.google_token = creds # Save to session
+                     st.toast("🔄 Sesión recuperada desde la nube")
+                 else:
+                     # Log failure only if all attempts failed
+                     st.error("Error recuperando sesión: Formato JSON no reconocido.")
+                     if 'token_raw' in locals():
+                         st.code(token_raw, language="text")
              else:
-                 pass # st.warning("DEBUG: Columna cod_val vacía.")
+                 pass 
          except Exception as e:
-             st.error(f"Error recuperando sesión guardada: {e}")
-             if 'token_raw' in locals():
-                 st.code(token_raw, language="json")
-                 st.warning("⚠️ El formato del token en la hoja no es válido. Por favor, logueate nuevamente para sobreescribirlo.")
+             st.error(f"Error crítico recuperando sesión: {e}")
              creds = None
 
     # 3. Refresh if expired
