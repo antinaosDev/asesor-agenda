@@ -139,14 +139,14 @@ def get_calendar_service():
                     st.error(f"Error Secrets SA: {e}")
 
             if creds:
-                service = build('calendar', 'v3', credentials=creds)
+                service = build('calendar', 'v3', credentials=creds, cache_discovery=False)
                 st.session_state.calendar_service = service
                 return service
 
             # PRIORIDAD 2: Credenciales de Usuario (OAuth)
             creds = get_gmail_credentials()
             if creds:
-                service = build('calendar', 'v3', credentials=creds)
+                service = build('calendar', 'v3', credentials=creds, cache_discovery=False)
                 st.session_state.calendar_service = service
             else:
                 return None
@@ -204,14 +204,14 @@ def get_tasks_service():
                 except: pass
 
             if creds:
-                service = build('tasks', 'v1', credentials=creds)
+                service = build('tasks', 'v1', credentials=creds, cache_discovery=False)
                 st.session_state.tasks_service = service
                 return service
 
             # PRIORIDAD 2: OAuth User
             creds = get_gmail_credentials() # Reuse the generic credential getter
             if creds:
-                service = build('tasks', 'v1', credentials=creds)
+                service = build('tasks', 'v1', credentials=creds, cache_discovery=False)
                 st.session_state.tasks_service = service
             else:
                  return None
@@ -868,7 +868,7 @@ def authenticated_main():
             service = get_calendar_service()
             if service:
                 try:
-                    s = service.events().list(calendarId=calendar_id.strip(), maxResults=1).execute()
+                    s = service.events().list(calendarId=calendar_id.strip(), maxResults=1).execute(num_retries=3)
                     st.sidebar.success("Conexión OK")
                 except Exception as e:
                     if "404" in str(e):
