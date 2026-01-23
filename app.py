@@ -752,7 +752,9 @@ def authenticated_main():
         st.code("mensajeria-rev@sistemas-473713.iam.gserviceaccount.com", language="text")
         st.write("Permiso requerido: 'Hacer cambios en eventos'")
 
-    calendar_id = st.sidebar.text_input("ID Calendario (Tu Email)", value="", placeholder="tu.correo@gmail.com")
+    # Auto-fill with connected email if available
+    default_cal = st.session_state.get('connected_email', '')
+    calendar_id = st.sidebar.text_input("ID Calendario (Tu Email)", value=default_cal, placeholder="tu.correo@gmail.com")
     
     if st.sidebar.button("🛠️ Check Permisos"):
         # [Check logic remains same]
@@ -765,7 +767,10 @@ def authenticated_main():
                     s = service.events().list(calendarId=calendar_id.strip(), maxResults=1).execute()
                     st.sidebar.success("Conexión OK")
                 except Exception as e:
-                    st.sidebar.error(f"Error: {e}")
+                    if "404" in str(e):
+                        st.sidebar.error("❌ Calendario no encontrado. Verifica que el email sea correcto y que tengas permisos.")
+                    else:
+                        st.sidebar.error(f"Error: {e}")
 
     # --- TASK LISTS ---
     st.sidebar.divider()
