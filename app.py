@@ -94,6 +94,22 @@ def get_calendar_service():
             creds = None
             
             # PRIORIDAD 0: Service Account desde Google Sheets (Sesión Actual)
+            # --- PATCH: Si la sesión ya existe pero no se cargó la credencial (Hotfix para sesiones activas) ---
+            if 'current_user_sa_creds' not in st.session_state and 'user_data_full' in st.session_state:
+                try:
+                    ud = st.session_state.user_data_full
+                    if 'clave_cuenta_servicio_admin' in ud:
+                         sa_raw = ud['clave_cuenta_servicio_admin']
+                         if isinstance(sa_raw, str) and sa_raw.strip():
+                             if '""' in sa_raw: sa_raw = sa_raw.replace('""', '"')
+                             sa_raw = sa_raw.strip()
+                             if sa_raw.startswith('"') and sa_raw.endswith('"'): sa_raw = sa_raw[1:-1]
+                             
+                             import json
+                             st.session_state.current_user_sa_creds = json.loads(sa_raw)
+                             # st.toast("🔄 Credenciales SA Recargadas Hotfix")
+                except: pass
+            
             if 'current_user_sa_creds' in st.session_state:
                 try:
                     sa_info = st.session_state.current_user_sa_creds
@@ -147,6 +163,21 @@ def get_tasks_service():
             creds = None
             
             # PRIORIDAD 0: Service Account desde Google Sheets
+            if 'current_user_sa_creds' not in st.session_state and 'user_data_full' in st.session_state:
+                try:
+                     # Reutilizamos lógica de patch si hace falta (o confiamos en que get_calendar lo hizo)
+                     # Para seguridad, replicamos parsing simple
+                     ud = st.session_state.user_data_full
+                     if 'clave_cuenta_servicio_admin' in ud:
+                          import json
+                          raw = ud['clave_cuenta_servicio_admin']
+                          if isinstance(raw, str):
+                              if '""' in raw: raw = raw.replace('""', '"')
+                              raw = raw.strip() 
+                              if raw.startswith('"') and raw.endswith('"'): raw = raw[1:-1]
+                              st.session_state.current_user_sa_creds = json.loads(raw)
+                except: pass
+
             if 'current_user_sa_creds' in st.session_state:
                  try:
                     sa_info = st.session_state.current_user_sa_creds
@@ -826,6 +857,9 @@ def authenticated_main():
     default_cal = st.session_state.get('connected_email', '')
     calendar_id = st.sidebar.text_input("ID Calendario (Tu Email)", value=default_cal, placeholder="tu.correo@gmail.com")
     
+    if 'current_user_sa_creds' in st.session_state:
+        st.sidebar.caption("✅ Usando Cuenta de Servicio (Sheet)")
+
     if st.sidebar.button("🛠️ Check Permisos"):
         # [Check logic remains same]
         if not calendar_id:
