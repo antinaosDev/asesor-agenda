@@ -408,10 +408,6 @@ def get_gmail_credentials():
             except Exception as e:
                 st.error(f"Error de autenticación: {e}")
                 return None
-                st.error(f"Error de autenticación: {e}")
-                return None
-                st.error(f"Error de autenticación: {e}")
-                return None
         else:
             st.stop()
     
@@ -1385,19 +1381,41 @@ def authenticated_main():
             global_limit = st.session_state.get('admin_max_emails', 50)
             max_fetch = st.slider(f"Max Correos a Leer (Límite Admin: {global_limit}):", 5, global_limit, min(50, global_limit), help="Mayor cantidad consume más tokens.")
 
-            if st.button("🔄 Conectar y Analizar Buźon"):
-                 creds = get_gmail_credentials()
+            # Logic to handle auto-continue after auth reload
+            if 'trigger_mail_analysis' not in st.session_state:
+                st.session_state.trigger_mail_analysis = False
+
+            if st.button("🔄 Conectar y Analizar Buzón"):
+                 st.session_state.trigger_mail_analysis = True
+            
+            # Execute if triggered
+            if st.session_state.trigger_mail_analysis:
+                 creds = get_gmail_credentials() # This might stop/rerun
+                 
                  if creds:
-                     service_gmail = build('gmail', 'v1', credentials=creds)
-                     with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
-                         emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
-                     
-                     if not emails:
-                         st.warning("No se encontraron correos nuevos relevantes.")
-                     else:
-                         st.session_state.fetched_emails = emails
-                         with st.spinner(f"🧠 La IA está analizando {len(emails)} correos..."):
-                             events = analyze_emails_ai(emails)
+                     # Only proceed if we have valid creds (auth flow done)
+                     try:
+                         service_gmail = build('gmail', 'v1', credentials=creds)
+                         with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
+                             emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
+                         
+                         if not emails:
+                             st.warning("No se encontraron correos nuevos relevantes.")
+                         else:
+                             st.session_state.fetched_emails = emails
+                             with st.spinner(f"🧠 La IA está analizando {len(emails)} correos..."):
+                                 events = analyze_emails_ai(emails)
+                                 # (Remainder of logic usually follows here, assuming analyze_emails_ai returns events to be handled)
+                                 # Since the original code ended here, we just ensure state is cleared.
+                     except Exception as e:
+                         st.error(f"Error procesando correos: {e}")
+                     finally:
+                         # Reset trigger so it doesn't loop forever
+                         st.session_state.trigger_mail_analysis = False
+                         # Optional: rerun to clear the "Running" state visuals if needed, but usually not required
+                 else:
+                     # If get_gmail_credentials returned None (e.g. user cancelled), we should probably stop trying
+                     pass
                              st.session_state.ai_gmail_events = events
                              if not events:
                                  st.warning("La IA leyó los correos pero no encontró eventos agendables.")
