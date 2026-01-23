@@ -1405,6 +1405,9 @@ def authenticated_main():
                              st.session_state.fetched_emails = emails
                              with st.spinner(f"🧠 La IA está analizando {len(emails)} correos..."):
                                  events = analyze_emails_ai(emails)
+                                 st.session_state.ai_gmail_events = events
+                                 if not events:
+                                     st.warning('La IA leyó los correos pero no encontró eventos agendables.')
                                  # (Remainder of logic usually follows here, assuming analyze_emails_ai returns events to be handled)
                                  # Since the original code ended here, we just ensure state is cleared.
                      except Exception as e:
@@ -1416,11 +1419,7 @@ def authenticated_main():
                  else:
                      # If get_gmail_credentials returned None (e.g. user cancelled), we should probably stop trying
                      pass
-                             st.session_state.ai_gmail_events = events
-                             if not events:
-                                 st.warning("La IA leyó los correos pero no encontró eventos agendables.")
                  else:
-                     st.error("No se pudo autenticar con Gmail.")
 
         with col_g2:
              if 'ai_gmail_events' in st.session_state and st.session_state.ai_gmail_events:
