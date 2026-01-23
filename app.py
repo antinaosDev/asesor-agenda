@@ -91,9 +91,20 @@ def get_calendar_service():
     """Authenticates and returns the Google Calendar service using Service Account or OAuth."""
     if 'calendar_service' not in st.session_state:
         try:
-            # PRIORIDAD 1: Service Account (Backend / Bot)
             creds = None
-            if os.path.exists('service_account.json'):
+            
+            # PRIORIDAD 0: Service Account desde Google Sheets (Sesión Actual)
+            if 'current_user_sa_creds' in st.session_state:
+                try:
+                    sa_info = st.session_state.current_user_sa_creds
+                    creds = service_account.Credentials.from_service_account_info(
+                        sa_info, scopes=SCOPES
+                    )
+                except Exception as e:
+                    st.error(f"Error SA User Sheet: {e}")
+
+            # PRIORIDAD 1: Service Account Local File
+            if not creds and os.path.exists('service_account.json'):
                 try:
                     creds = service_account.Credentials.from_service_account_file(
                         'service_account.json', scopes=SCOPES
@@ -101,10 +112,9 @@ def get_calendar_service():
                 except Exception as e:
                     st.error(f"Error archivo SA: {e}")
             
-            # Fallback: Secrets (Streamlit Cloud)
-            elif "service_account" in st.secrets:
+            # Fallback: Secrets (Streamlit Cloud Global)
+            elif not creds and "service_account" in st.secrets:
                 try:
-                    # Convert AttrDict to standard dict if needed
                     sa_info = dict(st.secrets["service_account"])
                     creds = service_account.Credentials.from_service_account_info(
                         sa_info, scopes=SCOPES
@@ -134,9 +144,19 @@ def get_tasks_service():
     """Authenticates and returns the Google Tasks service."""
     if 'tasks_service' not in st.session_state:
         try:
-            # PRIORIDAD 1: Service Account
             creds = None
-            if os.path.exists('service_account.json'):
+            
+            # PRIORIDAD 0: Service Account desde Google Sheets
+            if 'current_user_sa_creds' in st.session_state:
+                 try:
+                    sa_info = st.session_state.current_user_sa_creds
+                    creds = service_account.Credentials.from_service_account_info(
+                        sa_info, scopes=SCOPES
+                    )
+                 except: pass
+
+            # PRIORIDAD 1: Service Account Local
+            if not creds and os.path.exists('service_account.json'):
                  try:
                     creds = service_account.Credentials.from_service_account_file(
                         'service_account.json', scopes=SCOPES
@@ -144,7 +164,7 @@ def get_tasks_service():
                  except: pass
             
             # Fallback Secrets
-            elif "service_account" in st.secrets:
+            elif not creds and "service_account" in st.secrets:
                 try:
                     sa_info = dict(st.secrets["service_account"])
                     creds = service_account.Credentials.from_service_account_info(
@@ -1575,26 +1595,35 @@ def main():
                         st.session_state.user_data_full = user_data # Store full data for role checks
                         st.session_state.authenticated = True
                         
-                        # --- CARGAR CREDENCIALES DEL USUARIO ---
+                        # --- CARGAR CREDENCIALES DEL USUARIO (OAuth Clients) ---
                         if 'credenciales_auth_user' in user_data:
                             try:
                                 raw_json = user_data['credenciales_auth_user']
-                                # Limpiar comillas extras si vienen del copy-paste de Excel
                                 if isinstance(raw_json, str):
-                                    # Intentar arreglar doble quoting típico de CSV " ""key"": ""value"" "
-                                    if '""' in raw_json:
-                                        raw_json = raw_json.replace('""', '"')
-                                    # Quitar comillas envolventes si existen
+                                    if '""' in raw_json: raw_json = raw_json.replace('""', '"')
                                     raw_json = raw_json.strip()
-                                    if raw_json.startswith('"') and raw_json.endswith('"'):
-                                        raw_json = raw_json[1:-1]
-                                        
+                                    if raw_json.startswith('"') and raw_json.endswith('"'): raw_json = raw_json[1:-1]
                                 import json
-                                # Validar JSON
                                 json.loads(raw_json)
                                 st.session_state.custom_google_config = raw_json
                             except Exception as e:
-                                st.warning(f"⚠️ Credenciales de usuario inválidas en BD ({e}). Usando defecto.")
+                                st.warning(f"⚠️ Credenciales de usuario inválidas en BD ({e}).")
+                        
+                        # --- CARGAR SERVICE ACCOUNT (Backend Bot) ---
+                        # PRIORIDAD 0 para acceso a calendarios
+                        if 'clave_cuenta_servicio_admin' in user_data:
+                             try:
+                                 sa_raw = user_data['clave_cuenta_servicio_admin']
+                                 if isinstance(sa_raw, str) and sa_raw.strip():
+                                     # Limpieza standard CSV/Excel
+                                     if '""' in sa_raw: sa_raw = sa_raw.replace('""', '"')
+                                     sa_raw = sa_raw.strip()
+                                     if sa_raw.startswith('"') and sa_raw.endswith('"'): sa_raw = sa_raw[1:-1]
+                                     
+                                     sa_json = json.loads(sa_raw)
+                                     st.session_state.current_user_sa_creds = sa_json
+                             except Exception as e:
+                                 st.warning(f"⚠️ Error cargando Service Account de hoja: {e}")
                         # ----------------------------------------
 
                         # --- CARGAR CREDENCIALES NOTIFICACIONES ---
