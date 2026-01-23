@@ -1419,7 +1419,6 @@ def authenticated_main():
                  else:
                      # If get_gmail_credentials returned None (e.g. user cancelled), we should probably stop trying
                      pass
-                 else:
 
         with col_g2:
              if 'ai_gmail_events' in st.session_state and st.session_state.ai_gmail_events:
