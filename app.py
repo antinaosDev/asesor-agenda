@@ -858,7 +858,9 @@ def authenticated_main():
     calendar_id = st.sidebar.text_input("ID Calendario (Tu Email)", value=default_cal, placeholder="tu.correo@gmail.com")
     
     if 'current_user_sa_creds' in st.session_state:
-        st.sidebar.caption("✅ Usando Cuenta de Servicio (Sheet)")
+        sa_email = st.session_state.current_user_sa_creds.get('client_email', 'Desconocido')
+        st.sidebar.caption(f"✅ Bot Activo: `{sa_email}`")
+        st.sidebar.info(f"👉 Asegúrate de compartir tu calendario con: **{sa_email}** (Permiso: Cambios en eventos)")
 
     if st.sidebar.button("🛠️ Check Permisos"):
         # [Check logic remains same]
