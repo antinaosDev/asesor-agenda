@@ -256,9 +256,9 @@ def update_user_token(username, token_json):
         
         # --- Update Value ---
         df.at[idx, target_col] = str(token_json)
-        
-        # --- Write Back ---
-        conn.write(df, spreadsheet=sheet_url)
+        # Write back
+        # using update() as write() is not supported in this version
+        conn.update(spreadsheet=sheet_url, data=df)
         
         st.toast("🔐 Credenciales guardadas en la nube para futuro acceso.")
         return True
