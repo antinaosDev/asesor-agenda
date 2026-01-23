@@ -92,19 +92,30 @@ def get_calendar_service():
     if 'calendar_service' not in st.session_state:
         try:
             # PRIORIDAD 1: Service Account (Backend / Bot)
-            # Esto permite acceder a calendarios compartidos con el service account (ej: mensajeria-rev...)
-            # sin que el usuario logueado tenga que tener permiso directo.
+            creds = None
             if os.path.exists('service_account.json'):
                 try:
                     creds = service_account.Credentials.from_service_account_file(
                         'service_account.json', scopes=SCOPES
                     )
-                    service = build('calendar', 'v3', credentials=creds)
-                    st.session_state.calendar_service = service
-                    # st.sidebar.success("🔑 Usando Service Account") # Debug visual opcional
-                    return service
                 except Exception as e:
-                    st.error(f"Error Service Account: {e}")
+                    st.error(f"Error archivo SA: {e}")
+            
+            # Fallback: Secrets (Streamlit Cloud)
+            elif "service_account" in st.secrets:
+                try:
+                    # Convert AttrDict to standard dict if needed
+                    sa_info = dict(st.secrets["service_account"])
+                    creds = service_account.Credentials.from_service_account_info(
+                        sa_info, scopes=SCOPES
+                    )
+                except Exception as e:
+                    st.error(f"Error Secrets SA: {e}")
+
+            if creds:
+                service = build('calendar', 'v3', credentials=creds)
+                st.session_state.calendar_service = service
+                return service
 
             # PRIORIDAD 2: Credenciales de Usuario (OAuth)
             creds = get_gmail_credentials()
@@ -124,15 +135,27 @@ def get_tasks_service():
     if 'tasks_service' not in st.session_state:
         try:
             # PRIORIDAD 1: Service Account
+            creds = None
             if os.path.exists('service_account.json'):
                  try:
                     creds = service_account.Credentials.from_service_account_file(
                         'service_account.json', scopes=SCOPES
                     )
-                    service = build('tasks', 'v1', credentials=creds)
-                    st.session_state.tasks_service = service
-                    return service
                  except: pass
+            
+            # Fallback Secrets
+            elif "service_account" in st.secrets:
+                try:
+                    sa_info = dict(st.secrets["service_account"])
+                    creds = service_account.Credentials.from_service_account_info(
+                        sa_info, scopes=SCOPES
+                    )
+                except: pass
+
+            if creds:
+                service = build('tasks', 'v1', credentials=creds)
+                st.session_state.tasks_service = service
+                return service
 
             # PRIORIDAD 2: OAuth User
             creds = get_gmail_credentials() # Reuse the generic credential getter
