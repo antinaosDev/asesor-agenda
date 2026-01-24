@@ -580,7 +580,25 @@ def view_planner():
             for t in existing_tasks:
                 c1, c2, c3 = st.columns([0.1, 0.8, 0.1])
                 with c2:
-                    st.write(f"• {t['title']}")
+                    # Edit Mode Toggle
+                    with st.expander(f"• {t['title']}"):
+                        edit_title = st.text_input("Título", t['title'], key=f"title_{t['id']}")
+                        edit_notes = st.text_area("Notas", t.get('notes', ''), key=f"notes_{t['id']}")
+                        
+                        # Date parsing for default value
+                        default_date = datetime.date.today()
+                        if t.get('due'):
+                            try:
+                                default_date = datetime.datetime.fromisoformat(t['due'].replace('Z', '')).date()
+                            except: pass
+                            
+                        edit_due = st.date_input("Fecha Límite", default_date, key=f"due_{t['id']}")
+                        
+                        if st.button("💾 Actualizar Tarea", key=f"save_{t['id']}"):
+                            res = update_task_google(tasks_svc, t['list_id'], t['id'], title=edit_title, notes=edit_notes, due=edit_due)
+                            if res: 
+                                st.success("Actualizado")
+                                st.rerun()
                 with c3:
                     if st.button("🗑️", key=f"del_{t['id']}"):
                         delete_task_google(tasks_svc, t['list_id'], t['id'])
@@ -783,6 +801,25 @@ def main_app():
         st.text_input("ID Calendario", value=st.session_state.get('connected_email', ''), key='connected_email_input')
         if st.session_state.connected_email_input != st.session_state.get('connected_email', ''):
              st.session_state.connected_email = st.session_state.connected_email_input
+
+        # --- ADMIN PANEL ---
+        user_role = "User"
+        if 'user_data_full' in st.session_state:
+            user_role = str(st.session_state.user_data_full.get('rol', 'User')).strip()
+            
+        if user_role.upper() == 'ADMIN':
+            with st.expander("🛠️ Panel Admin"):
+                st.markdown("**Control de Límites**")
+                current_limit = st.session_state.get('admin_max_emails', 50)
+                new_limit = st.number_input("Max Correos (Global)", value=current_limit, step=10)
+                if new_limit != current_limit:
+                    st.session_state.admin_max_emails = new_limit
+                    
+                st.markdown("**Simulación de Rol**")
+                # This affects specific UI elements if implemented, currently mostly placeholder for future role-based views
+                sim_role = st.selectbox("Ver como:", ["Admin", "User", "Manager"])
+                st.session_state.simulated_role = sim_role
+        # -------------------
 
     # Main Router
     if selection == "Dashboard": view_dashboard()
