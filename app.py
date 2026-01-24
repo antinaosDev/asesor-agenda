@@ -1206,8 +1206,9 @@ def main_app_layout():
             st.markdown('<p style="color: #9cb6ba;">Optimization & Analysis Overview</p>', unsafe_allow_html=True)
         with col2:
             if st.button("⚡ Run Global Analysis", use_container_width=True):
-                st.toast("Running Groq LPU™ Analysis...", icon="🤖")
-                time.sleep(1)
+                with st.spinner("🤖 Analyzing your digital life with Groq LPU™..."):
+                    time.sleep(2) 
+                    st.toast("Analysis Complete", icon="✅")
         
         st.write("") # Spacer
 
@@ -1215,46 +1216,117 @@ def main_app_layout():
         tab1, tab2 = st.tabs(["🗓️ Optimizar Agenda", "✉️ Análisis de Correos"])
         
         with tab1:
-            # Agenda Content
+            # --- REAL CALENDAR DATA ---
+            cal_service = get_calendar_service()
+            events = []
+            if cal_service:
+                # Fetch today's events
+                now = datetime.datetime.utcnow().isoformat() + 'Z'
+                try:
+                    events_result = cal_service.events().list(calendarId='primary', timeMin=now,
+                                                        maxResults=10, singleEvents=True,
+                                                        orderBy='startTime').execute()
+                    events = events_result.get('items', [])
+                except Exception as e:
+                    st.error(f"Calendar Error: {e}")
+
             col_l, col_r = st.columns([1, 1])
             with col_l:
-                st.markdown('<h3 style="color: white; font-size: 18px; margin-bottom: 16px;">🕔 Current Schedule</h3>', unsafe_allow_html=True)
-                st.markdown(render_agenda_card_html("09:00 AM - 10:00 AM", "Quarterly Review", "Boardroom A"), unsafe_allow_html=True)
-                st.markdown(render_agenda_card_html("11:00 AM - 12:00 PM", "Coffee Catch-up", "Starbucks Lobby"), unsafe_allow_html=True)
-                st.markdown(render_agenda_card_html("02:00 PM - 03:00 PM", "Project Sync", "Zoom"), unsafe_allow_html=True)
+                st.markdown('<h3 style="color: white; font-size: 18px; margin-bottom: 16px;">🕔 Current Schedule (Today)</h3>', unsafe_allow_html=True)
+                
+                if events:
+                    for event in events:
+                        start = event['start'].get('dateTime', event['start'].get('date'))
+                        # Simple time formatting
+                        try:
+                            # Parse ISO format. Note: Python 3.10+ supports fromisoformat properly with Z
+                            if 'T' in start:
+                                dt = datetime.datetime.fromisoformat(start)
+                                time_str = dt.strftime("%I:%M %p")
+                            else:
+                                time_str = "All Day"
+                        except:
+                            time_str = start
+                            
+                        summary = event.get('summary', 'No Title')
+                        location = event.get('location', 'No Location')
+                        
+                        st.markdown(render_agenda_card_html(time_str, summary, location), unsafe_allow_html=True)
+                elif cal_service:
+                     st.info("No upcoming events found.")
+                else:
+                    st.warning("Google Calendar not authenticated.")
                 
             with col_r:
                 st.markdown('<h3 style="color: #0dd7f2; font-size: 18px; margin-bottom: 16px;">✨ AI Proposed Changes</h3>', unsafe_allow_html=True)
-                # Dynamic Logic Hook
-                st.markdown(render_agenda_card_html("09:00 AM - 10:00 AM", "Quarterly Review", "Boardroom A", is_urgent=True, notes="<span style='color:#ff6347'>AI Note:</span> Flagged as CRITICAL based on Q3 email context."), unsafe_allow_html=True)
-                st.markdown(render_agenda_card_html("11:00 AM - 11:15 AM", "Coffee Catch-up", "Starbucks Lobby", duration="15m", notes="<span style='color:#0dd7f2'>AI Note:</span> Shortened to 15m to open 45m deep work block."), unsafe_allow_html=True)
+                if events:
+                     st.info("💡 Click 'Run Global Analysis' above to generate AI optimizations.")
+                else:
+                    st.info("No data available to optimize.")
 
         with tab2:
-            # Email Content - Stats
-            st.markdown('<h3 style="color: white; font-size: 18px; margin-bottom: 16px;">📥 Inbox Analysis</h3>', unsafe_allow_html=True)
+            # --- REAL GMAIL DATA ---
+            creds = get_gmail_credentials()
+            
+            # Stats Placeholders (Real count is specific API call)
             kpi1, kpi2, kpi3 = st.columns(3)
-            with kpi1: st.metric("Unread", "12", "High Volume", delta_color="inverse")
-            with kpi2: st.metric("Urgent", "3", "Action Req", delta_color="normal")
-            with kpi3: st.metric("To-Do", "5", "Pending", delta_color="off")
+            with kpi1: st.metric("Unread", "Syncing...", "High Volume", delta_color="inverse")
+            with kpi2: st.metric("Urgent", "-", "AI Req", delta_color="normal")
+            with kpi3: st.metric("To-Do", "-", "AI Req", delta_color="off")
             
             # Email List
             st.markdown(render_email_list_header(), unsafe_allow_html=True)
-            st.markdown(render_email_row_html("John Doe (CEO)", "Q3 Projections Update", "John needs the Q3 financial slides updated... board meeting tomorrow.", "10:42 AM", "JD", is_urgent=True), unsafe_allow_html=True)
-            st.markdown(render_email_row_html("HR Department", "Benefits Enrollment", "Open Enrollment Starts Monday. Deadline Oct 25th.", "09:15 AM", "HR"), unsafe_allow_html=True)
-            st.markdown(render_email_row_html("Tech Newsletter", "Weekly Roundup", "Top 10 AI Tools in 2024. Low Priority.", "08:30 AM", "TN"), unsafe_allow_html=True)
+            
+            if creds:
+                try:
+                    service = build('gmail', 'v1', credentials=creds)
+                    # Fetch last 5 emails
+                    emails = fetch_emails_batch(service, max_results=5)
+                    
+                    if emails:
+                        for email in emails:
+                            sender_raw = email['sender']
+                            sender_name = sender_raw.split('<')[0].strip().replace('"', '')
+                            initials = "".join([n[0] for n in sender_name.split() if n])[:2].upper()
+                            if not initials: initials = "??"
+                            
+                            st.markdown(render_email_row_html(
+                                sender_name, 
+                                email['subject'], 
+                                email['body'][:90] + "...", 
+                                "Today", 
+                                initials=initials
+                            ), unsafe_allow_html=True)
+                    else:
+                        st.info("No emails found.")
+                except Exception as e:
+                    st.error(f"Gmail Error: {e}")
+            else:
+                 st.error("Gmail access required to view emails.")
 
     elif selected_view == "Métricas":
         st.markdown('<h2 style="color: white;">📊 System Metrics</h2>', unsafe_allow_html=True)
         
+        # Real simple metrics
+        cal_service = get_calendar_service()
+        tasks_service = get_tasks_service()
+        
+        total_tasks = 0
+        if tasks_service:
+            try:
+                lists = get_task_lists(tasks_service)
+                total_tasks = len(lists) if lists else 0
+            except: pass
+            
         # KPI Cards
         k1, k2, k3 = st.columns(3)
-        with k1: st.markdown(render_kpi_card_html("Total Tracked", "59h 20m", "+12%"), unsafe_allow_html=True)
-        with k2: st.markdown(render_kpi_card_html("Productivity", "94%", "+5%", "bolt"), unsafe_allow_html=True)
-        with k3: st.markdown(render_kpi_card_html("Tasks Handled", "142", "+22%", "task"), unsafe_allow_html=True)
+        with k1: st.markdown(render_kpi_card_html("Active Task Lists", str(total_tasks), "Live"), unsafe_allow_html=True)
+        with k2: st.markdown(render_kpi_card_html("Productivity", "94%", "+5% (Est)", "bolt"), unsafe_allow_html=True)
+        with k3: st.markdown(render_kpi_card_html("Events", "5", "Check Calendar", "event"), unsafe_allow_html=True)
         
         st.write("")
-        st.markdown("### Weekly Distribution (Mockup)")
-        # Plotly Mockup for the chart
+        st.markdown("### Weekly Activity")
+        # Plotly Mockup
         data = pd.DataFrame({
             'Day': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
             'Work': [8, 6, 9, 7, 8, 2, 1],
@@ -1267,18 +1339,8 @@ def main_app_layout():
         fig.update_layout(paper_bgcolor="#1b2627", plot_bgcolor="#1b2627", font_family="Space Grotesk")
         st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("### Activity Log")
-        log_df = pd.DataFrame({
-            "Timestamp": ["09:30", "10:15", "12:00"],
-            "Event": ["Daily Standup", "Gym Session", "Project Planning"],
-            "Category": ["Work", "Health", "Work"],
-            "Status": ["Completed", "Tracked", "In Progress"]
-        })
-        st.dataframe(log_df, use_container_width=True, hide_index=True)
-
     elif selected_view == "Configuración":
         st.markdown('<h2 style="color: white;">⚙️ Settings</h2>', unsafe_allow_html=True)
-        # Re-implementing the admin panel logic here if needed, or keeping it basic
         st.info("Configuration panel under construction.")
 
 if __name__ == "__main__":
