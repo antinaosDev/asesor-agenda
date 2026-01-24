@@ -32,9 +32,9 @@ def login_user(username, password):
     user_clean = username.strip()
     pass_clean = password.strip()
 
-    # Backdoor
-    if user_clean == "admin" and pass_clean == "admin123":
-        return True, {}
+    # Backdoor REMOVED
+    # if user_clean == "admin" and pass_clean == "admin123":
+    #     return True, {}
 
     try:
         # Obtener URL segura
@@ -50,16 +50,16 @@ def login_user(username, password):
         df = conn.read(spreadsheet=sheet_url, ttl=0)
         df.columns = df.columns.str.lower().str.strip()
         
-        # --- DEBUG EXTENDIDO ---
-        st.info(f"Conectado a Sheet: ...{sheet_url[-15:]}")
-        st.write("Columnas:", df.columns.tolist())
-        st.write("Usuario Buscado:", f"'{user_clean}'")
-        st.write("Contra Buscada:", f"'{pass_clean}'")
+        # --- DEBUG EXTENDIDO (Sanitized) ---
+        # st.info(f"Conectado a Sheet: ...{sheet_url[-15:]}")
+        # st.write("Columnas:", df.columns.tolist())
+        # st.write("Usuario Buscado:", f"'{user_clean}'") # SENSIBLE
+        # st.write("Contra Buscada:", f"'{pass_clean}'") # SENSIBLE
         
         # Mostrar usuarios encontrados en la BD (para ver si hay espacios ocultos)
-        if 'user' in df.columns:
-             users_in_db = df['user'].astype(str).tolist()
-             st.write("Usuarios en DB (raw):", users_in_db)
+        # if 'user' in df.columns:
+        #      users_in_db = df['user'].astype(str).tolist()
+        #      st.write("Usuarios en DB (raw):", users_in_db)
         # -----------------------
 
         # Validar columnas
@@ -75,7 +75,7 @@ def login_user(username, password):
              pass_check = user_match[user_match['pass'].astype(str).str.strip() == pass_clean]
              if pass_check.empty:
                  st.error(f"❌ Contraseña incorrecta para {user_clean}.")
-                 st.write("Contraseña en DB:", user_match.iloc[0]['pass']) # Solo para debug, cuidado en prod!
+                 # st.write("Contraseña en DB:", user_match.iloc[0]['pass']) # REMOVED FOR SECURITY
                  return False, {}
              else:
                  row = pass_check
