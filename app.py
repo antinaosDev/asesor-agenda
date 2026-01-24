@@ -30,7 +30,7 @@ load_dotenv()
 # --- Page Config ---
 st.set_page_config(
     page_title="Panel Ejecutivo AI",
-    page_icon="🤖",
+    page_icon="logo_agent.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -204,8 +204,17 @@ def render_login_page():
         st.markdown('<br><br>', unsafe_allow_html=True)
         st.markdown("""
         <div class="login-box">
-            <span class="material-symbols-outlined" style="font-size: 64px; color: #0dd7f2; margin-bottom: 1rem;">smart_toy</span>
-            <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Asistente Ejecutivo AI</h1>
+             <img src="app/logo_agent.png" style="width: 100px; margin-bottom: 1rem;">
+             <!-- Fallback if image fails local load without helper, usually streamlit handles local files in root or static -->
+             <!-- For simple local file usage in markdown html, we often need a helper or st.image. Let's use st.image for reliability in columns -->
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.image("logo_agent.png", width=120)
+        
+        st.markdown("""
+        <div style="text-align: center;">
+            <h1 style="font-size: 2rem; margin-bottom: 0.5rem; margin-top: 0;">Asistente Ejecutivo AI</h1>
             <p style="color: #9cb6ba; margin-bottom: 2rem;">Acceso Seguro</p>
         </div>
         """, unsafe_allow_html=True)
@@ -467,15 +476,18 @@ def view_optimize():
 def main_app():
     # Sidebar Navigation mimicking the "Rail"
     with st.sidebar:
-        st.markdown(f"""
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <div style="width: 60px; height: 60px; background: rgba(13,215,242,0.1); border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center;">
-                 <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 32px;">smart_toy</span>
-            </div>
-            <h3 style="margin: 0; font-size: 1.2rem;">Asistente Ejec.</h3>
-            <p style="font-size: 0.8rem; color: #9cb6ba;">Premium</p>
-        </div>
-        """, unsafe_allow_html=True)
+        col_logo, col_text = st.columns([1, 2])
+        with col_logo:
+             st.image("logo_agent.png", width=70)
+        with col_text:
+             st.markdown("""
+             <div style="padding-top: 10px;">
+                <h3 style="margin: 0; font-size: 1.1rem;">Asistente</h3>
+                <p style="font-size: 0.8rem; color: #9cb6ba; margin: 0;">Premium AI</p>
+             </div>
+             """, unsafe_allow_html=True)
+             
+        st.markdown("<br>", unsafe_allow_html=True)
         
         # Navigation Buttons (using radio for state)
         # Using icons in radio labels not supported natively well without hacking CSS, keeping text simple
