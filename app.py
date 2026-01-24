@@ -267,8 +267,14 @@ def view_dashboard():
             start = e['start'].get('dateTime')
             end = e['end'].get('dateTime')
             if start and end:
-                s_dt = datetime.datetime.fromisoformat(start)
-                e_dt = datetime.datetime.fromisoformat(end)
+                # Fix for huge hours: use timezone-aware comparison if possible or strip appropriately
+                s_dt = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+                e_dt = datetime.datetime.fromisoformat(end.replace('Z', '+00:00'))
+                
+                # Check for full day events (YYYY-MM-DD only) which defaulting to midnight might cause issues if not careful with TZ, 
+                # but fromisoformat usually handles YYYY-MM-DD as naive midnight. 
+                # Ideally, if it's date only, use 24h. 
+                
                 hours += (e_dt - s_dt).total_seconds() / 3600
         except: pass
 
@@ -283,8 +289,8 @@ def view_dashboard():
     col_brief, col_timeline = st.columns([1, 1.5])
     
     with col_brief:
-        # Recreating the HTML "Morning Briefing Card"
-        st.markdown(f"""
+        # Recreating the HTML "Morning Briefing Card" - FIXED HTML Rendering
+        BRIEFING_HTML = f"""
         <div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;">
             <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(13,215,242,0.1); border-radius: 50%; filter: blur(60px);"></div>
             <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
@@ -313,7 +319,8 @@ def view_dashboard():
             </div>
             <br>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(BRIEFING_HTML, unsafe_allow_html=True)
 
     with col_timeline:
         st.markdown("### 🗓️ Línea de Tiempo")
@@ -469,23 +476,103 @@ def view_inbox():
 
 def view_optimize():
     render_header("Optimizador de Agenda", "Auditoría de Tiempo")
-    st.info("Módulo en Construcción en la nueva UI.")
+    
+    calendar_id = st.session_state.get('connected_email', '')
+    if not calendar_id:
+        st.warning("⚠️  Configura tu ID de Calendario en la barra lateral.")
+        return
+
+    col_opt_1, col_opt_2 = st.columns(2)
+    with col_opt_1:
+        today = datetime.date.today()
+        start_date = st.date_input("Fecha Inicio", today)
+    with col_opt_2:
+        end_date = st.date_input("Fecha Fin", today + datetime.timedelta(days=30))
+        
+    if st.button("📥 Importar Período Seleccionado"):
+        service = get_calendar_service()
+        if service:
+            t_min = datetime.datetime.combine(start_date, datetime.time.min).isoformat() + 'Z'
+            t_max = datetime.datetime.combine(end_date, datetime.time.max).isoformat() + 'Z'
+            
+            try:
+                res = service.events().list(
+                    calendarId=calendar_id, 
+                    timeMin=t_min, 
+                    timeMax=t_max, 
+                    singleEvents=True, 
+                    orderBy='startTime',
+                    maxResults=250
+                ).execute()
+                st.session_state.opt_events = res.get('items', [])
+                if len(st.session_state.opt_events) == 250:
+                    st.warning("⚠️ Se alcanzó el límite de 250 eventos. Intenta reducir el rango si faltan datos.")
+                else:
+                    st.success(f"Cargados {len(st.session_state.opt_events)} eventos.")
+            except Exception as e:
+                st.error(f"Error cargando calendario: {e}")
+    
+    if 'opt_events' in st.session_state and st.session_state.opt_events:
+        events = st.session_state.opt_events
+        st.write(f"📅 Se leyeron {len(events)} eventos en el periodo seleccionado.")
+        
+        if st.button("🧠 AI: Analizar Historial y Tendencias"):
+            with st.spinner("Analizando patrones anuales, mensuales y semanales..."):
+                result = analyze_existing_events_ai(events)
+                st.session_state.opt_plan = result.get('optimization_plan', {})
+                st.session_state.advisor_note = result.get('advisor_note', "Sin comentarios.")
+        
+        if 'opt_plan' in st.session_state:
+            st.markdown("### 💡 Informe Estratégico:")
+            st.info(st.session_state.advisor_note)
+            
+            st.subheader("Mejoras Propuestas:")
+            
+            with st.form("exec_optimization"):
+                c1, c2, c3 = st.columns([2, 2, 1])
+                c1.markdown("**Original**")
+                c2.markdown("**Propuesta**")
+                c3.markdown("**Estado**")
+                
+                for ev in events: 
+                    pid = ev['id']
+                    if pid in st.session_state.opt_plan:
+                        proposal = st.session_state.opt_plan[pid]
+                        c1, c2, c3 = st.columns([2, 2, 1])
+                        c1.text(ev.get('summary', ''))
+                        c2.markdown(f"**{proposal['new_summary']}**")
+                        c3.caption("Mejorable")
+                        st.divider()
+                
+                if st.form_submit_button("✨ Ejecutar Transformación"):
+                    service = get_calendar_service()
+                    if service:
+                        bar = st.progress(0)
+                        done = 0
+                        plan = st.session_state.opt_plan
+                        for i, ev in enumerate(events):
+                            if ev['id'] in plan:
+                                p = plan[ev['id']]
+                                optimize_event(service, calendar_id, ev['id'], p['new_summary'], p['colorId'])
+                                done += 1
+                            bar.progress((i+1)/len(events))
+                        st.success(f"¡Agenda Transformada! {done} eventos optimizados.")
 
 # --- NAVIGATION CONTROLLER ---
 
 def main_app():
     # Sidebar Navigation mimicking the "Rail"
     with st.sidebar:
-        col_logo, col_text = st.columns([1, 2])
+        col_logo, col_text = st.columns([1, 0.1])
         with col_logo:
-             st.image("logo_agent.png", width=70)
-        with col_text:
-             st.markdown("""
-             <div style="padding-top: 10px;">
-                <h3 style="margin: 0; font-size: 1.1rem;">Asistente</h3>
-                <p style="font-size: 0.8rem; color: #9cb6ba; margin: 0;">Premium AI</p>
-             </div>
-             """, unsafe_allow_html=True)
+             st.image("logo_agent.png", width=120)
+        # with col_text:
+        #      st.markdown("""
+        #      <div style="padding-top: 10px;">
+        #         <h3 style="margin: 0; font-size: 1.1rem;">Asistente</h3>
+        #         <p style="font-size: 0.8rem; color: #9cb6ba; margin: 0;">Premium AI</p>
+        #      </div>
+        #      """, unsafe_allow_html=True)
              
         st.markdown("<br>", unsafe_allow_html=True)
         
