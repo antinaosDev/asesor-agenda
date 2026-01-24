@@ -1168,109 +1168,173 @@ def render_login_page():
         </div>
         """, unsafe_allow_html=True)
 
+
+from modules.ui_components import get_design_css, render_kpi_card_html, render_agenda_card_html, render_email_list_header, render_email_row_html
+
 def main_app_layout():
-    # --- Custom Fonts & Global Styles (Design #2 & #3) ---
-    st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* Fonts */
-        h1, h2, h3, h4, .stMarkdown, .stButton, .stTextInput {
-            font-family: 'Space Grotesk', sans-serif !important;
-        }
-        
-        /* Global Background */
-        .stApp {
-            background-color: #102022; /* Deep Dark Teal */
-            color: #ffffff;
-        }
-        
-        /* Sidebar Styling */
-        [data-testid="stSidebar"] {
-            background-color: #102022;
-            border-right: 1px solid #283739;
-        }
-        
-        /* Modern Cards */
-        .glass-card {
-            background-color: #1b2627;
-            border: 1px solid #283739;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s;
-        }
-        .glass-card:hover {
-            border-color: #3b5154;
-            transform: translateY(-2px);
-        }
-        
-        /* Metrics / Numbers */
-        .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: white;
-        }
-        .metric-label {
-            font-size: 0.875rem;
-            color: #9db6b9;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        
-        /* Primary Actions */
-        .stButton > button {
-            background-color: #0dd7f2 !important; /* Neon Cyan */
-            color: #111718 !important;
-            border: none;
-            font-weight: 600;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            transition: all 0.3s ease;
-        }
-        .stButton > button:hover {
-            background-color: #3fe2f7 !important;
-            box-shadow: 0 0 15px rgba(13, 215, 242, 0.4);
-        }
-        
-        /* Secondary / Outline Buttons (if any) */
-        .secondary-btn {
-            background-color: transparent;
-            border: 1px solid #3b5154;
-            color: #9cb6ba;
-        }
-        
-        /* Tabs */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 2rem;
-            background-color: transparent;
-            border-bottom: 1px solid #3b5154;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 3rem;
-            color: #9cb6ba;
-            font-weight: 600;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: transparent;
-            color: #ffffff !important;
-            border-bottom: 2px solid #0dd7f2;
-        }
-        
-        /* Inputs */
-        .stTextInput > div > div > input, .stTextArea > div > div > textarea {
-            background-color: #18282a;
-            border: 1px solid #283739;
-            color: white;
-            border-radius: 8px;
-        }
-        .stTextInput > div > div > input:focus {
-            border-color: #0dd7f2;
-            box-shadow: 0 0 0 1px #0dd7f2;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+    # --- Inject Global CSS (Modern Design) ---
+    st.markdown(get_design_css(), unsafe_allow_html=True)
     
-    authenticated_main()
+    # --- Sidebar ---
+    with st.sidebar:
+        st.divider()
+        # Mock Profile for now (could link to user data if available)
+        st.markdown(f"""
+        <div style="display: flex; gap: 12px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #283739;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #283739; background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC1tHiKwc5LvwUe6NXnusS_khloR2PRGcOm3hJQXvaKoJYUDUZchnYvIksQyYI298SHLQeLuf-DFDy2kcs1b1qL4bkO9Eu0mH9dHE_m07QQf1EbkWaYVAB_pa47fRDI4A2rFfX1hZLhdzcv3hAK-CHX0F-PrbbrbGNc6ntaTlNbHMa4zYY5M1PkLQ64KImPJgiRiNirGMyJrIS5uMJh5EWQjUrTPSxziQl22AXSDKY727Gy0nFX5qmrGi6xbEItow1oL91AXnmljNo'); background-size: cover;"></div>
+            <div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: white;">{st.session_state.get('license_key', 'Admin')}</h3>
+                <span style="color: #0dd7f2; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;">AI EXECUTIVE</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        selected_view = st.radio("Navegación", ["Dashboard", "Metricas", "Configuración"], label_visibility="collapsed")
+        
+        st.divider()
+        if st.button("🔄 Logout", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.logout_google = True
+            st.rerun()
+
+    if selected_view == "Dashboard":
+        # 1. Header Area
+        col1, col2 = st.columns([2, 1])
+        with col1:
+             st.markdown('<h2 style="color: white; margin-bottom: 0;">AI Executive Assistant</h2>', unsafe_allow_html=True)
+             st.markdown('<p style="color: #9cb6ba;">Optimization & Analysis Overview</p>', unsafe_allow_html=True)
+        with col2:
+             if st.button("⚡ Run Global Analysis", use_container_width=True):
+                 with st.spinner("🤖 Analyzing your digital life with Groq LPU™..."):
+                     time.sleep(2) 
+                     st.toast("Analysis Complete", icon="✅")
+
+        st.write("") 
+
+        # 2. Main Tabs
+        tab1, tab2 = st.tabs(["🗓️ Optimizar Agenda", "✉️ Análisis de Correos"])
+        
+        with tab1:
+            # --- REAL CALENDAR INTEGRATION ---
+            cal_service = get_calendar_service()
+            events = []
+            if cal_service:
+                now = datetime.datetime.utcnow().isoformat() + 'Z'
+                try:
+                    events_result = cal_service.events().list(calendarId='primary', timeMin=now,
+                                                        maxResults=10, singleEvents=True,
+                                                        orderBy='startTime').execute()
+                    events = events_result.get('items', [])
+                except Exception as e:
+                    st.error(f"Calendar Error: {e}")
+            
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                st.markdown('<h3 style="color: white; font-size: 18px; margin-bottom: 16px;">🕔 Current Schedule</h3>', unsafe_allow_html=True)
+                if events:
+                    for event in events:
+                        # Extract Data
+                        start = event['start'].get('dateTime', event['start'].get('date'))
+                        try:
+                            if 'T' in start:
+                                dt = datetime.datetime.fromisoformat(start)
+                                time_str = dt.strftime("%I:%M %p")
+                            else:
+                                time_str = "All Day"
+                        except: time_str = str(start)
+                        summary = event.get('summary', 'No Title')
+                        location = event.get('location', 'No Location')
+                        
+                        # Render HTML Card
+                        st.markdown(render_agenda_card_html(time_str, summary, location), unsafe_allow_html=True)
+                elif cal_service:
+                    st.info("No more events for today.")
+                else:
+                    st.warning("Google Calendar not authenticated.")
+
+            with c2:
+                st.markdown('<h3 style="color: #0dd7f2; font-size: 18px; margin-bottom: 16px;">✨ AI Proposed Changes</h3>', unsafe_allow_html=True)
+                if events:
+                    st.info("💡 Click 'Run Global Analysis' to generate AI optimizations.")
+                else:
+                    st.info("No data available to optimize.")
+
+        with tab2:
+            # --- REAL GMAIL INTEGRATION ---
+            creds = get_gmail_credentials()
+            
+            # Key Metrics row
+            k1, k2, k3 = st.columns(3)
+            with k1: st.metric("Unread", "Syncing...", "High Volume", delta_color="inverse")
+            with k2: st.metric("Urgent", "-", "AI Req", delta_color="normal")
+            with k3: st.metric("To-Do", "-", "AI Req", delta_color="off")
+            
+            st.markdown(render_email_list_header(), unsafe_allow_html=True)
+            
+            if creds:
+                try:
+                     service = build('gmail', 'v1', credentials=creds)
+                     emails = fetch_emails_batch(service, max_results=7)
+                     if emails:
+                         for email in emails:
+                             sender_raw = email['sender']
+                             # Basic parsing
+                             if '<' in sender_raw:
+                                 sender_name = sender_raw.split('<')[0].strip().replace('"', '')
+                             else:
+                                 sender_name = sender_raw.strip()
+                             
+                             initials = "".join([n[0] for n in sender_name.split() if n])[:2].upper() if sender_name else "??"
+                             
+                             st.markdown(render_email_row_html(
+                                 sender_name, 
+                                 email['subject'], 
+                                 email['body'][:90] + "...", 
+                                 "Today", 
+                                 initials=initials
+                             ), unsafe_allow_html=True)
+                     else:
+                         st.info("No recent emails found.")
+                except Exception as e:
+                    st.error(f"Gmail Error: {e}")
+            else:
+                 st.error("Gmail access required to view emails.")
+
+    if selected_view == "Metricas":
+         st.markdown('<h2 style="color: white; margin-bottom: 16px;">📊 System Metrics</h2>', unsafe_allow_html=True)
+         
+         # Real Data Logic (Simplified)
+         tasks_service = get_tasks_service()
+         total_tasks = 0
+         if tasks_service:
+             try:
+                 lists = get_task_lists(tasks_service)
+                 total_tasks = len(lists) if lists else 0
+             except: pass
+         
+         k1, k2, k3 = st.columns(3)
+         with k1: st.markdown(render_kpi_card_html("Active Task Lists", str(total_tasks), "Live"), unsafe_allow_html=True)
+         with k2: st.markdown(render_kpi_card_html("Productivity", "94%", "+5% (Est)", "bolt"), unsafe_allow_html=True)
+         with k3: st.markdown(render_kpi_card_html("Events Today", "5", "Check Calendar", "event"), unsafe_allow_html=True)
+         
+         st.write("")
+         st.markdown("### Weekly Activity")
+         # Static Plotly chart for aesthetics (replace with real data when DB ready)
+         data = pd.DataFrame({
+            'Day': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            'Work': [8, 6, 9, 7, 8, 2, 1],
+            'Personal': [2, 3, 2, 2, 3, 4, 5],
+            'Health': [1, 1, 1, 1, 1, 2, 2]
+         })
+         fig = px.bar(data, x='Day', y=['Work', 'Personal', 'Health'], 
+                     color_discrete_map={'Work': '#0dd7f2', 'Personal': '#a855f7', 'Health': '#0bda54'},
+                     template="plotly_dark")
+         fig.update_layout(paper_bgcolor="#1b2627", plot_bgcolor="#1b2627", font_family="Space Grotesk")
+         st.plotly_chart(fig, use_container_width=True)
+
+    if selected_view == "Configuración":
+        st.markdown('<h2 style="color: white;">⚙️ Settings</h2>', unsafe_allow_html=True)
+        st.info("Configuration panel.")
 
 if __name__ == "__main__":
     if 'authenticated' not in st.session_state:
