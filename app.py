@@ -202,22 +202,21 @@ def render_login_page():
     c1, c2, c3 = st.columns([1, 1.2, 1])
     with c2:
         st.markdown('<br><br>', unsafe_allow_html=True)
-        st.markdown("""
+        
+        # Base64 Logo for embedding
+        LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAnAAAAHkCAYAAAC+DBJrAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAP+lSURBVHhe7P0HmGRXWt+PK8507so5dHX3pJ4ojbSr1YoVC8bY4CV4f2sDSxDBCQMyP2DAMjwyePkbe7EBYyOCwVpkzCAbGwMm7Gq9wr8BjJhl2R6twmhShwr33pPPTVXdVe//ec+tntCaYZM2SHs+z/M+99a95558q7514m23WSwWi8VisVgsFovFYrFYLBaLxWKxWCwWi8VisVgsFovFYrFYLBaLxWKxWCwWi8VisVgsFovFYrFYLBaLxWKxWCwWi8VisVgsFovFsguAO+svepXly+49Bzbpgwd79C0H1ntHV9bXM7fBbbfvdm6xfFIA3H5spAsnHHb8GJFvPtLTx04olX8XwJ27nVosFovFYvl4ANxRWyfVJY+/faHLvrvV4T99oEffd9ilT6702L8+1GPfeHDT3X8bwN27H7VYPgFuP3G+kz9JxJvu4fLbjnvs35zwxC8fd9VPHu/Rf7DiOA8tdrsFFHi7H7RYPgFuP3G+kz9JxJvu4fLbjnvs35zwxC8fd9VPHu/Rf7DiOA8tdrsFFHi7H7RYLBaLxXITsPVjuUNWDrr87x1wxH9sdeiftjr08tImcQ51aW/FoedXiPitI4R9zzFKj6wA7Nnth8VyKx4GuGtFqZUVIh855qmfXnHkBw522SuHHd4+7LCLh3ve/1np9X5uv+N905IQyyftnwSLxWKxWD4Ojz9+B4q3FSq/76Anf3+fK9eWXRHsc+X2siOH+10x3OfSwSGX9Y675A/udck/sSLO8onyLnj6zmNUHznM/R84ROTvH/DkxX2ulIsO31rqseG+ntja16H+Ice7dNAlv3XQId910HX32y5Vi8VisVj+ClYcp3TIJd9+2BO/t0Kke5Co7RUewjERwr0qghMqgENMwiGXjY661L236/3hAz3yvW/xvIP2R9by8TgchvVDIviHh5l6/woT3iHmbx2U0eiAimGf9OGgiOAgD+CQx7YPuaS70nN+92Cv9x3HCana7lSLxWKxWG7BQZffu+Lwn1kh8uIhprcPyBDQDusIjujQ2FE/hCMqgMNUDE94zHlLj/zeQz36976EBPZH1nJLsJX2ENdfeogFv3KI6fUDQm/vUyG0ZAiLMoKWDGBZhLAfjSk45JLhStfZWOn23rfiOH9jxXFmdvtpsVgsFosF4M4Dnv7iQ676tYNUe0sigIaKoCxCKMoQSiqAivBhQUWwLENYZhqOeGz7AYesP+TQ//gQVW+1XamWW7GPBNUDTH7PISb+tMVVWNIh5NBkCFkeQE4GUJAhVLgPC8KH/UzCSs+Nj3ScvzjS6f3I0U3vwLueftq28losFovFcjiu7lR6/38R57p5q25X63a1btfrd57p5q25X63a1btfrd57p5q25X63adX9b1X21X37X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9//ZXX/9l1X21X21X21X21X21X21X21X21X21X21X21X21X2dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1eX13dXd1eX13dXd1d3V3dXd1d3V3dXd1eX13dXd1d3V3dXd1eX13dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX/9ldX9vV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29Xdf//ZXX/9ldX9vV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29Xdf//ZXX/9ldX/"
+        
+        st.markdown(f"""
         <div class="login-box">
-             <img src="app/logo_agent.png" style="width: 100px; margin-bottom: 1rem;">
-             <!-- Fallback if image fails local load without helper, usually streamlit handles local files in root or static -->
-             <!-- For simple local file usage in markdown html, we often need a helper or st.image. Let's use st.image for reliability in columns -->
+             <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+                <img src="data:image/png;base64,{LOGO_B64}" style="width: 120px;">
+             </div>
+             <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Asistente Ejecutivo AI</h1>
+             <p style="color: #9cb6ba; margin-bottom: 2rem;">Acceso Seguro</p>
         </div>
         """, unsafe_allow_html=True)
         
-        st.image("logo_agent.png", width=120)
-        
-        st.markdown("""
-        <div style="text-align: center;">
-            <h1 style="font-size: 2rem; margin-bottom: 0.5rem; margin-top: 0;">Asistente Ejecutivo AI</h1>
-            <p style="color: #9cb6ba; margin-bottom: 2rem;">Acceso Seguro</p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Removed redundant st.image and markdown text below box to clean up UI as requested
         
         with st.form("login"):
             u = st.text_input("Usuario", placeholder="admin")
@@ -288,10 +287,12 @@ def view_dashboard():
     # --- Split View: Morning Briefing UI & Timeline ---
     col_brief, col_timeline = st.columns([1, 1.5])
     
+
     with col_brief:
         # Recreating the HTML "Morning Briefing Card" - FIXED HTML Rendering
-        # Using simple string concatenation or manual dedent to avoid markdown code block interpretation
-        BRIEFING_HTML = """<div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;">
+        # Using explicit string concatenation to avoid indentation issues in markdown
+        card_html = """
+        <div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;">
             <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(13,215,242,0.1); border-radius: 50%; filter: blur(60px);"></div>
             <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
                  <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13,215,242,0.2); display: flex; align-items: center; justify-content: center;">
@@ -318,12 +319,12 @@ def view_dashboard():
                 </div>
             </div>
             <br>
-        </div>""".format(
-            total_events=total_events, 
-            hours=hours,
-            advice=('Tu tarde parece libre para trabajo profundo.' if hours < 4 else 'Es un día pesado de reuniones, planifica descansos.')
-        )
-        st.markdown(BRIEFING_HTML, unsafe_allow_html=True)
+        </div>
+        """
+        
+        advice_text = 'Tu tarde parece libre para trabajo profundo.' if hours < 4 else 'Es un día pesado de reuniones, planifica descansos.'
+        formatted_html = card_html.format(total_events=total_events, hours=hours, advice=advice_text)
+        st.markdown(formatted_html, unsafe_allow_html=True)
 
     with col_timeline:
         st.markdown("### 🗓️ Línea de Tiempo")
