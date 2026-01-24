@@ -413,7 +413,7 @@ def get_existing_tasks_simple(service):
             all_tasks = []
             tasklists = get_task_lists(service)
             for tl in tasklists:
-                results = service.tasks().list(tasklist=tl['id'], showCompleted=False).execute()
+                results = service.tasks().list(tasklist=tl['id'], showCompleted=False, maxResults=100).execute()
                 tasks = results.get('items', [])
                 for t in tasks:
                     all_tasks.append({
