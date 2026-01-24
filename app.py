@@ -849,7 +849,11 @@ def main_app():
         # --- ADMIN PANEL ---
         user_role = "User"
         if 'user_data_full' in st.session_state:
-            user_role = str(st.session_state.user_data_full.get('rol', 'User')).strip()
+            # Robust extraction: try 'rol', 'role', 'ROL', etc.
+            ud = st.session_state.user_data_full
+            # The keys are lowercased in auth.py, but let's be safe
+            raw_role = ud.get('rol', ud.get('role', ud.get('ROL', 'User')))
+            user_role = str(raw_role).strip()
             
         if user_role.upper() == 'ADMIN':
             with st.expander("🛠️ Panel Admin"):

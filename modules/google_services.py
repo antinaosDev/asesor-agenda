@@ -494,15 +494,10 @@ def update_event_calendar(service, calendar_id, event_id, summary=None, descript
     except Exception as e:
         return False, str(e)
 
-def optimize_event(service, event_id, new_start, new_end):
-    """Updates event timing (Legacy/Optimize wrapper)."""
-    # Now just wraps the main update function or keeps existing logic
-    try:
-        event = service.events().get(calendarId='primary', eventId=event_id).execute()
-        event['start']['dateTime'] = new_start.isoformat()
-        event['end']['dateTime'] = new_end.isoformat()
-        service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
-        return True
-    except Exception as e:
-        st.error(f"Error optimizing event: {e}")
-        return False
+def optimize_event(service, calendar_id, event_id, new_summary=None, color_id=None):
+    """Updates event details for Optimization Module."""
+    # Wrapper around the robust update function
+    ok, msg = update_event_calendar(service, calendar_id, event_id, summary=new_summary, color_id=color_id)
+    if not ok:
+        st.error(f"Error optimizing event: {msg}")
+    return ok
