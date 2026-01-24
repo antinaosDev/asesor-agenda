@@ -203,14 +203,13 @@ def render_login_page():
     with c2:
         st.markdown('<br><br>', unsafe_allow_html=True)
         
-        # Base64 Logo for embedding
-        LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAnAAAAHkCAYAAAC+DBJrAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAP+lSURBVHhe7P0HmGRXWt+PK8507so5dHX3pJ4ojbSr1YoVC8bY4CV4f2sDSxDBCQMyP2DAMjwyePkbe7EBYyOCwVpkzCAbGwMm7Gq9wr8BjJhl2R6twmhShwr33pPPTVXdVe//ec+tntCaYZM2SHs+z/M+99a95558q7514m23WSwWi8VisVgsFovFYrFYLBaLxWKxWCwWi8VisVgsFovFYrFYLBaLxWKxWCwWi8VisVgsFovFYrFYLBaLxWKxWCwWi8VisVgsFovFsguAO+svepXly+49Bzbpgwd79C0H1ntHV9bXM7fBbbfvdm6xfFIA3H5spAsnHHb8GJFvPtLTx04olX8XwJ27nVosFovFYvl4ANxRWyfVJY+/faHLvrvV4T99oEffd9ilT6702L8+1GPfeHDT3X8bwN27H7VYPgFuP3G+kz9JxJvu4fLbjnvs35zwxC8fd9VPHu/Rf7DiOA8tdrsFFHi7H7RYPgFuP3G+kz9JxJvu4fLbjnvs35zwxC8fd9VPHu/Rf7DiOA8tdrsFFHi7H7RYLBaLxXITsPVjuUNWDrr87x1wxH9sdeiftjr08tImcQ51aW/FoedXiPitI4R9zzFKj6wA7Nnth8VyKx4GuGtFqZUVIh855qmfXnHkBw522SuHHd4+7LCLh3ve/1np9X5uv+N905IQyyftnwSLxWKxWD4Ojz9+B4q3FSq/76Anf3+fK9eWXRHsc+X2siOH+10x3OfSwSGX9Y675A/udck/sSLO8onyLnj6zmNUHznM/R84ROTvH/DkxX2ulIsO31rqseG+ntja16H+Ice7dNAlv3XQId910HX32y5Vi8VisVj+ClYcp3TIJd9+2BO/t0Kke5Co7RUewjERwr0qghMqgENMwiGXjY661L236/3hAz3yvW/xvIP2R9by8TgchvVDIviHh5l6/woT3iHmbx2U0eiAimGf9OGgiOAgD+CQx7YPuaS70nN+92Cv9x3HCana7lSLxWKxWG7BQZffu+Lwn1kh8uIhprcPyBDQDusIjujQ2FE/hCMqgMNUDE94zHlLj/zeQz36976EBPZH1nJLsJX2ENdfeogFv3KI6fUDQm/vUyG0ZAiLMoKWDGBZhLAfjSk45JLhStfZWOn23rfiOH9jxXFmdvtpsVgsFosF4M4Dnv7iQ676tYNUe0sigIaKoCxCKMoQSiqAivBhQUWwLENYZhqOeGz7AYesP+TQ//gQVW+1XamWW7GPBNUDTH7PISb+tMVVWNIh5NBkCFkeQE4GUJAhVLgPC8KH/UzCSs+Nj3ScvzjS6f3I0U3vwLueftq28losFovFcjiu7lR6/38R57p5q25X63a1btfrd57p5q25X63a1btfrd57p5q25X63adX9b1X21X37X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9//ZXX/9l1X21X21X21X21X21X21X21X21X21X21X21X21X2dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1eX13dXd1eX13dXd1d3V3dXd1d3V3dXd1eX13dXd1d3V3dXd1eX13dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3V3dXd1d3//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX//ZXX/9ldX9vV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29Xdf//ZXX/9ldX9vV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29XdXdvV3V3b1d1d29Xdf//ZXX/9ldX/"
+        # Use st.image for robust local file rendering
+        c_img1, c_img2, c_img3 = st.columns([1, 1, 1])
+        with c_img2:
+             st.image("logo_agent.png", width=120)
         
-        st.markdown(f"""
+        st.markdown("""
         <div class="login-box">
-             <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
-                <img src="data:image/png;base64,{LOGO_B64}" style="width: 120px;">
-             </div>
              <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Asistente Ejecutivo AI</h1>
              <p style="color: #9cb6ba; margin-bottom: 2rem;">Acceso Seguro</p>
         </div>
@@ -290,41 +289,10 @@ def view_dashboard():
 
     with col_brief:
         # Recreating the HTML "Morning Briefing Card" - FIXED HTML Rendering
-        # Using explicit string concatenation to avoid indentation issues in markdown
-        card_html = """
-        <div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;">
-            <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(13,215,242,0.1); border-radius: 50%; filter: blur(60px);"></div>
-            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
-                 <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13,215,242,0.2); display: flex; align-items: center; justify-content: center;">
-                    <span class="material-symbols-outlined" style="color: #0dd7f2;">auto_awesome</span>
-                 </div>
-                 <h3 style="margin: 0; font-size: 1.25rem;">Informe Diario</h3>
-            </div>
-            
-            <div style="background: rgba(17,23,24,0.5); padding: 1.25rem; border-left: 4px solid #0dd7f2; border-radius: 8px; margin-bottom: 1.5rem;">
-                <p style="font-size: 1.1rem; line-height: 1.6; color: #e2e8f0;">
-                    Tienes <strong style="color: white;">{total_events} eventos</strong> agendados hoy, totalizando <strong style="color: #0dd7f2;">{hours:.1f} horas</strong> de reuniones. 
-                    {advice}
-                </p>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 0.8rem;">
-                <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;">
-                    <span class="material-symbols-outlined" style="color: #eab308; font-size: 1.2rem;">warning</span>
-                    <span>Prioridad: Revisar <strong>Reportes Q3</strong> antes de las 14:00.</span>
-                </div>
-                 <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;">
-                    <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 1.2rem;">mail</span>
-                    <span>Remitente Top: <strong>Director General</strong> (Urgente)</span>
-                </div>
-            </div>
-            <br>
-        </div>
-        """
-        
+        # Completely flattened HTML string to prevent indentation issues
         advice_text = 'Tu tarde parece libre para trabajo profundo.' if hours < 4 else 'Es un día pesado de reuniones, planifica descansos.'
-        formatted_html = card_html.format(total_events=total_events, hours=hours, advice=advice_text)
-        st.markdown(formatted_html, unsafe_allow_html=True)
+        
+        st.markdown(f"""<div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;"><div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(13,215,242,0.1); border-radius: 50%; filter: blur(60px);"></div><div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;"><div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13,215,242,0.2); display: flex; align-items: center; justify-content: center;"><span class="material-symbols-outlined" style="color: #0dd7f2;">auto_awesome</span></div><h3 style="margin: 0; font-size: 1.25rem;">Informe Diario</h3></div><div style="background: rgba(17,23,24,0.5); padding: 1.25rem; border-left: 4px solid #0dd7f2; border-radius: 8px; margin-bottom: 1.5rem;"><p style="font-size: 1.1rem; line-height: 1.6; color: #e2e8f0;">Tienes <strong style="color: white;">{total_events} eventos</strong> agendados hoy, totalizando <strong style="color: #0dd7f2;">{hours:.1f} horas</strong> de reuniones. {advice_text}</p></div><div style="display: flex; flex-direction: column; gap: 0.8rem;"><div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;"><span class="material-symbols-outlined" style="color: #eab308; font-size: 1.2rem;">warning</span><span>Prioridad: Revisar <strong>Reportes Q3</strong> antes de las 14:00.</span></div> <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;"><span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 1.2rem;">mail</span><span>Remitente Top: <strong>Director General</strong> (Urgente)</span></div></div><br></div>""", unsafe_allow_html=True)
 
     with col_timeline:
         st.markdown("### 🗓️ Línea de Tiempo")
@@ -427,56 +395,214 @@ def view_create():
 def view_planner():
     render_header("Planificador Inteligente", "Orquestación Semanal de Tareas")
     
+    mode = st.radio("Modo de Planificación", ["Semana Estándar (Manual + Calendario)", "Desglosar Proyecto (Eventos Largos)"], horizontal=True)
+    
     calendar_context_str = ""
+    calendar_id = st.session_state.get('connected_email', '')
+    
+    # Common Calendar Fetch (Optimized)
+    if 'c_events_cache' not in st.session_state:
+         st.session_state.c_events_cache = []
+         
+    # Always fetch if cache empty or requested (Only if email connected)
+    if not st.session_state.c_events_cache and calendar_id:
+        svc = get_calendar_service()
+        if svc:
+            try:
+                today = datetime.date.today()
+                t_min = datetime.datetime(today.year, 1, 1).isoformat() + 'Z'
+                t_max = datetime.datetime(today.year, 12, 31, 23, 59, 59).isoformat() + 'Z'
+                
+                st.session_state.c_events_cache = svc.events().list(
+                    calendarId=calendar_id, timeMin=t_min, timeMax=t_max, 
+                    singleEvents=True, orderBy='startTime', maxResults=2000,
+                    fields="items(summary,start,end,description)" 
+                ).execute().get('items', [])
+            except: pass
     # Simplified Logic from original app.py
     # ... (Logic for fetching calendar context would go here)
     
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        st.markdown("### 📥 Tareas de Entrada")
-        tasks_text = st.text_area("Metas para la semana", height=150, placeholder="- Hacer X\n- Terminar Y")
-        if st.button("Generar Plan", type="primary"):
-             with st.spinner("Optimizando agenda..."):
-                 plan = generate_work_plan_ai(tasks_text, "")
-                 st.session_state.weekly_plan = plan
-
-    with c2:
-        st.markdown("### 🗓️ Vista Kanban")
-        if 'weekly_plan' in st.session_state:
-            cols = st.columns(5)
-            # Translate keys if they come back in English or enforce Spanish prompts later
-            days_map = {
-                "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles", "Thursday": "Jueves", "Friday": "Viernes"
-            }
-            # Fallback days list if keys are missing
-            days_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    if mode == "Semana Estándar (Manual + Calendario)":
+        c1, c2 = st.columns([1, 2])
+        with c1:
+            st.markdown("### 📥 Tareas de Entrada")
             
-            for i, day_en in enumerate(days_en):
-                day_es = days_map[day_en]
-                with cols[i]:
-                    st.markdown(f"**{day_es}**")
-                    # Try fetch by English or Spanish Key
-                    tasks = st.session_state.weekly_plan.get(day_en, st.session_state.weekly_plan.get(day_es, []))
-                    
-                    for t in tasks:
-                        st.markdown(f"""
-                        <div style="background: #18282a; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px; font-size: 0.85rem;">
-                            {t}
-                        </div>
-                        """, unsafe_allow_html=True)
-        else:
-            st.info("Sin plan activo. Ingresa tareas para generar.")
+            use_calendar = st.checkbox("📥 Considerar eventos (Contexto)", value=True)
+            
+            # Context Logic
+            if use_calendar and st.session_state.c_events_cache:
+                 target_date = datetime.date.today()
+                 s_week = target_date - datetime.timedelta(days=target_date.weekday())
+                 e_week = s_week + datetime.timedelta(days=6)
+                 
+                 ctx_lines = []
+                 for e in st.session_state.c_events_cache:
+                     try:
+                         start_str = e['start'].get('dateTime', e['start'].get('date'))
+                         # Simple check if event is in current week
+                         if start_str > s_week.isoformat() and start_str < e_week.isoformat():
+                             summ = e.get('summary', 'Evento')
+                             ctx_lines.append(f"- {start_str}: {summ}")
+                     except: pass
+                 calendar_context_str = "\\n".join(ctx_lines)
+
+            tasks_text = st.text_area("Metas para la semana", height=150, placeholder="- Hacer X\\n- Terminar Y")
+            if st.button("Generar Plan", type="primary"):
+                 with st.spinner("Optimizando agenda..."):
+                     plan = generate_work_plan_ai(tasks_text, calendar_context_str)
+                     st.session_state.weekly_plan = plan
+                     st.session_state.plan_type = 'weekly'
+
+        with c2:
+            st.markdown("### 🗓️ Vista Kanban")
+            if 'weekly_plan' in st.session_state and st.session_state.plan_type == 'weekly':
+                cols = st.columns(5)
+                days_map = {
+                    "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles", "Thursday": "Jueves", "Friday": "Viernes"
+                }
+                days_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                
+                tasks_to_sync = []
+                
+                for i, day_en in enumerate(days_en):
+                    day_es = days_map[day_en]
+                    with cols[i]:
+                        st.markdown(f"**{day_es}**")
+                        tasks = st.session_state.weekly_plan.get(day_en, st.session_state.weekly_plan.get(day_es, []))
+                        
+                        for t in tasks:
+                            st.markdown(f"""
+                            <div style="background: #18282a; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px; font-size: 0.85rem;">
+                                {t}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Prepare for sync
+                            tasks_to_sync.append({"title": t, "notes": f"Planificado para {day_es}", "due": None})
+                
+                st.divider()
+                if st.button("🚀 Sincronizar con Google Tasks"):
+                    tasks_svc = get_tasks_service()
+                    if tasks_svc:
+                        bar = st.progress(0)
+                        for idx, t_item in enumerate(tasks_to_sync):
+                            add_task_to_google(tasks_svc, "@default", t_item['title'], t_item['notes'])
+                            bar.progress((idx+1)/len(tasks_to_sync))
+                        st.success("¡Tareas sincronizadas!")
+            else:
+                st.info("Sin plan activo. Ingresa tareas para generar.")
+
+    else: # PROJECT BREAKDOWN MODE
+        st.markdown("### 🔨 Desglosar Proyecto Grande")
+        st.info("Busca eventos largos (>3 días) para desglosarlos.")
+        
+        long_events_opts = []
+        for e in st.session_state.c_events_cache:
+            try:
+                start = e['start'].get('dateTime', e['start'].get('date'))
+                end = e['end'].get('dateTime', e['end'].get('date'))
+                # Simple heuristic for long event (e.g. string compare or proper parsing if needed)
+                # For now just show all to let user pick
+                summ = e.get('summary', 'Sin Título')
+                long_events_opts.append(f"{summ} | {start}")
+            except: pass
+            
+        selected_proj = st.selectbox("Selecciona Proyecto/Evento:", long_events_opts)
+        if st.button("Desglosar"):
+             if selected_proj:
+                 with st.spinner("Generando Roadmap..."):
+                     # Dump mock logic or call AI
+                     # For brevity, calling AI with standard prompt
+                     breakdown = generate_project_breakdown_ai(selected_proj, "", "", "")
+                     st.session_state.project_plan = breakdown
+                     st.session_state.plan_type = 'project'
+        
+        if 'project_plan' in st.session_state and st.session_state.plan_type == 'project':
+             st.write(st.session_state.project_plan)
+             # Basic display implementation
 
 
 def view_inbox():
     render_header("Inteligencia de Bandeja", "Filtrado de Correo con IA")
-    # Porting functionality...
-    if st.button("🔄 Conectar y Escanear Inbox"):
-        creds = get_gmail_credentials()
-        if creds:
-             # Logic to fetch
-             pass
-    st.info("Módulo en Construcción en la nueva UI.")
+    st.markdown("Filtra y extrae eventos de tu correo automáticamente.")
+    
+    col_g1, col_g2 = st.columns([1, 2])
+    
+    with col_g1:
+        # --- VISUALIZAR CUENTA ACTUAL ---
+        if 'connected_email' in st.session_state:
+            st.success(f"📧 Conectado: **{st.session_state.connected_email}**")
+            if st.button("♻️ Cambiar Cuenta / Salir", key="btn_logout_gmail"):
+                st.session_state.logout_google = True
+                st.rerun()
+        # --------------------------------
+
+        c_d1, c_d2 = st.columns(2)
+        with c_d1:
+            start_date = st.date_input("Fecha Inicio", datetime.date.today() - datetime.timedelta(days=7))
+        with c_d2:
+            end_date = st.date_input("Fecha Fin", datetime.date.today())
+        
+        # Global Limit check
+        global_limit = st.session_state.get('admin_max_emails', 50)
+        max_fetch = st.slider(f"Max Correos a Leer (Límite Admin: {global_limit}):", 5, global_limit, min(50, global_limit), help="Mayor cantidad consume más tokens.")
+
+        # Logic to handle auto-continue after auth reload
+        if 'trigger_mail_analysis' not in st.session_state:
+            st.session_state.trigger_mail_analysis = False
+
+        if st.button("🔄 Conectar y Analizar Buzón"):
+             st.session_state.trigger_mail_analysis = True
+        
+        # Execute if triggered
+        if st.session_state.trigger_mail_analysis:
+             from googleapiclient.discovery import build
+             creds = get_gmail_credentials() # This might stop/rerun
+             
+             if creds:
+                 # Only proceed if we have valid creds (auth flow done)
+                 try:
+                     service_gmail = build('gmail', 'v1', credentials=creds)
+                     with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
+                         emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
+                     
+                     if not emails:
+                         st.warning("No se encontraron correos nuevos relevantes.")
+                     else:
+                         st.session_state.fetched_emails = emails
+                         with st.spinner(f"🧠 La IA está analizando {len(emails)} correos..."):
+                             events = analyze_emails_ai(emails)
+                             st.session_state.ai_gmail_events = events
+                             if not events:
+                                 st.warning('La IA leyó los correos pero no encontró eventos agendables.')
+                 except Exception as e:
+                     st.error(f"Error procesando correos: {e}")
+                 finally:
+                     # Reset trigger so it doesn't loop forever
+                     st.session_state.trigger_mail_analysis = False
+             else:
+                 pass
+
+    with col_g2:
+         if 'ai_gmail_events' in st.session_state and st.session_state.ai_gmail_events:
+             st.success(f"✅ ¡He detectado {len(st.session_state.ai_gmail_events)} posibles eventos!")
+             
+             for i, ev in enumerate(st.session_state.ai_gmail_events):
+                 with st.expander(f"📅 {ev.get('summary', 'Evento Detectado')}", expanded=True):
+                     c1, c2 = st.columns([3, 1])
+                     with c1:
+                         st.write(f"**Detalles:** {ev.get('description', '-')}")
+                         st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
+                     with c2:
+                         if st.button(f"Agendar 📌", key=f"btn_gm_{i}"):
+                             cal_id = st.session_state.get('connected_email', 'primary')
+                             service_cal = get_calendar_service()
+                             if service_cal:
+                                  res, msg = add_event_to_calendar(service_cal, ev, cal_id)
+                                  if res: st.success(f"¡Agendado!")
+                                  else: st.error(f"Error: {msg}")
+         elif 'fetched_emails' in st.session_state:
+              st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")
 
 def view_optimize():
     render_header("Optimizador de Agenda", "Auditoría de Tiempo")
