@@ -17,7 +17,7 @@ from modules.google_services import (
     fetch_emails_batch, clean_email_body, 
     get_task_lists, create_task_list, add_task_to_google, 
     delete_task_google, update_task_google, get_existing_tasks_simple,
-    add_event_to_calendar, delete_event, optimize_event, COLOR_MAP
+    add_event_to_calendar, delete_event, optimize_event, update_event_calendar, COLOR_MAP
 )
 from modules.ai_core import (
     analyze_emails_ai, parse_events_ai, analyze_existing_events_ai,

@@ -466,6 +466,9 @@ def delete_event(service, event_id):
         service.events().delete(calendarId='primary', eventId=event_id).execute()
         return True
     except Exception as e:
+        # If it's a 404 Not Found, strictly speaking it's already deleted, so we return True.
+        if "404" in str(e) or "notFound" in str(e):
+             return True
         st.error(f"Error deleting event: {e}")
         return False
 
