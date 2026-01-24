@@ -51,7 +51,7 @@ COLOR RULES (Google Calendar IDs):
 CRITICAL RULES:
 1. **Lists of Dates**: If text lists dates + a general time, apply that time to all.
 2. **Contextual Time**: Use intro time for subsequent events if unspecified.
-3. **Smart Year**: Dates before today ({current_date}) should be next year ({current_year + 1}).
+3. **Smart Year**: Dates before today ({current_date}) should be next year ({current_year} + 1).
 4. **NO Timezones/UTC**: Return local time `YYYY-MM-DDTHH:MM:SS`.
 5. **LANGUAGE**: ALL OUTPUT MUST BE IN SPANISH.
 
