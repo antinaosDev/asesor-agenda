@@ -1073,9 +1073,220 @@ def main():
                 else:
                     st.error("Error enviando. Revisa consola.")
         
-        # Run the Real App
-        authenticated_main()
+
+# --- UI: MODERN LOGIN & LAYOUT SYSTEM ---
+
+def render_login_page():
+    # CSS overrides specifically for Login Page centering
+    st.markdown("""
+    <style>
+        [data-testid="stSidebar"] {display: none;}
+        .stApp {
+            background-color: #0e1117;
+            background-image: radial-gradient(circle at 20% -10%, rgba(6, 220, 249, 0.05) 0%, transparent 20%),
+                              radial-gradient(circle at 80% 110%, rgba(37, 99, 235, 0.05) 0%, transparent 20%);
+        }
+        .login-container {
+            max-width: 420px;
+            margin: 10vh auto;
+            padding: 2rem;
+            background-color: #1a1e24; /* Fallback for transparency */
+            background: linear-gradient(180deg, rgba(28,34,41,0.8) 0%, rgba(14,17,23,0.9) 100%);
+            border: 1px solid #262730;
+            border-radius: 16px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .logo-box {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            background: linear-gradient(180deg, #1c2229 0%, #0e1117 100%);
+            border: 1px solid #262730;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(6, 220, 249, 0.1);
+        }
+        .login-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        .login-subtitle {
+            color: #808495;
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        <div class="login-container">
+            <div class="logo-box">
+                <span style="font-size: 32px; color: #06dcf9;">🤖</span>
+            </div>
+            <div class="login-title">AI EXECUTIVE ASSISTANT</div>
+            <div class="login-subtitle">Welcome back. Please authenticate.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            user = st.text_input("Usuario", placeholder="usuario", label_visibility="collapsed")
+            password = st.text_input("Contraseña", type="password", placeholder="••••••••", label_visibility="collapsed")
+            submitted = st.form_submit_button("Iniciar Sesión", use_container_width=True)
+        
+        if submitted:
+            success, user_data = auth.login_user(user, password)
+            if success:
+                st.session_state.authenticated = True
+                st.session_state.user_data_full = user_data
+                st.session_state.license_key = user # Use username as key for now
+                st.success("Acceso concedido.")
+                time.sleep(0.5)
+                st.rerun()
+            else:
+                st.error("Credenciales inválidas.")
+
+        st.markdown("""
+        <div style="display: flex; align-items: center; gap: 1rem; margin: 1.5rem 0;">
+            <div style="flex: 1; height: 1px; background-color: #262730;"></div>
+            <span style="color: #6b7280; font-size: 0.75rem; font-weight: 500;">SECURE LOGIN</span>
+            <div style="flex: 1; height: 1px; background-color: #262730;"></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+def main_app_layout():
+    # --- Custom Fonts & Global Styles (Design #2 & #3) ---
+    st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Fonts */
+        h1, h2, h3, h4, .stMarkdown, .stButton, .stTextInput {
+            font-family: 'Space Grotesk', sans-serif !important;
+        }
+        
+        /* Global Background */
+        .stApp {
+            background-color: #102022; /* Deep Dark Teal */
+            color: #ffffff;
+        }
+        
+        /* Sidebar Styling */
+        [data-testid="stSidebar"] {
+            background-color: #102022;
+            border-right: 1px solid #283739;
+        }
+        
+        /* Modern Cards */
+        .glass-card {
+            background-color: #1b2627;
+            border: 1px solid #283739;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+        .glass-card:hover {
+            border-color: #3b5154;
+            transform: translateY(-2px);
+        }
+        
+        /* Metrics / Numbers */
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+        }
+        .metric-label {
+            font-size: 0.875rem;
+            color: #9db6b9;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* Primary Actions */
+        .stButton > button {
+            background-color: #0dd7f2 !important; /* Neon Cyan */
+            color: #111718 !important;
+            border: none;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+        .stButton > button:hover {
+            background-color: #3fe2f7 !important;
+            box-shadow: 0 0 15px rgba(13, 215, 242, 0.4);
+        }
+        
+        /* Secondary / Outline Buttons (if any) */
+        .secondary-btn {
+            background-color: transparent;
+            border: 1px solid #3b5154;
+            color: #9cb6ba;
+        }
+        
+        /* Tabs */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 2rem;
+            background-color: transparent;
+            border-bottom: 1px solid #3b5154;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 3rem;
+            color: #9cb6ba;
+            font-weight: 600;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: transparent;
+            color: #ffffff !important;
+            border-bottom: 2px solid #0dd7f2;
+        }
+        
+        /* Inputs */
+        .stTextInput > div > div > input, .stTextArea > div > div > textarea {
+            background-color: #18282a;
+            border: 1px solid #283739;
+            color: white;
+            border-radius: 8px;
+        }
+        .stTextInput > div > div > input:focus {
+            border-color: #0dd7f2;
+            box-shadow: 0 0 0 1px #0dd7f2;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    authenticated_main()
 
 if __name__ == "__main__":
-    main()
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+        
+        # Check Local License File
+        if os.path.exists(".license_key"):
+             # Simple auto-login logic or just mark as authenticated if file exists
+             # For improved security we might re-validate, but for MVP:
+             try:
+                 with open(".license_key", "r") as f:
+                     if "|" in f.read(): st.session_state.authenticated = True
+             except: pass
+
+    if not st.session_state.authenticated:
+        render_login_page()
+    else:
+        main_app_layout()
 
