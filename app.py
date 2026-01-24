@@ -257,29 +257,64 @@ def view_dashboard():
             ).execute().get('items', [])
     except: pass
 
-    total_events = len(events)
-    # Calculate hours
+    today_events = []
+    
+    # Calculate hours and Filter Today
     hours = 0
-    for e in events:
-        try:
+    try:
+        # We need to filter events strictly for TODAY to make the "Agenda de Hoy" metric accurate
+        # The list call above gets 00:00 to 23:59 so it should be correct for today's events.
+        for e in events:
+            # Check for All Day Events (date only) vs Timed Events (dateTime)
             start = e['start'].get('dateTime')
             end = e['end'].get('dateTime')
-            if start and end:
-                # Fix for huge hours: use timezone-aware comparison if possible or strip appropriately
-                s_dt = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
-                e_dt = datetime.datetime.fromisoformat(end.replace('Z', '+00:00'))
-                
-                # Check for full day events (YYYY-MM-DD only) which defaulting to midnight might cause issues if not careful with TZ, 
-                # but fromisoformat usually handles YYYY-MM-DD as naive midnight. 
-                # Ideally, if it's date only, use 24h. 
-                
-                hours += (e_dt - s_dt).total_seconds() / 3600
+            
+            if start and end: 
+                # Timed Event
+                try:
+                    s_dt = datetime.datetime.fromisoformat(start)
+                    e_dt = datetime.datetime.fromisoformat(end)
+                    duration = (e_dt - s_dt).total_seconds() / 3600
+                    hours += duration
+                except: pass
+            elif e['start'].get('date'):
+                # All Day Event - Usually doesn't count towards "Meeting Hours" load in the same way, or count as 8h?
+                # Let's count as 0 for "Meeting Hours" but keep in "Total Events" to avoid skewing "3000h" errors
+                pass
+            
+            today_events.append(e) # Since query was time-boxed to today, all are today
+    except Exception as e:
+        print(f"Error calc: {e}")
+
+    total_events = len(today_events)
+
+    # --- REAL METRICS: TASKS & EMAILS ---
+    pending_tasks_count = 0
+    tasks_svc = get_tasks_service()
+    if tasks_svc:
+        try:
+            tasks_list = get_existing_tasks_simple(tasks_svc)
+            pending_tasks_count = len(tasks_list)
+        except: pass
+
+    # Fetch Unread Emails Count (Approx)
+    unread_emails_count = 0
+    creds = get_gmail_credentials()
+    if creds:
+        try:
+            from googleapiclient.discovery import build
+            svc_gmail = build('gmail', 'v1', credentials=creds)
+            # Just get profile or messages label count for lighter query
+            results = svc_gmail.users().messages().list(userId='me', q="is:unread -category:promotions -category:social", maxResults=50).execute()
+            if 'messages' in results:
+                unread_emails_count = len(results['messages']) # Capped at 50 for speed
+                if unread_emails_count == 50: unread_emails_count = "50+"
         except: pass
 
     with c1: card_metric("Total Eventos", str(total_events), "event", "Agenda de Hoy")
     with c2: card_metric("Horas Reunión", f"{hours:.1f}h", "schedule", "Carga Total")
-    with c3: card_metric("Tareas Pendientes", "5", "check_circle", "Alta Prioridad") # Placeholder
-    with c4: card_metric("Bandeja Entrada", "12", "mail", "No Leídos Importantes") # Placeholder
+    with c3: card_metric("Tareas Pendientes", str(pending_tasks_count), "check_circle", "Google Tasks")
+    with c4: card_metric("Bandeja Entrada", str(unread_emails_count), "mail", "No Leídos (Prioritarios)")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -292,7 +327,7 @@ def view_dashboard():
         # Completely flattened HTML string to prevent indentation issues
         advice_text = 'Tu tarde parece libre para trabajo profundo.' if hours < 4 else 'Es un día pesado de reuniones, planifica descansos.'
         
-        st.markdown(f"""<div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;"><div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(13,215,242,0.1); border-radius: 50%; filter: blur(60px);"></div><div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;"><div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13,215,242,0.2); display: flex; align-items: center; justify-content: center;"><span class="material-symbols-outlined" style="color: #0dd7f2;">auto_awesome</span></div><h3 style="margin: 0; font-size: 1.25rem;">Informe Diario</h3></div><div style="background: rgba(17,23,24,0.5); padding: 1.25rem; border-left: 4px solid #0dd7f2; border-radius: 8px; margin-bottom: 1.5rem;"><p style="font-size: 1.1rem; line-height: 1.6; color: #e2e8f0;">Tienes <strong style="color: white;">{total_events} eventos</strong> agendados hoy, totalizando <strong style="color: #0dd7f2;">{hours:.1f} horas</strong> de reuniones. {advice_text}</p></div><div style="display: flex; flex-direction: column; gap: 0.8rem;"><div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;"><span class="material-symbols-outlined" style="color: #eab308; font-size: 1.2rem;">warning</span><span>Prioridad: Revisar <strong>Reportes Q3</strong> antes de las 14:00.</span></div> <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;"><span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 1.2rem;">mail</span><span>Remitente Top: <strong>Director General</strong> (Urgente)</span></div></div><br></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;"><div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(13,215,242,0.1); border-radius: 50%; filter: blur(60px);"></div><div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;"><div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13,215,242,0.2); display: flex; align-items: center; justify-content: center;"><span class="material-symbols-outlined" style="color: #0dd7f2;">auto_awesome</span></div><h3 style="margin: 0; font-size: 1.25rem;">Informe Diario</h3></div><div style="background: rgba(17,23,24,0.5); padding: 1.25rem; border-left: 4px solid #0dd7f2; border-radius: 8px; margin-bottom: 1.5rem;"><p style="font-size: 1.1rem; line-height: 1.6; color: #e2e8f0;">Tienes <strong style="color: white;">{total_events} eventos</strong> agendados hoy, totalizando <strong style="color: #0dd7f2;">{hours:.1f} horas</strong> de reuniones. {advice_text}</p></div><div style="display: flex; flex-direction: column; gap: 0.8rem;"><div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;"><span class="material-symbols-outlined" style="color: #eab308; font-size: 1.2rem;">warning</span><span>Revisar <strong>Google Tasks</strong> para pendientes urgentes.</span></div> <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;"><span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 1.2rem;">mail</span><span>Revisar bandeja para nuevos <strong>correos prioritarios</strong>.</span></div></div><br></div>""", unsafe_allow_html=True)
 
     with col_timeline:
         st.markdown("### 🗓️ Línea de Tiempo")
