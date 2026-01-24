@@ -29,7 +29,7 @@ load_dotenv()
 
 # --- Page Config ---
 st.set_page_config(
-    page_title="Executive AI Dashboard",
+    page_title="Panel Ejecutivo AI",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -205,15 +205,15 @@ def render_login_page():
         st.markdown("""
         <div class="login-box">
             <span class="material-symbols-outlined" style="font-size: 64px; color: #0dd7f2; margin-bottom: 1rem;">smart_toy</span>
-            <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Executive AI</h1>
-            <p style="color: #9cb6ba; margin-bottom: 2rem;">Secure Access Portal</p>
+            <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Asistente Ejecutivo AI</h1>
+            <p style="color: #9cb6ba; margin-bottom: 2rem;">Acceso Seguro</p>
         </div>
         """, unsafe_allow_html=True)
         
         with st.form("login"):
-            u = st.text_input("Username", placeholder="admin")
-            p = st.text_input("Password", type="password", placeholder="••••••")
-            if st.form_submit_button("Authenticate", type="primary", use_container_width=True):
+            u = st.text_input("Usuario", placeholder="admin")
+            p = st.text_input("Contraseña", type="password", placeholder="••••••")
+            if st.form_submit_button("Autenticar", type="primary", use_container_width=True):
                 valid, data = auth.login_user(u, p)
                 if valid:
                     st.session_state.authenticated = True
@@ -221,17 +221,17 @@ def render_login_page():
                     st.session_state.license_key = u
                     st.rerun()
                 else:
-                    st.error("Access Denied")
+                    st.error("Acceso Denegado")
 
 # --- MAIN VIEWS ---
 
 def view_dashboard():
-    render_header("Executive Dashboard", "Morning Briefing & Daily Status")
+    render_header("Panel Ejecutivo", "Resumen Matutino y Estado Diario")
     
     # Context Loading
     calendar_id = st.session_state.get('connected_email', '')
     if not calendar_id:
-        st.info("⚠️ Please connect your Google Calendar in settings to see your dashboard.")
+        st.info("⚠️ Por favor conecta tu Google Calendar en configuración para ver tu panel.")
         return
 
     # --- Top Row: Stats ---
@@ -263,10 +263,10 @@ def view_dashboard():
                 hours += (e_dt - s_dt).total_seconds() / 3600
         except: pass
 
-    with c1: card_metric("Total Events", str(total_events), "event", "Today's Schedule")
-    with c2: card_metric("Meeting Hours", f"{hours:.1f}h", "schedule", "Total Load")
-    with c3: card_metric("Tasks Pending", "5", "check_circle", "High Priority") # Placeholder
-    with c4: card_metric("Inbox", "12", "mail", "Unread High Priority") # Placeholder
+    with c1: card_metric("Total Eventos", str(total_events), "event", "Agenda de Hoy")
+    with c2: card_metric("Horas Reunión", f"{hours:.1f}h", "schedule", "Carga Total")
+    with c3: card_metric("Tareas Pendientes", "5", "check_circle", "Alta Prioridad") # Placeholder
+    with c4: card_metric("Bandeja Entrada", "12", "mail", "No Leídos Importantes") # Placeholder
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -282,24 +282,24 @@ def view_dashboard():
                  <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13,215,242,0.2); display: flex; align-items: center; justify-content: center;">
                     <span class="material-symbols-outlined" style="color: #0dd7f2;">auto_awesome</span>
                  </div>
-                 <h3 style="margin: 0; font-size: 1.25rem;">Daily Briefing</h3>
+                 <h3 style="margin: 0; font-size: 1.25rem;">Informe Diario</h3>
             </div>
             
             <div style="background: rgba(17,23,24,0.5); padding: 1.25rem; border-left: 4px solid #0dd7f2; border-radius: 8px; margin-bottom: 1.5rem;">
                 <p style="font-size: 1.1rem; line-height: 1.6; color: #e2e8f0;">
-                    You have <strong style="color: white;">{total_events} events</strong> scheduled today, totaling <strong style="color: #0dd7f2;">{hours:.1f} hours</strong> of meetings. 
-                    {'Your afternoon looks open for deep work.' if hours < 4 else 'It is a heavy meeting day, plan breaks accordingly.'}
+                    Tienes <strong style="color: white;">{total_events} eventos</strong> agendados hoy, totalizando <strong style="color: #0dd7f2;">{hours:.1f} horas</strong> de reuniones. 
+                    {'Tu tarde parece libre para trabajo profundo.' if hours < 4 else 'Es un día pesado de reuniones, planifica descansos.'}
                 </p>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 0.8rem;">
                 <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;">
                     <span class="material-symbols-outlined" style="color: #eab308; font-size: 1.2rem;">warning</span>
-                    <span>Priority: Review <strong>Q3 Financials</strong> before 2 PM.</span>
+                    <span>Prioridad: Revisar <strong>Reportes Q3</strong> antes de las 14:00.</span>
                 </div>
                  <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: #9cb6ba;">
                     <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 1.2rem;">mail</span>
-                    <span>Top Sender: <strong>Sarah Chen</strong> (Urgent)</span>
+                    <span>Remitente Top: <strong>Director General</strong> (Urgente)</span>
                 </div>
             </div>
             <br>
@@ -307,7 +307,7 @@ def view_dashboard():
         """, unsafe_allow_html=True)
 
     with col_timeline:
-        st.markdown("### 🗓️ Today's Timeline")
+        st.markdown("### 🗓️ Línea de Tiempo")
         # Visual Timeline using Plotly (Gantt style)
         if events:
             # Prepare DF
@@ -316,7 +316,7 @@ def view_dashboard():
                 start = e['start'].get('dateTime')
                 end = e['end'].get('dateTime')
                 if start and end:
-                    data.append(dict(Task=e.get('summary', 'Busy'), Start=start, Finish=end, Color=e.get('colorId', '1')))
+                    data.append(dict(Task=e.get('summary', 'Ocupado'), Start=start, Finish=end, Color=e.get('colorId', '1')))
             
             if data:
                 df = pd.DataFrame(data)
@@ -331,53 +331,53 @@ def view_dashboard():
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No timed events today.")
+                st.info("No hay eventos agendados para hoy.")
         else:
-             st.info("No events found.")
+             st.info("No se encontraron eventos.")
 
 def view_create():
-    render_header("Command Center", "AI Event Creation & Parsing")
+    render_header("Centro de Comandos", "Creación de Eventos con IA")
     
     col_input, col_viz = st.columns([1, 1])
 
     with col_input:
-        st.markdown("### 🗣️ Natural Language Input")
+        st.markdown("### 🗣️ Entrada de Lenguaje Natural")
         with st.form("create_event"):
-            prompt = st.text_area("What would you like to schedule?", height=200, 
-                                placeholder="Example: Draft a meeting with Sarah for next Tuesday at 2 PM regarding the Q3 Budget...")
+            prompt = st.text_area("¿Qué deseas agendar?", height=200, 
+                                placeholder="Ejemplo: Reunión con Sara el próximo martes a las 14:00 sobre el presupuesto Q3...")
             
             c_btn1, c_btn2 = st.columns([1, 4])
             with c_btn1:
-                submitted = st.form_submit_button("Process", type="primary", use_container_width=True)
+                submitted = st.form_submit_button("Procesar", type="primary", use_container_width=True)
         
         if submitted and prompt:
-            with st.spinner("🧠 Pattern matching & extracting..."):
+            with st.spinner("🧠 Analizando patrones y extrayendo datos..."):
                 events = parse_events_ai(prompt)
                 st.session_state.draft_events = events
 
     with col_viz:
-        st.markdown("### 🧠 Semantic Processor")
+        st.markdown("### 🧠 Procesador Semántico")
         # Visual decoration
         st.markdown(f"""
         <div class="glass-panel" style="height: 250px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
             <div style="position: absolute; width: 100%; height: 100%; background-image: radial-gradient(rgba(13, 215, 242, 0.1) 1px, transparent 1px); background-size: 20px 20px; opacity: 0.3;"></div>
             <div style="text-align: center;">
                 <span class="material-symbols-outlined" style="font-size: 64px; color: #0dd7f2; opacity: 0.8; animation: pulse 2s infinite;">memory</span>
-                <p style="color: #9cb6ba; margin-top: 1rem; font-family: monospace;">AWAITING INPUT STREAM</p>
+                <p style="color: #9cb6ba; margin-top: 1rem; font-family: monospace;">ESPERANDO NUEVA ENTRADA</p>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
     if 'draft_events' in st.session_state and st.session_state.draft_events:
         st.divider()
-        st.markdown("### 📝 Proposed Events")
+        st.markdown("### 📝 Eventos Propuestos")
         
         for i, ev in enumerate(st.session_state.draft_events):
             # Styling specific to the event card in user's example
             bg_accent = "#18282a"
-            summary = ev.get('summary', 'Untitled')
+            summary = ev.get('summary', 'Sin Título')
             time_str = f"{ev.get('start_time')} -> {ev.get('end_time')}"
-            desc = ev.get('description', 'No details.')
+            desc = ev.get('description', 'Sin detalles.')
             
             st.markdown(f"""
             <div class="glass-panel" style="border-left: 4px solid #0dd7f2;">
@@ -394,18 +394,18 @@ def view_create():
             </div>
             """, unsafe_allow_html=True)
             
-            if st.button(f"Confirm & Schedule '{summary}'", key=f"btn_add_{i}"):
+            if st.button(f"Confirmar y Agendar '{summary}'", key=f"btn_add_{i}"):
                 cal_id = st.session_state.get('connected_email')
-                if not cal_id: st.error("Please connect email first.")
+                if not cal_id: st.error("Por favor conecta tu email primero.")
                 else:
                     svc = get_calendar_service()
                     ok, msg = add_event_to_calendar(svc, ev, cal_id)
-                    if ok: st.success("Event Created!")
+                    if ok: st.success("¡Evento Creado!")
                     else: st.error(msg)
 
 
 def view_planner():
-    render_header("Smart Planner", "Weekly Task Orchestration")
+    render_header("Planificador Inteligente", "Orquestación Semanal de Tareas")
     
     calendar_context_str = ""
     # Simplified Logic from original app.py
@@ -413,23 +413,31 @@ def view_planner():
     
     c1, c2 = st.columns([1, 2])
     with c1:
-        st.markdown("### 📥 Input Tasks")
-        tasks_text = st.text_area("Goals for the week", height=150, placeholder="- Do X\n- Finish Y")
-        if st.button("Generate Plan", type="primary"):
-             with st.spinner("Optimizing schedule..."):
+        st.markdown("### 📥 Tareas de Entrada")
+        tasks_text = st.text_area("Metas para la semana", height=150, placeholder="- Hacer X\n- Terminar Y")
+        if st.button("Generar Plan", type="primary"):
+             with st.spinner("Optimizando agenda..."):
                  plan = generate_work_plan_ai(tasks_text, "")
                  st.session_state.weekly_plan = plan
 
     with c2:
-        st.markdown("### 🗓️ Kanban View")
+        st.markdown("### 🗓️ Vista Kanban")
         if 'weekly_plan' in st.session_state:
             cols = st.columns(5)
-            days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+            # Translate keys if they come back in English or enforce Spanish prompts later
+            days_map = {
+                "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles", "Thursday": "Jueves", "Friday": "Viernes"
+            }
+            # Fallback days list if keys are missing
+            days_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
             
-            for i, day in enumerate(days):
+            for i, day_en in enumerate(days_en):
+                day_es = days_map[day_en]
                 with cols[i]:
-                    st.markdown(f"**{day}**")
-                    tasks = st.session_state.weekly_plan.get(day, [])
+                    st.markdown(f"**{day_es}**")
+                    # Try fetch by English or Spanish Key
+                    tasks = st.session_state.weekly_plan.get(day_en, st.session_state.weekly_plan.get(day_es, []))
+                    
                     for t in tasks:
                         st.markdown(f"""
                         <div style="background: #18282a; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px; font-size: 0.85rem;">
@@ -437,22 +445,22 @@ def view_planner():
                         </div>
                         """, unsafe_allow_html=True)
         else:
-            st.info("No active plan. Input tasks to generate.")
+            st.info("Sin plan activo. Ingresa tareas para generar.")
 
 
 def view_inbox():
-    render_header("Inbox Intelligence", "AI Email Filtering")
+    render_header("Inteligencia de Bandeja", "Filtrado de Correo con IA")
     # Porting functionality...
-    if st.button("🔄 Connect & Scan Inbox"):
+    if st.button("🔄 Conectar y Escanear Inbox"):
         creds = get_gmail_credentials()
         if creds:
              # Logic to fetch
              pass
-    st.info("Module Under Construction in new UI.")
+    st.info("Módulo en Construcción en la nueva UI.")
 
 def view_optimize():
-    render_header("Agenda Optimizer", "Time Audit")
-    st.info("Module Under Construction in new UI.")
+    render_header("Optimizador de Agenda", "Auditoría de Tiempo")
+    st.info("Módulo en Construcción en la nueva UI.")
 
 # --- NAVIGATION CONTROLLER ---
 
@@ -464,26 +472,35 @@ def main_app():
             <div style="width: 60px; height: 60px; background: rgba(13,215,242,0.1); border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center;">
                  <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 32px;">smart_toy</span>
             </div>
-            <h3 style="margin: 0; font-size: 1.2rem;">AI Exec</h3>
+            <h3 style="margin: 0; font-size: 1.2rem;">Asistente Ejec.</h3>
             <p style="font-size: 0.8rem; color: #9cb6ba;">Premium</p>
         </div>
         """, unsafe_allow_html=True)
         
         # Navigation Buttons (using radio for state)
-        page = st.radio("Navigation", ["Dashboard", "Create", "Planner", "Inbox", "Optimize"], label_visibility="collapsed")
+        # Using icons in radio labels not supported natively well without hacking CSS, keeping text simple
+        nav_options = {
+            "Dashboard": "Panel Principal",
+            "Create": "Crear Evento",
+            "Planner": "Planificador",
+            "Inbox": "Bandeja IA",
+            "Optimize": "Optimizar"
+        }
+        
+        selection = st.radio("Navegación", list(nav_options.keys()), format_func=lambda x: nav_options[x], label_visibility="collapsed")
         
         st.divider()
-        st.caption("Settings")
-        st.text_input("Calendar ID", value=st.session_state.get('connected_email', ''), key='connected_email_input')
+        st.caption("Configuración")
+        st.text_input("ID Calendario", value=st.session_state.get('connected_email', ''), key='connected_email_input')
         if st.session_state.connected_email_input != st.session_state.get('connected_email', ''):
              st.session_state.connected_email = st.session_state.connected_email_input
 
     # Main Router
-    if page == "Dashboard": view_dashboard()
-    elif page == "Create": view_create()
-    elif page == "Planner": view_planner()
-    elif page == "Inbox": view_inbox()
-    elif page == "Optimize": view_optimize()
+    if selection == "Dashboard": view_dashboard()
+    elif selection == "Create": view_create()
+    elif selection == "Planner": view_planner()
+    elif selection == "Inbox": view_inbox()
+    elif selection == "Optimize": view_optimize()
 
 # --- ENTRY POINT ---
 

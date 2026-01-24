@@ -23,9 +23,10 @@ Current Date: {current_date}
 
 Output: JSON List of events (same format: summary, description, start_time, end_time, colorId).
 Rules:
-- Use 'summary' for the event Title.
-- Copy details to 'description'.
+- Use 'summary' for the event Title IN SPANISH.
+- Copy details to 'description' IN SPANISH.
 - Infer dates/times strictly. If unsure, do not create event.
+- LANGUAGE: SPANISH.
 """
 
 PROMPT_EVENT_PARSING = """
@@ -52,10 +53,11 @@ CRITICAL RULES:
 2. **Contextual Time**: Use intro time for subsequent events if unspecified.
 3. **Smart Year**: Dates before today ({current_date}) should be next year ({current_year + 1}).
 4. **NO Timezones/UTC**: Return local time `YYYY-MM-DDTHH:MM:SS`.
+5. **LANGUAGE**: ALL OUTPUT MUST BE IN SPANISH.
 
 JSON Structure:
-- "summary": Professional, Executive Title (lowecase e.g., "Reunión de Comité: Asignación Postítulos").
-- "description": Comprehensive, FORMAL/EXECUTIVE description. Use professional phrasing. MUST include ALL technical details.
+- "summary": Professional, Executive Title IN SPANISH.
+- "description": Comprehensive, FORMAL/EXECUTIVE description IN SPANISH. Use professional phrasing. MUST include ALL technical details.
 - "start_time": ISO 8601 (No Z).
 - "end_time": ISO 8601 (No Z).
 - "colorId": String ID.
@@ -80,11 +82,13 @@ RULES:
 5. **Output**: JSON Object where keys are "Monday", "Tuesday", "Wednesday", "Thursday", "Friday".
    Value is a LIST of strings (the tasks AND events).
 6. **STRICTLY JSON**: Do NOT output introductory text.
+7. **LANGUAGE**: ALL TASKS AND KEYS MUST BE IN SPANISH.
+   Use keys: "Lunes", "Martes", "Miércoles", "Jueves", "Viernes".
 
 Output JSON Format:
 {{
-    "Monday": ["[Event] Team Meeting", "Task 1"],
-    "Tuesday": ["Task 2"],
+    "Lunes": ["[Evento] Reunión Equipo", "Tarea 1"],
+    "Martes": ["Tarea 2"],
     ...
 }}
 """
@@ -190,10 +194,11 @@ def analyze_existing_events_ai(events_list):
     {
         "optimization_plan": {
             "event_id_1": {"new_summary": "...", "colorId": "..."},
-             ...
+            ...
         },
         "advisor_note": "..."
     }
+    LANGUAGE: SPANISH.
     """
     
     try:
