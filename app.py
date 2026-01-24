@@ -616,16 +616,28 @@ def view_planner():
         st.markdown("#### ✅ Tareas de Google Tasks")
         if tasks_svc:
             # Reusing the simple getter, technically fetches all active tasks. Filtering by date is done client side if 'due' exists
+            # We add a spinner to indicate loading
+            # with st.spinner("Cargando tareas..."):
             all_tasks = get_existing_tasks_simple(tasks_svc)
             
-            # Allow creating new task here too
-            new_t = st.text_input("➕ Nueva Tarea", placeholder="Escribir y Enter", key="quick_task_man")
-            if new_t:
-                 add_task_to_google(tasks_svc, "@default", new_t)
-                 st.rerun()
+            # Allow creating new task here
+            # Fix: Use a form or callback to avoid infinite loop on rerun
+            with st.form("quick_task_form", clear_on_submit=True):
+                c_form1, c_form2 = st.columns([4, 1])
+                with c_form1:
+                    new_t = st.text_input("➕ Nueva Tarea", placeholder="Escribir...", label_visibility="collapsed")
+                with c_form2:
+                    submitted = st.form_submit_button("Agregar")
+                
+                if submitted and new_t:
+                     res = add_task_to_google(tasks_svc, "@default", new_t)
+                     if res: 
+                         st.success("Tarea añadida")
+                         time.sleep(1) # Give API a moment
+                         st.rerun()
 
             if not all_tasks:
-                st.caption("No hay tareas pendientes.")
+                st.caption("No hay tareas pendientes (o no se pudieron cargar).")
             else:
                 for t in all_tasks:
                      # Filter visually if due date is in range? Or just show all? User asked for control, showing all is safer

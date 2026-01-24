@@ -423,7 +423,7 @@ def get_existing_tasks_simple(service):
                 })
         return all_tasks
     except Exception as e:
-        # st.warning(f"Could not fetch tasks: {e}") # Suppress to avoid UI clutter
+        st.error(f"Error fetching tasks: {e}")
         return []
 
 def add_event_to_calendar(service, event_data, calendar_id='primary'):
