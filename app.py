@@ -616,9 +616,21 @@ def view_planner():
                 t_min = datetime.datetime.combine(m_start_date, datetime.time.min).isoformat() + 'Z'
                 t_max = datetime.datetime.combine(m_end_date, datetime.time.max).isoformat() + 'Z'
                 
-                events_res = cal_svc.events().list(
-                    calendarId=cal_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
-                ).execute()
+                # Retry logic for Broken Pipe / Connection Issues
+                retries = 3
+                for i in range(retries):
+                    try:
+                        events_res = cal_svc.events().list(
+                            calendarId=cal_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
+                        ).execute()
+                        break # Success
+                    except Exception as e:
+                        if i < retries - 1 and ("broken pipe" in str(e).lower() or "connection" in str(e).lower()):
+                            time.sleep(1)
+                            continue
+                        else:
+                            raise e # Re-raise if retries exhausted
+                
                 events_list = events_res.get('items', [])
                 
                 if not events_list:
