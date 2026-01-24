@@ -426,23 +426,39 @@ def get_existing_tasks_simple(service):
         # st.warning(f"Could not fetch tasks: {e}") # Suppress to avoid UI clutter
         return []
 
-def add_event_to_calendar(service, summary, start_time, end_time, description=None, color_id=None):
-    """Adds an event to Google Calendar."""
+def add_event_to_calendar(service, event_data, calendar_id='primary'):
+    """Adds an event to Google Calendar. Expects event_data dict."""
     try:
-        event = {
+        summary = event_data.get('summary', 'Sin Título')
+        start_time = event_data.get('start_time')
+        end_time = event_data.get('end_time')
+        description = event_data.get('description', '')
+        color_id = event_data.get('colorId')
+
+        if not start_time or not end_time:
+            return False, "Faltan fechas de inicio o fin."
+
+        # Ensure strings
+        if not isinstance(start_time, str): start_time = start_time.isoformat()
+        if not isinstance(end_time, str): end_time = end_time.isoformat()
+
+        event_body = {
             'summary': summary,
-            'start': {'dateTime': start_time.isoformat(), 'timeZone': 'UTC'}, # Adjust TZ as needed
-            'end': {'dateTime': end_time.isoformat(), 'timeZone': 'UTC'},
+            'start': {'dateTime': start_time, 'timeZone': 'UTC'}, 
+            'end': {'dateTime': end_time, 'timeZone': 'UTC'},
             'description': description
         }
+        
+        # Simple heuristic: If string doesn't have Z or offset, assume it needs a specific TZ
+        # For now we stick to UTC to match previous behavior or simple pass-through
+        
         if color_id:
-            event['colorId'] = color_id
+            event_body['colorId'] = color_id
             
-        event = service.events().insert(calendarId='primary', body=event).execute()
-        return event
+        created_event = service.events().insert(calendarId=calendar_id, body=event_body).execute()
+        return True, "Evento creado exitosamente"
     except Exception as e:
-        st.error(f"Error adding event: {e}")
-        return None
+        return False, str(e)
 
 def delete_event(service, event_id):
     """Deletes an event from the primary calendar."""
