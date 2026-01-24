@@ -517,9 +517,76 @@ def view_planner():
                      st.session_state.project_plan = breakdown
                      st.session_state.plan_type = 'project'
         
-        if 'project_plan' in st.session_state and st.session_state.plan_type == 'project':
-             st.write(st.session_state.project_plan)
-             # Basic display implementation
+        if 'project_plan' in st.session_state and st.session_state.get('plan_type') == 'project':
+             st.markdown("##### 📋 Roadmap Sugerido")
+             
+             # Parse and display items individually
+             plan_data = st.session_state.project_plan
+             
+             # Handle list of dicts or raw list
+             if isinstance(plan_data, list):
+                 tasks_to_add = []
+                 for i, item in enumerate(plan_data):
+                     # Heuristic to handle string or dict items
+                     if isinstance(item, dict):
+                         title = item.get('title', 'Tarea')
+                         date = item.get('date', '')
+                         notes = item.get('notes', '')
+                         label = f"**{title}** ({date}) - {notes}"
+                     else:
+                         label = str(item)
+                         title = str(item)
+                         notes = ""
+                     
+                     if st.checkbox(label, key=f"pj_task_{i}", value=True):
+                         tasks_to_add.append({"title": title, "notes": notes})
+                 
+                 if st.button("🚀 Añadir Tareas Seleccionadas a Google Tasks", type="primary"):
+                     tasks_svc = get_tasks_service()
+                     if tasks_svc:
+                         bar = st.progress(0)
+                         for idx, t in enumerate(tasks_to_add):
+                             add_task_to_google(tasks_svc, "@default", t['title'], t['notes'])
+                             bar.progress((idx+1)/len(tasks_to_add))
+                         st.success(f"¡{len(tasks_to_add)} tareas añadidas!")
+                     else:
+                         st.error("No se pudo conectar con Google Tasks.")
+             else:
+                 st.write(plan_data)
+
+    # --- SHARED: TASK MANAGER UI ---
+    st.divider()
+    st.subheader("📝 Gestión Manual de Tareas (Google Tasks)")
+    
+    tasks_svc = get_tasks_service()
+    if tasks_svc:
+        # Simple CRUD
+        col_crud1, col_crud2 = st.columns([2, 1])
+        with col_crud1:
+            new_task_title = st.text_input("Nueva Tarea Rápida", placeholder="Escribe y presiona Enter")
+            if new_task_title:
+                res = add_task_to_google(tasks_svc, "@default", new_task_title)
+                if res: st.toast("Tarea añadida")
+                # Trigger a rerun or just let the list refresh naturally on next action? 
+                # Better to clear input via session state trick or rerun
+                
+        with col_crud2:
+            if st.button("🔄 Refrescar Lista"):
+                pass # Just reruns
+        
+        # List Display
+        existing_tasks = get_existing_tasks_simple(tasks_svc)
+        if existing_tasks:
+            for t in existing_tasks:
+                c1, c2, c3 = st.columns([0.1, 0.8, 0.1])
+                with c2:
+                    st.write(f"• {t['title']}")
+                with c3:
+                    if st.button("🗑️", key=f"del_{t['id']}"):
+                        delete_task_google(tasks_svc, t['list_id'], t['id'])
+                        st.rerun()
+        else:
+            st.caption("No hay tareas pendientes en la lista por defecto.")
 
 
 def view_inbox():
