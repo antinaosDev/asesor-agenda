@@ -554,57 +554,101 @@ def view_planner():
              else:
                  st.write(plan_data)
 
-    # --- SHARED: TASK MANAGER UI ---
+    # --- UNIFIED MANAGER UI (TASKS + CALENDAR) ---
     st.divider()
-    st.subheader("📝 Gestión Manual de Tareas (Google Tasks)")
+    st.subheader("🎛️ Gestor de Agenda (Eventos y Tareas)")
     
-    tasks_svc = get_tasks_service()
-    if tasks_svc:
-        # Simple CRUD
-        col_crud1, col_crud2 = st.columns([2, 1])
-        with col_crud1:
-            new_task_title = st.text_input("Nueva Tarea Rápida", placeholder="Escribe y presiona Enter")
-            if new_task_title:
-                res = add_task_to_google(tasks_svc, "@default", new_task_title)
-                if res: st.toast("Tarea añadida")
-                # Trigger a rerun or just let the list refresh naturally on next action? 
-                # Better to clear input via session state trick or rerun
-                
-        with col_crud2:
-            if st.button("🔄 Refrescar Lista"):
-                pass # Just reruns
+    # 1. Controls
+    col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([1.5, 1.5, 1])
+    with col_ctrl1:
+        m_start_date = st.date_input("Desde", datetime.date.today(), key="man_start")
+    with col_ctrl2:
+        m_end_date = st.date_input("Hasta", datetime.date.today() + datetime.timedelta(days=7), key="man_end")
+    with col_ctrl3:
+        st.write("") # Spacer
+        if st.button("🔎 Buscar Eventos"):
+            st.session_state.trigger_manager_search = True
+
+    # 2. Logic
+    if st.session_state.get('trigger_manager_search'):
+        cal_svc = get_calendar_service()
+        tasks_svc = get_tasks_service()
+        cal_id = st.session_state.get('connected_email', 'primary')
         
-        # List Display
-        existing_tasks = get_existing_tasks_simple(tasks_svc)
-        if existing_tasks:
-            for t in existing_tasks:
-                c1, c2, c3 = st.columns([0.1, 0.8, 0.1])
-                with c2:
-                    # Edit Mode Toggle
-                    with st.expander(f"• {t['title']}"):
-                        edit_title = st.text_input("Título", t['title'], key=f"title_{t['id']}")
-                        edit_notes = st.text_area("Notas", t.get('notes', ''), key=f"notes_{t['id']}")
-                        
-                        # Date parsing for default value
-                        default_date = datetime.date.today()
-                        if t.get('due'):
-                            try:
-                                default_date = datetime.datetime.fromisoformat(t['due'].replace('Z', '')).date()
-                            except: pass
-                            
-                        edit_due = st.date_input("Fecha Límite", default_date, key=f"due_{t['id']}")
-                        
-                        if st.button("💾 Actualizar Tarea", key=f"save_{t['id']}"):
-                            res = update_task_google(tasks_svc, t['list_id'], t['id'], title=edit_title, notes=edit_notes, due=edit_due)
-                            if res: 
-                                st.success("Actualizado")
-                                st.rerun()
-                with c3:
-                    if st.button("🗑️", key=f"del_{t['id']}"):
-                        delete_task_google(tasks_svc, t['list_id'], t['id'])
-                        st.rerun()
-        else:
-            st.caption("No hay tareas pendientes en la lista por defecto.")
+        st.markdown("#### 📅 Eventos de Calendario")
+        if cal_svc:
+            try:
+                t_min = datetime.datetime.combine(m_start_date, datetime.time.min).isoformat() + 'Z'
+                t_max = datetime.datetime.combine(m_end_date, datetime.time.max).isoformat() + 'Z'
+                
+                events_res = cal_svc.events().list(
+                    calendarId=cal_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
+                ).execute()
+                events_list = events_res.get('items', [])
+                
+                if not events_list:
+                    st.caption("No se encontraron eventos en este rango.")
+                else:
+                    for ev in events_list:
+                        with st.expander(f"🗓️ {ev.get('summary', '(Sin Título)')} | {ev['start'].get('dateTime', ev['start'].get('date'))[:16]}"):
+                             # Edit Form
+                             u_summ = st.text_input("Título", ev.get('summary', ''), key=f"ev_ti_{ev['id']}")
+                             u_desc = st.text_area("Descripción", ev.get('description', ''), key=f"ev_de_{ev['id']}")
+                             
+                             # Simple Date Edit (Keeping it simple for now, separating Date and Time could be better but complex UI)
+                             # Just offering Delete and Text updates for v1 safety, or basic delete
+                             c_u1, c_u2 = st.columns(2)
+                             with c_u1:
+                                 if st.button("💾 Guardar Cambios", key=f"btn_sav_ev_{ev['id']}"):
+                                     ok, msg = update_event_calendar(cal_svc, cal_id, ev['id'], summary=u_summ, description=u_desc)
+                                     if ok: st.success("Guardado!"); st.session_state.trigger_manager_search = True; st.rerun()
+                                     else: st.error(msg)
+                             with c_u2:
+                                 if st.button("🗑️ Eliminar Evento", key=f"btn_del_ev_{ev['id']}"):
+                                     if delete_event(cal_svc, ev['id']):
+                                         st.success("Eliminado")
+                                         st.session_state.trigger_manager_search = True
+                                         st.rerun()
+            except Exception as e:
+                st.error(f"Error leyendo calendario: {e}")
+
+        st.divider()
+        st.markdown("#### ✅ Tareas de Google Tasks")
+        if tasks_svc:
+            # Reusing the simple getter, technically fetches all active tasks. Filtering by date is done client side if 'due' exists
+            all_tasks = get_existing_tasks_simple(tasks_svc)
+            
+            # Allow creating new task here too
+            new_t = st.text_input("➕ Nueva Tarea", placeholder="Escribir y Enter", key="quick_task_man")
+            if new_t:
+                 add_task_to_google(tasks_svc, "@default", new_t)
+                 st.rerun()
+
+            if not all_tasks:
+                st.caption("No hay tareas pendientes.")
+            else:
+                for t in all_tasks:
+                     # Filter visually if due date is in range? Or just show all? User asked for control, showing all is safer
+                     with st.expander(f"☑️ {t['title']}"):
+                         ed_ti = st.text_input("Título", t['title'], key=f"t_ti_{t['id']}")
+                         ed_no = st.text_area("Notas", t.get('notes', ''), key=f"t_no_{t['id']}")
+                         
+                         d_val = datetime.date.today()
+                         if t.get('due'):
+                             try: d_val = datetime.datetime.fromisoformat(t['due'].replace('Z','')).date()
+                             except: pass
+                         ed_du = st.date_input("Vencimiento", d_val, key=f"t_du_{t['id']}")
+                         
+                         c_t1, c_t2 = st.columns(2)
+                         with c_t1:
+                             if st.button("💾 Guardar Tarea", key=f"u_t_{t['id']}"):
+                                 update_task_google(tasks_svc, t['list_id'], t['id'], title=ed_ti, notes=ed_no, due=ed_du)
+                                 st.success("Guardado")
+                                 st.rerun()
+                         with c_t2:
+                             if st.button("🗑️ Borrar Tarea", key=f"d_t_{t['id']}"):
+                                 delete_task_google(tasks_svc, t['list_id'], t['id'])
+                                 st.rerun()
 
 
 def view_inbox():

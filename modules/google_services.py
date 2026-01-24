@@ -469,14 +469,37 @@ def delete_event(service, event_id):
         st.error(f"Error deleting event: {e}")
         return False
 
+def update_event_calendar(service, calendar_id, event_id, summary=None, description=None, start_time=None, end_time=None, color_id=None):
+    """Updates an existing Google Calendar event."""
+    try:
+        event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+        
+        if summary: event['summary'] = summary
+        if description: event['description'] = description
+        if color_id: event['colorId'] = color_id
+        
+        if start_time and end_time:
+            # Handle both datetime objects and ISO strings
+            s_iso = start_time.isoformat() if hasattr(start_time, 'isoformat') else start_time
+            e_iso = end_time.isoformat() if hasattr(end_time, 'isoformat') else end_time
+            
+            event['start'] = {'dateTime': s_iso, 'timeZone': 'UTC'} # UTC simplification
+            event['end'] = {'dateTime': e_iso, 'timeZone': 'UTC'}
+            
+        updated_event = service.events().update(calendarId=calendar_id, eventId=event_id, body=event).execute()
+        return True, "Evento actualizado"
+    except Exception as e:
+        return False, str(e)
+
 def optimize_event(service, event_id, new_start, new_end):
-    """Updates event timing."""
+    """Updates event timing (Legacy/Optimize wrapper)."""
+    # Now just wraps the main update function or keeps existing logic
     try:
         event = service.events().get(calendarId='primary', eventId=event_id).execute()
         event['start']['dateTime'] = new_start.isoformat()
         event['end']['dateTime'] = new_end.isoformat()
-        updated_event = service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
-        return updated_event
+        service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
+        return True
     except Exception as e:
         st.error(f"Error optimizing event: {e}")
-        return None
+        return False
