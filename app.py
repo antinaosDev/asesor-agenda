@@ -455,7 +455,7 @@ def view_planner():
 
         with c2:
             st.markdown("### 🗓️ Vista Kanban")
-            if 'weekly_plan' in st.session_state and st.session_state.plan_type == 'weekly':
+            if 'weekly_plan' in st.session_state and st.session_state.get('plan_type') == 'weekly':
                 cols = st.columns(5)
                 days_map = {
                     "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles", "Thursday": "Jueves", "Friday": "Viernes"
