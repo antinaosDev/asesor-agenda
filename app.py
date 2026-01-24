@@ -290,8 +290,8 @@ def view_dashboard():
     
     with col_brief:
         # Recreating the HTML "Morning Briefing Card" - FIXED HTML Rendering
-        BRIEFING_HTML = f"""
-        <div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;">
+        # Using simple string concatenation or manual dedent to avoid markdown code block interpretation
+        BRIEFING_HTML = """<div class="glass-panel" style="position: relative; overflow: hidden; height: 100%;">
             <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(13,215,242,0.1); border-radius: 50%; filter: blur(60px);"></div>
             <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
                  <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13,215,242,0.2); display: flex; align-items: center; justify-content: center;">
@@ -303,7 +303,7 @@ def view_dashboard():
             <div style="background: rgba(17,23,24,0.5); padding: 1.25rem; border-left: 4px solid #0dd7f2; border-radius: 8px; margin-bottom: 1.5rem;">
                 <p style="font-size: 1.1rem; line-height: 1.6; color: #e2e8f0;">
                     Tienes <strong style="color: white;">{total_events} eventos</strong> agendados hoy, totalizando <strong style="color: #0dd7f2;">{hours:.1f} horas</strong> de reuniones. 
-                    {'Tu tarde parece libre para trabajo profundo.' if hours < 4 else 'Es un día pesado de reuniones, planifica descansos.'}
+                    {advice}
                 </p>
             </div>
 
@@ -318,8 +318,11 @@ def view_dashboard():
                 </div>
             </div>
             <br>
-        </div>
-        """
+        </div>""".format(
+            total_events=total_events, 
+            hours=hours,
+            advice=('Tu tarde parece libre para trabajo profundo.' if hours < 4 else 'Es un día pesado de reuniones, planifica descansos.')
+        )
         st.markdown(BRIEFING_HTML, unsafe_allow_html=True)
 
     with col_timeline:
@@ -563,16 +566,9 @@ def view_optimize():
 def main_app():
     # Sidebar Navigation mimicking the "Rail"
     with st.sidebar:
-        col_logo, col_text = st.columns([1, 0.1])
-        with col_logo:
-             st.image("logo_agent.png", width=120)
-        # with col_text:
-        #      st.markdown("""
-        #      <div style="padding-top: 10px;">
-        #         <h3 style="margin: 0; font-size: 1.1rem;">Asistente</h3>
-        #         <p style="font-size: 0.8rem; color: #9cb6ba; margin: 0;">Premium AI</p>
-        #      </div>
-        #      """, unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; margin-bottom: 20px;'>", unsafe_allow_html=True)
+        st.image("logo_agent.png", width=90)
+        st.markdown("</div>", unsafe_allow_html=True)
              
         st.markdown("<br>", unsafe_allow_html=True)
         
