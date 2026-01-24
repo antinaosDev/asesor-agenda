@@ -337,3 +337,41 @@ def fetch_emails_batch(service, start_date=None, end_date=None, max_results=15):
     except Exception as e:
         st.error(f"Error Gmail: {e}")
         return []
+ 
+ d e f   g e t _ t a s k _ l i s t s ( s e r v i c e ) :  
+         " " " R e t u r n s   a   l i s t   o f   t a s k   l i s t s . " " "  
+         t r y :  
+                 r e s u l t s   =   s e r v i c e . t a s k l i s t s ( ) . l i s t ( m a x R e s u l t s = 1 0 ) . e x e c u t e ( )  
+                 i t e m s   =   r e s u l t s . g e t ( ' i t e m s ' ,   [ ] )  
+                 r e t u r n   i t e m s  
+         e x c e p t   E x c e p t i o n   a s   e :  
+                 s t . e r r o r ( f " E r r o r   f e t c h i n g   t a s k   l i s t s :   { e } " )  
+                 r e t u r n   [ ]  
+  
+ d e f   c r e a t e _ t a s k _ l i s t ( s e r v i c e ,   t i t l e ) :  
+         " " " C r e a t e s   a   n e w   t a s k   l i s t . " " "  
+         t r y :  
+                 t a s k l i s t   =   { ' t i t l e ' :   t i t l e }  
+                 r e s u l t   =   s e r v i c e . t a s k l i s t s ( ) . i n s e r t ( b o d y = t a s k l i s t ) . e x e c u t e ( )  
+                 r e t u r n   r e s u l t [ ' i d ' ]  
+         e x c e p t   E x c e p t i o n   a s   e :  
+                 s t . e r r o r ( f " E r r o r   c r e a t i n g   t a s k   l i s t :   { e } " )  
+                 r e t u r n   N o n e  
+  
+ d e f   a d d _ t a s k _ t o _ g o o g l e ( s e r v i c e ,   t a s k l i s t _ i d ,   t i t l e ,   n o t e s = N o n e ,   d u e _ d a t e = N o n e ) :  
+         " " " A d d s   a   t a s k   t o   t h e   s p e c i f i e d   l i s t . " " "  
+         t r y :  
+                 t a s k   =   {  
+                         ' t i t l e ' :   t i t l e ,  
+                         ' n o t e s ' :   n o t e s  
+                 }  
+                 i f   d u e _ d a t e :  
+                         #   G o o g l e   T a s k s   e x p e c t s   R F C   3 3 3 9   t i m e s t a m p  
+                         t a s k [ ' d u e ' ]   =   d u e _ d a t e . i s o f o r m a t ( )   +   ' Z '  
+                          
+                 r e s u l t   =   s e r v i c e . t a s k s ( ) . i n s e r t ( t a s k l i s t = t a s k l i s t _ i d ,   b o d y = t a s k ) . e x e c u t e ( )  
+                 r e t u r n   r e s u l t  
+         e x c e p t   E x c e p t i o n   a s   e :  
+                 s t . e r r o r ( f " E r r o r   a d d i n g   t a s k :   { e } " )  
+                 r e t u r n   N o n e  
+ 
