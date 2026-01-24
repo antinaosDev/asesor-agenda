@@ -902,8 +902,13 @@ def main_app():
             raw_role = ud.get('rol', ud.get('role', ud.get('ROL', 'User')))
             user_role = str(raw_role).strip()
             
+        # --- FALLBACK / OVERRIDE FOR SPECIFIC ADMIN ---
+        if st.session_state.get('license_key') == 'adm_alain':
+            user_role = 'ADMIN'
+            
         if user_role.upper() == 'ADMIN':
             with st.expander("🛠️ Panel Admin"):
+                st.write(f"Rol Activo: {user_role}") # Debug confirmation
                 st.markdown("**Control de Límites**")
                 current_limit = st.session_state.get('admin_max_emails', 50)
                 new_limit = st.number_input("Max Correos (Global)", value=current_limit, step=10)
