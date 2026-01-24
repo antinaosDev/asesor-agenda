@@ -407,24 +407,33 @@ def update_task_google(service, tasklist_id, task_id, title=None, notes=None, st
 
 def get_existing_tasks_simple(service):
     """Fetches all tasks from all lists (simplified for AI context)."""
-    try:
-        all_tasks = []
-        tasklists = get_task_lists(service)
-        for tl in tasklists:
-            results = service.tasks().list(tasklist=tl['id'], showCompleted=False).execute()
-            tasks = results.get('items', [])
-            for t in tasks:
-                all_tasks.append({
-                    'id': t['id'],
-                    'title': t['title'],
-                    'list_id': tl['id'],
-                    'list_title': tl['title'],
-                    'due': t.get('due', 'No Due Date')
-                })
-        return all_tasks
-    except Exception as e:
-        st.error(f"Error fetching tasks: {e}")
-        return []
+    retries = 3
+    for attempt in range(retries):
+        try:
+            all_tasks = []
+            tasklists = get_task_lists(service)
+            for tl in tasklists:
+                results = service.tasks().list(tasklist=tl['id'], showCompleted=False).execute()
+                tasks = results.get('items', [])
+                for t in tasks:
+                    all_tasks.append({
+                        'id': t['id'],
+                        'title': t['title'],
+                        'list_id': tl['id'],
+                        'list_title': tl['title'],
+                        'due': t.get('due', 'No Due Date')
+                    })
+            return all_tasks
+        except Exception as e:
+            # Check for SSL or transient errors
+            err_str = str(e).lower()
+            if "ssl" in err_str or "connection" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(1 * (attempt + 1))
+                    continue
+            st.error(f"Error fetching tasks after {retries} attempts: {e}")
+            return []
+    return []
 
 def add_event_to_calendar(service, event_data, calendar_id='primary'):
     """Adds an event to Google Calendar. Expects event_data dict."""
