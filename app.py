@@ -95,6 +95,36 @@ def authenticated_main():
     default_cal = st.session_state.get('connected_email', '')
     calendar_id = st.sidebar.text_input("ID Calendario (Tu Email)", value=default_cal, placeholder="tu.correo@gmail.com")
     
+    # --- PROACTIVE SUMMARY (UX ENHANCEMENT) ---
+    if 'first_load_summary' not in st.session_state:
+        st.session_state.first_load_summary = False
+
+    if calendar_id and not st.session_state.first_load_summary:
+         with st.spinner("🤖 Analizando tu día..."):
+             # Simple "Morning Briefing" context
+             try:
+                 # Check if we have service
+                 svc = get_calendar_service()
+                 if svc:
+                      # Get today's events for quick context (cached if possible)
+                      now = datetime.datetime.now()
+                      t_min = now.replace(hour=0, minute=0, second=0).isoformat() + 'Z'
+                      t_max = now.replace(hour=23, minute=59, second=59).isoformat() + 'Z'
+                      
+                      day_events = svc.events().list(
+                          calendarId=calendar_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
+                      ).execute().get('items', [])
+                      
+                      count = len(day_events)
+                      msg = f"Hola! Hoy tienes **{count} eventos**."
+                      if count == 0: msg += " Día libre para avanzar en pendientes."
+                      elif count > 4: msg += " Será un día movido, ¡toma agua!"
+                      
+                      st.toast(msg, icon="👋")
+                 st.session_state.first_load_summary = True
+             except:
+                 pass
+    
     if 'current_user_sa_creds' in st.session_state:
         sa_email = st.session_state.current_user_sa_creds.get('client_email', 'Desconocido')
         st.sidebar.caption(f"✅ Bot Activo: `{sa_email}`")

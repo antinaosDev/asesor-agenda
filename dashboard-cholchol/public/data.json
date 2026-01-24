@@ -1,0 +1,259 @@
+{
+    "iaapsData": [
+        {
+            "id": "1",
+            "name": "Autoevaluación MAIS",
+            "logrado": 100,
+            "meta": 100,
+            "cumplimiento": 100,
+            "category": "Gestión"
+        },
+        {
+            "id": "2.1",
+            "name": "Funcionamiento 8-20hrs",
+            "logrado": 100,
+            "meta": 100,
+            "cumplimiento": 100,
+            "category": "Acceso"
+        },
+        {
+            "id": "2.2",
+            "name": "Fármacos Trazadores",
+            "logrado": 100,
+            "meta": 100,
+            "cumplimiento": 100,
+            "category": "Acceso"
+        },
+        {
+            "id": "3",
+            "name": "Tasa Consultas Morbilidad",
+            "logrado": 79.0,
+            "meta": 89.0,
+            "cumplimiento": 88.8,
+            "category": "Producción"
+        },
+        {
+            "id": "4",
+            "name": "Derivación Nivel Secundario",
+            "logrado": 7.61,
+            "meta": 9.5,
+            "cumplimiento": 100,
+            "category": "Gestión"
+        },
+        {
+            "id": "5",
+            "name": "Visita Domiciliaria Integral",
+            "logrado": 25.0,
+            "meta": 21.0,
+            "cumplimiento": 100,
+            "category": "Producción"
+        },
+        {
+            "id": "6.1A",
+            "name": "EMP Mujeres 20-64",
+            "logrado": 27.0,
+            "meta": 27.0,
+            "cumplimiento": 99.7,
+            "category": "Preventivo"
+        },
+        {
+            "id": "6.1B",
+            "name": "EMP Hombres 20-64",
+            "logrado": 22.9,
+            "meta": 23.6,
+            "cumplimiento": 96.9,
+            "category": "Preventivo"
+        },
+        {
+            "id": "6.2",
+            "name": "EMP Adulto Mayor >65",
+            "logrado": 44.1,
+            "meta": 48.6,
+            "cumplimiento": 90.7,
+            "category": "Preventivo"
+        },
+        {
+            "id": "7",
+            "name": "Desarrollo Psicomotor 12-23m",
+            "logrado": 102.4,
+            "meta": 92.0,
+            "cumplimiento": 100,
+            "category": "Infantil"
+        },
+        {
+            "id": "8",
+            "name": "Salud Integral Adolescente",
+            "logrado": 21.5,
+            "meta": 21.5,
+            "cumplimiento": 100,
+            "category": "Adolescente"
+        },
+        {
+            "id": "9.1",
+            "name": "Cobertura Salud Mental",
+            "logrado": 18.2,
+            "meta": 18.2,
+            "cumplimiento": 100,
+            "category": "Salud Mental"
+        },
+        {
+            "id": "9.2",
+            "name": "Controles Salud Mental",
+            "logrado": 4.97,
+            "meta": 4.9,
+            "cumplimiento": 100,
+            "category": "Salud Mental"
+        },
+        {
+            "id": "9.3",
+            "name": "Alta Clínica Salud Mental",
+            "logrado": 22.3,
+            "meta": 7.0,
+            "cumplimiento": 100,
+            "category": "Salud Mental"
+        },
+        {
+            "id": "10",
+            "name": "Cumplimiento GES",
+            "logrado": 100,
+            "meta": 100,
+            "cumplimiento": 100,
+            "category": "Gestión"
+        },
+        {
+            "id": "12",
+            "name": "Ingreso Precoz Embarazo",
+            "logrado": 89.9,
+            "meta": 86.0,
+            "cumplimiento": 100,
+            "category": "Mujer"
+        },
+        {
+            "id": "13",
+            "name": "Regulación Fertilidad Adoles.",
+            "logrado": 21.5,
+            "meta": 22.0,
+            "cumplimiento": 97.5,
+            "category": "Mujer"
+        },
+        {
+            "id": "14",
+            "name": "Cobertura DM2",
+            "logrado": 72.2,
+            "meta": 76.2,
+            "cumplimiento": 94.7,
+            "category": "Crónicos"
+        },
+        {
+            "id": "15",
+            "name": "Cobertura HTA",
+            "logrado": 52.7,
+            "meta": 60.0,
+            "cumplimiento": 87.9,
+            "category": "Crónicos"
+        },
+        {
+            "id": "16",
+            "name": "Salud Bucal < 3 años",
+            "logrado": 67.9,
+            "meta": 62.0,
+            "cumplimiento": 100,
+            "category": "Infantil"
+        },
+        {
+            "id": "17",
+            "name": "Nutricional Normal < 2 años",
+            "logrado": 50.3,
+            "meta": 59.8,
+            "cumplimiento": 84.2,
+            "category": "Infantil"
+        }
+    ],
+    "metasSanitariasData": [
+        {
+            "id": "M1",
+            "name": "Recup. Desarrollo Psicomotor",
+            "logrado": 100,
+            "meta": 90,
+            "cumplimiento": 100,
+            "description": "Niños 12-23 meses recuperados"
+        },
+        {
+            "id": "M2",
+            "name": "Pap Vigente 25-64 años",
+            "logrado": 71.1,
+            "meta": 72.1,
+            "cumplimiento": 98.55,
+            "description": "Cobertura PAP mujeres"
+        },
+        {
+            "id": "M3a",
+            "name": "Control Odontológico 0-9",
+            "logrado": 36.3,
+            "meta": 36,
+            "cumplimiento": 100,
+            "description": "Cobertura odontológica infantil"
+        },
+        {
+            "id": "M3b",
+            "name": "Libres de Caries 6 años",
+            "logrado": 21.1,
+            "meta": 18,
+            "cumplimiento": 100,
+            "description": "Salud bucal preescolar"
+        },
+        {
+            "id": "M4a",
+            "name": "Evaluación DM2 < 7%",
+            "logrado": 28.3,
+            "meta": 26.8,
+            "cumplimiento": 100,
+            "description": "Compensación DM2"
+        },
+        {
+            "id": "M4b",
+            "name": "Evaluación Pie Diabético",
+            "logrado": 83.6,
+            "meta": 90,
+            "cumplimiento": 92.93,
+            "description": "Prevención pie diabético"
+        },
+        {
+            "id": "M5",
+            "name": "Cobertura Efectiva HTA",
+            "logrado": 36.7,
+            "meta": 39.5,
+            "cumplimiento": 93.02,
+            "description": "Compensación HTA"
+        },
+        {
+            "id": "M6",
+            "name": "Lactancia Materna 6to mes",
+            "logrado": 68.3,
+            "meta": 72,
+            "cumplimiento": 94.9,
+            "description": "LME exclusiva"
+        },
+        {
+            "id": "M7",
+            "name": "Cobertura Asma/EPOC",
+            "logrado": 12.1,
+            "meta": 12,
+            "cumplimiento": 100,
+            "description": "Salud Respiratoria"
+        },
+        {
+            "id": "M8",
+            "name": "Gestión Comunitaria",
+            "logrado": 100,
+            "meta": 100,
+            "cumplimiento": 100,
+            "description": "Participación social"
+        }
+    ],
+    "scores": {
+        "iaapsScore": 96.75,
+        "metasScoreFull": 97.43,
+        "metasScoreBase": 91.18
+    }
+}
