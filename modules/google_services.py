@@ -221,6 +221,7 @@ def get_gmail_credentials():
             except: pass
 
         # Priority 1.5: From Sheet (user_data_full) - FIX for Multi-Tenant OAuth
+        # Priority 1.5: From Sheet (user_data_full) - FIX for Multi-Tenant OAuth
         if not client_config and 'user_data_full' in st.session_state:
              ud = st.session_state.user_data_full
              # Key from Sheet column: CREDENCIALES_AUTH_USER (lowercased)
@@ -234,22 +235,33 @@ def get_gmail_credentials():
                          if cleaned.startswith('"') and cleaned.endswith('"'): cleaned = cleaned[1:-1]
                          
                          client_config = json.loads(cleaned)
+                         st.toast("🔑 Config OAuth cargada OK desde Hoja.")
                  except Exception as e:
-                     print(f"Error parsing OAuth config from sheet: {e}")
+                     st.error(f"❌ Error crítico leyendo Credenciales de Hoja: {e}")
+                     # Do NOT pass, fail loud so we don't fallback to broken files
                      pass
             
         # Priority 2: Secrets
         if not client_config and "google" in st.secrets:
             client_config = json.loads(st.secrets["google"]["client_config_json"]) if "client_config_json" in st.secrets["google"] else st.secrets["google"]
             
-        # Priority 3: Local File
+        # Priority 3: Local File (DISABLED/STRICT)
+        # We suspect 'credentials.json' is the deleted client. Attempt to delete it or ignore it.
         elif not client_config and os.path.exists('credentials.json'):
-            client_config = json.load(open('credentials.json'))
+            st.warning("⚠️ Se detectó 'credentials.json' local pero se ignorará para evitar conflictos con claves antiguas.")
+            try:
+                # Optional: aggressive cleanup
+                # os.remove('credentials.json')
+                pass
+            except: pass
+            
+            # Uncomment to allow fallback if you are SURE it's correct
+            # client_config = json.load(open('credentials.json'))
         
         if not client_config:
             # Only warn if we really need user creds (and don't have SA)
-            # But here this function is explicitly for User Creds
-            st.error("⚠️ Falta configuración de Google (Secrets, Sheet o credentials.json).")
+            st.error("❌ NO SE ENCONTRARON CREDENCIALES OAUTH VÁLIDAS.")
+            st.info("Revisa la columna 'CREDENCIALES_AUTH_USER' en tu Google Sheet.")
             return None
 
         # Build Flow
