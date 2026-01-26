@@ -86,8 +86,15 @@ def _load_service_account_creds():
 
 # --- PUBLIC FUNCTIONS ---
 
-def get_calendar_service():
+def get_calendar_service(force_service_account=False):
     """Authenticates and returns the Google Calendar service."""
+    if force_service_account:
+        # Bypass cache and user creds, force Robot (SA)
+        creds = _load_service_account_creds()
+        if creds:
+             return build('calendar', 'v3', credentials=creds, cache_discovery=False)
+        return None
+
     if 'calendar_service' not in st.session_state:
         try:
             # 1. OAuth User (Prioritized)

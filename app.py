@@ -255,7 +255,22 @@ def view_dashboard():
             events = svc.events().list(
                 calendarId=calendar_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
             ).execute().get('items', [])
-    except: pass
+    except Exception as e:
+        # Fallback: If 404 (Not Found) or 403 (Forbidden), it might be that User doesn't have access but Robot does.
+        error_str = str(e)
+        if "404" in error_str or "notFound" in error_str or "403" in error_str:
+            try:
+                # Retry with Robot (Service Account)
+                svc_sa = get_calendar_service(force_service_account=True)
+                if svc_sa:
+                    events = svc_sa.events().list(
+                         calendarId=calendar_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
+                    ).execute().get('items', [])
+                    # If success, maybe show a small toast?
+                    # st.toast("🔄 Usando cuenta robot para este calendario.")
+            except: pass # If fails again, nothing to do
+        else:
+            print(f"Calendar Error: {e}")
 
     today_events = []
     
