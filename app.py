@@ -35,6 +35,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- APP CONFIG ---
+APP_CONFIG = {
+    "imagenes": {
+        "LOGO_ALAIN": "logo_agent.png" 
+    }
+}
+
 # --- GLOBAL STYLES (THEME INJECTION) ---
 def inject_custom_css():
     st.markdown("""
@@ -976,13 +983,24 @@ def view_inbox():
         if 'connected_email' in st.session_state:
             st.success(f"📧 Conectado: **{st.session_state.connected_email}**")
             if st.button("♻️ Cambiar Cuenta / Salir", key="btn_logout_gmail"):
-                # Clear from Sheet to allow switching accounts
+                # 1. Clear from Sheet (Cloud)
                 if 'license_key' in st.session_state:
                      user = st.session_state.license_key
                      st.toast("Desvinculando cuenta de Google...")
                      auth.update_user_field(user, 'COD_VAL', '')
                 
-                # Local cleanup
+                # 2. Clear Local Session State (UI Reset)
+                keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service']
+                for k in keys_to_clear:
+                    if k in st.session_state:
+                        del st.session_state[k]
+                
+                # 3. Delete Local Token File (Force Auth Flow)
+                if os.path.exists('token.pickle'):
+                    try: os.remove('token.pickle')
+                    except: pass
+
+                # 4. Trigger Rerun
                 st.session_state.logout_google = True
                 st.rerun()
         # --------------------------------
@@ -1184,6 +1202,33 @@ def main_app():
         if st.session_state.connected_email_input != st.session_state.get('connected_email', ''):
              st.session_state.connected_email = st.session_state.connected_email_input
 
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if st.button("🔐 Cerrar Sesión App", key="btn_logout_sidebar", use_container_width=True):
+             # 1. Clear from Sheet (Cloud)
+            if 'license_key' in st.session_state:
+                    user = st.session_state.license_key
+                    st.toast("Desvinculando tokens...")
+                    auth.update_user_field(user, 'COD_VAL', '')
+            
+            # 2. Clear Local Session State (UI Reset)
+            keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'authenticated', 'user_data_full', 'license_key']
+            for k in keys_to_clear:
+                if k in st.session_state:
+                    del st.session_state[k]
+            
+            # 3. Delete Local Token File (Force Auth Flow)
+            if os.path.exists('token.pickle'):
+                try: os.remove('token.pickle')
+                except: pass
+            
+            if os.path.exists('.license_key'):
+                 try: os.remove('.license_key')
+                 except: pass
+
+            # 4. Trigger Rerun
+            st.session_state.logout_google = True
+            st.rerun()
+
         # --- ADMIN PANEL ---
         user_role = "User"
         if 'user_data_full' in st.session_state:
@@ -1263,6 +1308,27 @@ def main_app():
     elif selection == "Planner": view_planner()
     elif selection == "Inbox": view_inbox()
     elif selection == "Optimize": view_optimize()
+    
+    # --- FOOTER ---
+    st.markdown("---")
+    with st.container():
+        col_f1, col_f2, col_f3, col_f4 = st.columns([3, 1, 5, 1])
+        
+        with col_f2:
+            # LOGO EMPRESA (LOGO_ALAIN)
+            if APP_CONFIG['imagenes'].get('LOGO_ALAIN'):
+                st.image(APP_CONFIG['imagenes']['LOGO_ALAIN'], width=150)
+            else:
+                st.info("Logo Dev")
+                
+        with col_f3:
+            st.markdown("""
+                <div style='text-align: left; color: #888888; font-size: 16px; padding-bottom: 20px;'>
+                    💼 Aplicación desarrollada por <strong>Alain Antinao Sepúlveda</strong> <br>
+                    📧 Contacto: <a href="mailto:alain.antinao.s@gmail.com" style="color: #006DB6;">alain.antinao.s@gmail.com</a> <br>
+                    🌐 Más información en: <a href="https://alain-antinao-s.notion.site/Alain-C-sar-Antinao-Sep-lveda-1d20a081d9a980ca9d43e283a278053e" target="_blank" style="color: #006DB6;">Mi página personal</a>
+                </div>
+            """, unsafe_allow_html=True)
 
 # --- ENTRY POINT ---
 
