@@ -300,11 +300,15 @@ def get_gmail_credentials():
                 try:
                     service = build('gmail', 'v1', credentials=creds)
                     profile = service.users().getProfile(userId='me').execute()
-                    st.session_state.connected_email = profile.get('emailAddress', 'Desconocido')
+                    new_email = profile.get('emailAddress', 'Desconocido')
+                    
+                    # Force update ALL related keys so Sidebar widget syncs correctly
+                    st.session_state.connected_email = new_email
+                    st.session_state.connected_email_input = new_email
                 except: pass
                 # -----------------------------------
 
-                st.success("✅ ¡Conectado! Recargando...")
+                st.success(f"✅ ¡Conectado como {new_email}! Recargando...")
                 time.sleep(2)
                 st.rerun()
             except Exception as e:
