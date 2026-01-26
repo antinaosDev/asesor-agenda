@@ -563,9 +563,16 @@ def view_create():
                 if not cal_id: st.error("Por favor conecta tu email primero.")
                 else:
                     svc = get_calendar_service()
-                    ok, msg = add_event_to_calendar(svc, ev, cal_id)
-                    if ok: st.success("¡Evento Creado!")
-                    else: st.error(msg)
+                    
+                    # Check for duplicates BEFORE creating
+                    from modules.google_services import check_event_exists
+                    if check_event_exists(svc, cal_id, ev):
+                        st.warning(f"✅ Ya agendado: '{summary}'")
+                        st.info("Este evento ya existe en tu calendario con datos similares.")
+                    else:
+                        ok, msg = add_event_to_calendar(svc, ev, cal_id)
+                        if ok: st.success("¡Evento Creado!")
+                        else: st.error(msg)
 
 
 def view_planner():

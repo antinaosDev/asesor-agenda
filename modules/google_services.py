@@ -531,6 +531,82 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
     except Exception as e:
         return False, str(e)
 
+
+def check_event_exists(service, calendar_id, event_data):
+    """
+    Checks if a similar event already exists in the calendar.
+    
+    Args:
+        service: Google Calendar service instance
+        calendar_id: Calendar ID to search in
+        event_data: Dict with 'summary', 'start_time', 'end_time'
+    
+    Returns:
+        bool: True if duplicate found, False otherwise
+    """
+    try:
+        import datetime as dt
+        from difflib import SequenceMatcher
+        
+        # Extract new event data
+        new_summary = event_data.get('summary', '').lower().strip()
+        new_start = event_data.get('start_time')
+        
+        if not new_summary or not new_start:
+            return False
+        
+        # Parse start time
+        if isinstance(new_start, str):
+            try:
+                new_start_dt = dt.datetime.fromisoformat(new_start.replace('Z', '+00:00'))
+            except:
+                return False
+        else:
+            new_start_dt = new_start
+        
+        # Search window: ±1 day from event start
+        time_min = (new_start_dt - dt.timedelta(days=1)).isoformat()
+        time_max = (new_start_dt + dt.timedelta(days=1)).isoformat()
+        
+        # Fetch existing events in time window
+        events_result = service.events().list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime',
+            maxResults=50
+        ).execute()
+        
+        existing_events = events_result.get('items', [])
+        
+        # Check each existing event for similarity
+        for event in existing_events:
+            existing_summary = event.get('summary', '').lower().strip()
+            existing_start_raw = event.get('start', {}).get('dateTime') or event.get('start', {}).get('date')
+            
+            if not existing_start_raw:
+                continue
+            
+            try:
+                existing_start_dt = dt.datetime.fromisoformat(existing_start_raw.replace('Z', '+00:00'))
+            except:
+                continue
+            
+            # Similarity check: Title match (>80%) + Time match (±30 min)
+            title_similarity = SequenceMatcher(None, new_summary, existing_summary).ratio()
+            time_diff = abs((new_start_dt - existing_start_dt).total_seconds() / 60)  # minutes
+            
+            if title_similarity > 0.8 and time_diff <= 30:
+                return True  # Duplicate found
+        
+        return False  # No duplicate
+        
+    except Exception as e:
+        # If check fails, allow creation (fail-open)
+        st.warning(f"Error verificando duplicados: {e}")
+        return False
+
 def delete_event(service, event_id):
     """Deletes an event from the primary calendar."""
     try:
