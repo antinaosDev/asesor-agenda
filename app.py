@@ -1043,9 +1043,19 @@ def view_inbox():
     col_g1, col_g2 = st.columns([1, 2])
     
     with col_g1:
-        # --- VISUALIZAR CUENTA ACTUAL ---
-        if 'connected_email' in st.session_state:
-            st.success(f"📧 Conectado: **{st.session_state.connected_email}**")
+        # --- VISUALIZAR CUENTA ACTUAL (DINÁMICO - DETECTA CUENTA REAL) ---
+        try:
+            from googleapiclient.discovery import build
+            creds = get_gmail_credentials()
+            if creds:
+                gmail_svc = build('gmail', 'v1', credentials=creds)
+                profile = gmail_svc.users().getProfile(userId='me').execute()
+                current_email = profile.get('emailAddress', 'Desconocido')
+                st.success(f"📧 Conectado: **{current_email}**")
+            else:
+                st.info("📧 No conectado a Gmail")
+        except:
+            st.warning("📧 Error detectando cuenta")
             if st.button("♻️ Cambiar Cuenta / Salir", key="btn_logout_gmail"):
                 # 1. Clear from Sheet (Cloud)
                 if 'license_key' in st.session_state:
