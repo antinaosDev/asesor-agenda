@@ -543,12 +543,15 @@ def view_planner():
             except: pass
             
         selected_proj = st.selectbox("Selecciona Proyecto/Evento:", long_events_opts)
-        if st.button("Desglosar"):
+        
+        extra_context = st.text_area("📝 Contexto / Documentación (Opcional)", height=100, placeholder="Pega aquí correos, requerimientos o detalles específicos para que la IA los considere...")
+        
+        if st.button("Desglosar", type="primary", width="stretch"):
              if selected_proj:
                  with st.spinner("Generando Roadmap..."):
                      # Dump mock logic or call AI
                      # For brevity, calling AI with standard prompt
-                     breakdown = generate_project_breakdown_ai(selected_proj, "", "", "")
+                     breakdown = generate_project_breakdown_ai(selected_proj, "", "", "", extra_context=extra_context)
                      st.session_state.project_plan = breakdown
                      st.session_state.plan_type = 'project'
         

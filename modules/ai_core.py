@@ -240,14 +240,18 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
         st.error(f"AI Planning Error: {e}")
         return {}
 
-def generate_project_breakdown_ai(project_title, project_desc, start_date, end_date):
+def generate_project_breakdown_ai(project_title, project_desc, start_date, end_date, extra_context=""):
     client = _get_groq_client()
     
+    context_block = f"Extra Context/Docs: {extra_context}" if extra_context else ""
+
     system_prompt = f"""
     You are an Expert Project Manager.
     Goal: Break down the project "{project_title}" into actionable Daily/Weekly tasks.
     Context: {start_date} to {end_date}
     Desc: {project_desc}
+    {context_block}
+    
     Output: JSON List of objects ({{"title": "", "date": "YYYY-MM-DD", "notes": ""}}).
     Language: Spanish.
     """
@@ -256,7 +260,7 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Generate Breakdown"}
+                {"role": "user", "content": "Generate Breakdown taking into account the context if provided."}
             ],
             model="llama-3.3-70b-versatile",
             temperature=0.1,
