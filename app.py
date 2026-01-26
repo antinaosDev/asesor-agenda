@@ -1064,24 +1064,24 @@ def view_inbox():
                  user = st.session_state.license_key
                  st.toast("Desvinculando cuenta de Google...")
                  auth.update_user_field(user, 'COD_VAL', '')
-                
-                # 2. Clear Local Session State (UI Reset)
-                keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'user_data_full']
-                for k in keys_to_clear:
-                    if k in st.session_state:
-                        del st.session_state[k]
-                
-                # 3. Clear Caches (Force Fresh Data)
-                st.cache_data.clear()
+            
+            # 2. Clear Local Session State (UI Reset)
+            keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'user_data_full']
+            for k in keys_to_clear:
+                if k in st.session_state:
+                    del st.session_state[k]
+            
+            # 3. Clear Caches (Force Fresh Data)
+            st.cache_data.clear()
 
-                # 4. Delete Local Token File (Force Auth Flow)
-                if os.path.exists('token.pickle'):
-                    try: os.remove('token.pickle')
-                    except: pass
+            # 4. Delete Local Token File (Force Auth Flow)
+            if os.path.exists('token.pickle'):
+                try: os.remove('token.pickle')
+                except: pass
 
-                # 5. Trigger Rerun
-                st.session_state.logout_google = True
-                st.rerun()
+            # 5. Trigger Rerun
+            st.session_state.logout_google = True
+            st.rerun()
         # --------------------------------
 
         c_d1, c_d2 = st.columns(2)
