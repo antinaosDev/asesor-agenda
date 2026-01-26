@@ -90,12 +90,12 @@ def get_calendar_service():
     """Authenticates and returns the Google Calendar service."""
     if 'calendar_service' not in st.session_state:
         try:
-            # 1. Service Account
-            creds = _load_service_account_creds()
-            
-            # 2. OAuth User Fallback
+            # 1. OAuth User (Prioritized)
+            creds = get_gmail_credentials()
+
+            # 2. Service Account (Fallback)
             if not creds:
-                creds = get_gmail_credentials()
+                creds = _load_service_account_creds()
                 
             if creds:
                 service = build('calendar', 'v3', credentials=creds, cache_discovery=False)
@@ -110,12 +110,12 @@ def get_tasks_service():
     """Authenticates and returns the Google Tasks service."""
     if 'tasks_service' not in st.session_state:
         try:
-            # 1. Service Account
-            creds = _load_service_account_creds()
-            
-            # 2. OAuth User Fallback
+            # 1. OAuth User (Prioritized)
+            creds = get_gmail_credentials()
+
+            # 2. Service Account (Fallback)
             if not creds:
-                creds = get_gmail_credentials()
+                creds = _load_service_account_creds()
                 
             if creds:
                 service = build('tasks', 'v1', credentials=creds, cache_discovery=False)
