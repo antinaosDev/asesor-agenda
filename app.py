@@ -1455,19 +1455,17 @@ def main_app():
 
         st.markdown("<br><br>", unsafe_allow_html=True)
         if st.button("🔐 Cerrar Sesión App", key="btn_logout_sidebar", use_container_width=True):
-             # 1. Clear from Sheet (Cloud)
-            if 'license_key' in st.session_state:
-                    user = st.session_state.license_key
-                    st.toast("Desvinculando tokens...")
-                    auth.update_user_field(user, 'COD_VAL', '')
+            # IMPORTANTE: NO borrar COD_VAL (token Google OAuth)
+            # El token debe persistir en Google Sheets para evitar re-autenticación
+            # Solo se borra si el usuario hace clic en "Cambiar Cuenta / Salir"
             
-            # 2. Clear Local Session State (UI Reset)
+            # Clear Local Session State ONLY (UI Reset)
             keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'authenticated', 'user_data_full', 'license_key']
             for k in keys_to_clear:
                 if k in st.session_state:
                     del st.session_state[k]
             
-            # 3. Clear Caches
+            # Clear Caches
             st.cache_data.clear()
             
             # 4. Delete Local Token File (Force Auth Flow)
