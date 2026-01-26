@@ -976,6 +976,13 @@ def view_inbox():
         if 'connected_email' in st.session_state:
             st.success(f"📧 Conectado: **{st.session_state.connected_email}**")
             if st.button("♻️ Cambiar Cuenta / Salir", key="btn_logout_gmail"):
+                # Clear from Sheet to allow switching accounts
+                if 'license_key' in st.session_state:
+                     user = st.session_state.license_key
+                     st.toast("Desvinculando cuenta de Google...")
+                     auth.update_user_field(user, 'COD_VAL', '')
+                
+                # Local cleanup
                 st.session_state.logout_google = True
                 st.rerun()
         # --------------------------------
