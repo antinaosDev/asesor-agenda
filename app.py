@@ -683,6 +683,37 @@ def view_planner():
                          time.sleep(1) # Give API a moment
                          st.rerun()
 
+            # --- MASS ACTIONS ---
+            with st.expander("⚙️ Acciones Avanzadas (Zona de Peligro)"):
+                 st.warning("Estas acciones afectan a la cuenta conectada.")
+                 if st.button("🗑️ ELIMINAR TODAS LAS TAREAS VISIBLES", type="primary"):
+                     if not all_tasks:
+                         st.info("No hay tareas para borrar.")
+                     else:
+                         st.session_state.confirm_delete_all = True
+                 
+                 if st.session_state.get('confirm_delete_all'):
+                     st.error(f"¿Estás seguro? Se eliminarán {len(all_tasks)} tareas permanentemente.")
+                     c_d1, c_d2 = st.columns(2)
+                     with c_d1:
+                         if st.button("✅ SÍ, BORRAR TODO"):
+                             progress_bar = st.progress(0)
+                             deleted_count = 0
+                             for idx, t in enumerate(all_tasks):
+                                 delete_task_google(tasks_svc, t['list_id'], t['id'])
+                                 deleted_count += 1
+                                 progress_bar.progress((idx + 1) / len(all_tasks))
+                                 time.sleep(0.1) # Avoid rate limits
+                             
+                             st.success(f"Se eliminaron {deleted_count} tareas.")
+                             st.session_state.confirm_delete_all = False
+                             time.sleep(1)
+                             st.rerun()
+                     with c_d2:
+                         if st.button("Cancelar"):
+                             st.session_state.confirm_delete_all = False
+                             st.rerun()
+
             if not all_tasks:
                 st.caption("No hay tareas pendientes (o no se pudieron cargar).")
             else:
