@@ -606,12 +606,31 @@ def view_planner():
                 ).execute().get('items', [])
             except Exception as e:
                 err_msg = str(e)
+                fallback_success = False
+                
+                # --- FALLBACK: TRY SERVICE ACCOUNT (ROBOT) ---
                 if "404" in err_msg or "Not Found" in err_msg:
-                    st.warning(f"⚠️ No se encontró el calendario **{calendar_id}** o no tienes permiso para verlo.")
-                    st.info("💡 Solución: Asegúrate de que esa cuenta de Google haya compartido su calendario con tu usuario actual (el que usaste para loguearte).")
-                else:
-                    st.error(f"Error cargando calendario: {e}")
-                st.session_state.c_events_cache = []
+                    # Maybe the user doesn't have permission, but the Robot (SA) does?
+                    try:
+                        svc_sa = get_calendar_service(force_service_account=True)
+                        if svc_sa:
+                            st.session_state.c_events_cache = svc_sa.events().list(
+                                calendarId=calendar_id, timeMin=t_min, timeMax=t_max, 
+                                singleEvents=True, orderBy='startTime', maxResults=2000,
+                                fields="items(summary,start,end,description)" 
+                            ).execute().get('items', [])
+                            fallback_success = True
+                            st.toast(f"🤖 Usando cuenta Robot para ver {calendar_id}")
+                    except:
+                        pass
+                
+                if not fallback_success:
+                    if "404" in err_msg or "Not Found" in err_msg:
+                         st.warning(f"⚠️ No se encontró el calendario **{calendar_id}**.")
+                         st.info("💡 Tu usuario NO tiene permiso, y la cuenta Robot tampoco. Comparte el calendario con tu email o con la cuenta de servicio.")
+                    else:
+                        st.error(f"Error cargando calendario: {e}")
+                    st.session_state.c_events_cache = []
     
     # Simplified Logic from original app.py
     # ... (Logic for fetching calendar context would go here)
