@@ -508,7 +508,7 @@ def view_create():
         st.markdown("### 🗣️ Entrada de Lenguaje Natural")
         with st.form("create_event"):
             prompt = st.text_area("¿Qué deseas agendar?", height=200, 
-                                placeholder="Ejemplo: Reunión con Sara el próximo martes a las 14:00 sobre el presupuesto Q3...")
+                                placeholder="Ejemplo: Reunión el próximo martes a las 14:00 sobre el presupuesto Q3...")
             
             c_btn1, c_btn2 = st.columns([1, 4])
             with c_btn1:
