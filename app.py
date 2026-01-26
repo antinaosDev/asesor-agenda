@@ -604,8 +604,38 @@ def view_planner():
         if st.button("🔎 Buscar Eventos"):
             st.session_state.trigger_manager_search = True
 
-    # 2. Logic
-    if st.session_state.get('trigger_manager_search'):
+        st.session_state.trigger_manager_search = True
+
+    # 2. Logic (Connection Status)
+    if 'connected_email' not in st.session_state or not st.session_state.connected_email or st.session_state.connected_email == 'Desconocido':
+        is_robot = True
+        account_label = "🤖 Cuenta de Robot (Servicio)"
+        status_color = "orange"
+    else:
+        is_robot = False
+        account_label = f"👤 {st.session_state.connected_email}"
+        status_color = "green"
+
+    st.markdown(f"""
+    <div style="background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid {status_color}; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <span style="color: #9cb6ba; font-size: 0.8rem;">Viendo datos de:</span>
+            <div style="font-weight: bold; color: {status_color};">{account_label}</div>
+        </div>
+        <div>
+            {f'<span style="color: orange; font-size: 0.8rem;">⚠️ Tus tareas personales NO se verán aquí.</span>' if is_robot else ''}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if is_robot:
+        if st.button("🔄 Conectar mi Cuenta Personal (Gmail)", key="btn_connect_manager"):
+            st.session_state.trigger_mail_analysis = True # Hack to trigger auth flow in view_inbox or similar?
+            # Better: Reset token and rerun to force auth on next call
+            if 'google_token' in st.session_state: del st.session_state['google_token']
+            st.rerun()
+
+    if st.session_state.get('trigger_manager_search') or True: # Always show or trigger
         cal_svc = get_calendar_service()
         tasks_svc = get_tasks_service()
         cal_id = st.session_state.get('connected_email', 'primary')
