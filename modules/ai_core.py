@@ -240,22 +240,28 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
         st.error(f"AI Planning Error: {e}")
         return {}
 
-# --- CONFIGURATION ---
-MODEL_PRIMARY = "llama-3.3-70b-versatile" # Fast, standard tasks
-MODEL_SECONDARY = "qwen/qwen3-32b" # Updated to user-provided ID
-# ...
-MODEL_QWEN = "qwen/qwen3-32b"
-# ...
-MODEL_BREAKDOWN = "qwen/qwen3-32b"
+def generate_project_breakdown_ai(project_title, project_desc, start_date, end_date, extra_context=""):
+    client = _get_groq_client()
+    
+    context_block = f"Extra Context/Docs: {extra_context}" if extra_context else ""
 
-# ... (inside generate_project_breakdown_ai)
+    system_prompt = f"""
+    You are an Expert Project Manager using Qwen Intelligence.
+    Goal: Break down the project "{project_title}" into actionable Daily/Weekly tasks.
+    Context: {start_date} to {end_date}
+    Desc: {project_desc}
+    {context_block}
+    
+    Output: JSON List of objects ({{"title": "", "date": "YYYY-MM-DD", "notes": ""}}).
+    Language: Spanish.
+    """
+    
     try:
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Generate Breakdown taking into account the context if provided."}
             ],
-            # Switching to Qwen as requested
             model="qwen/qwen3-32b", 
             temperature=0.6, 
             max_tokens=4096
@@ -264,5 +270,4 @@ MODEL_BREAKDOWN = "qwen/qwen3-32b"
         return json.loads(content)
     except Exception as e:
         st.error(f"AI Breakdown Error (Qwen): {e}")
-        # Fallback to Llama if Qwen fails?
         return []
