@@ -277,7 +277,7 @@ def get_gmail_credentials():
         3. Pégalo abajo 👇
         """)
         
-        code = st.text_input("Ingresa el Código de Google:", key="auth_code")
+        code = st.text_input("Ingresa el Código de Google:", key=f"auth_code_{hash(st.session_state.get('license_key', 'default'))}")
         
         if code:
             try:

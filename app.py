@@ -1319,8 +1319,14 @@ def view_optimize():
         if st.button("🧠 AI: Analizar Historial y Tendencias"):
             with st.spinner("Analizando patrones anuales, mensuales y semanales..."):
                 result = analyze_existing_events_ai(events)
-                st.session_state.opt_plan = result.get('optimization_plan', {})
-                st.session_state.advisor_note = result.get('advisor_note', "Sin comentarios.")
+                # Safety check: AI might return list or dict
+                if isinstance(result, dict):
+                    st.session_state.opt_plan = result.get('optimization_plan', {})
+                    st.session_state.advisor_note = result.get('advisor_note', "Sin comentarios.")
+                else:
+                    st.warning("⚠️ Respuesta inesperada de la IA. Intenta nuevamente.")
+                    st.session_state.opt_plan = {}
+                    st.session_state.advisor_note = "Error al procesar análisis."
         
         if 'opt_plan' in st.session_state:
             st.markdown("### 💡 Informe Estratégico:")
