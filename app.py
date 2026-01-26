@@ -8,6 +8,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 
+import sys
+
+# --- FORCE RELOAD MODULES (Cloud Cache Fix) ---
+for mods in ['modules.auth', 'modules.notifications', 'modules.google_services', 'modules.ai_core']:
+    if mods in sys.modules:
+        del sys.modules[mods]
+
 # --- MODULE IMPORTS ---
 import modules.auth as auth
 import modules.notifications as notif
