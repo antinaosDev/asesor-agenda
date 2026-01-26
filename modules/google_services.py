@@ -13,7 +13,7 @@ import time
 # --- CONSTANTS ---
 SCOPES = [
     'https://www.googleapis.com/auth/calendar',
-    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.modify',  # Changed from .readonly to allow label creation
     'https://www.googleapis.com/auth/tasks',
     'https://www.googleapis.com/auth/spreadsheets'
 ]
@@ -420,8 +420,13 @@ def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, p
             'notes': notes
         }
         if due_date:
-            # Google Tasks expects RFC 3339 timestamp
-            task['due'] = due_date.isoformat() + 'Z'
+            # Google Tasks expects RFC 3339 timestamp with proper format
+            # The 'due' field specifically needs the date at midnight UTC
+            if hasattr(due_date, 'date'):
+                # If it's a datetime, extract just the date
+                due_date = due_date.date()
+            # Format as RFC 3339 date string (YYYY-MM-DD format, no time)
+            task['due'] = due_date.isoformat() + 'T00:00:00.000Z'
         
         if parent:
             task['parent'] = parent
