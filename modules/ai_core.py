@@ -42,7 +42,8 @@ Rules:
 - Urgency "Media": Normal requests.
 - Urgency "Baja": newsletters, fyi.
 - LANGUAGE: SPANISH.
-- STRICTLY JSON.
+- LANGUAGE: SPANISH.
+- STRICTLY JSON. NO MARKDOWN. NO CODE BLOCKS. JUST THE RAW JSON LIST.
 """
 
 PROMPT_EVENT_PARSING = """
@@ -112,12 +113,32 @@ Output JSON Format:
 # --- HELPERS ---
 def _clean_json_output(content):
     """Robust Strategy to extract JSON from AI text."""
-    # 1. Regex for Markdown block
-    match = re.search(r'```json\s*(\{.*?\})\s*```', content, re.DOTALL)
-    if match: return match.group(1)
+    content = content.strip()
     
-    match = re.search(r'```json\s*(\[.*?\])\s*```', content, re.DOTALL)
-    if match: return match.group(1)
+    # 0. Remove Markdown Formatting (```json ... ```)
+    if content.startswith("```"):
+        content = re.sub(r'^```(json)?', '', content)
+        content = re.sub(r'```$', '', content)
+        content = content.strip()
+    
+    # 1. Try finding the outer-most brackets defined by the first [ and last ]
+    # This captures a list even if it has nested objects
+    try:
+        start = content.find('[')
+        end = content.rfind(']')
+        if start != -1 and end != -1:
+            return content[start:end+1]
+    except: pass
+
+    # 2. Try finding outer braces if it's a dict
+    try:
+        start = content.find('{')
+        end = content.rfind('}')
+        if start != -1 and end != -1:
+            return content[start:end+1]
+    except: pass
+    
+    return content
 
     # 2. Regex for raw list/dict
     match = re.search(r'(\[.*\]|\{.*\})', content, re.DOTALL)
