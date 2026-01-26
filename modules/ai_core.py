@@ -214,14 +214,19 @@ def parse_events_ai(text_input):
         st.error(f"AI Parsing Error: {e}")
         return []
 
-def analyze_emails_ai(emails):
+def analyze_emails_ai(emails, custom_model=None):
     if not emails: return []
     client = _get_groq_client()
     
+    # Use lighter model by default to avoid Rate Limits (429)
+    # llama-3.1-8b-instant is faster and has higher limits than 70b
+    model_id = custom_model if custom_model else "llama-3.1-8b-instant"
+    
     batch_text = "ANALYZE THESE EMAILS:\n"
     for i, e in enumerate(emails):
-        # Pass ID to map back
-        batch_text += f"ID: {e['id']} | FROM: {e['sender']} | SUBJ: {e['subject']} | BODY: {e['body']}\n---\n"
+        # Pass ID to map back. Truncate body strictly (800 chars) to save tokens.
+        body_clean = (e.get('body', '') or '')[:800]
+        batch_text += f"ID: {e['id']} | FROM: {e['sender']} | SUBJ: {e['subject']} | BODY: {body_clean}\n---\n"
 
     prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
 
@@ -231,7 +236,7 @@ def analyze_emails_ai(emails):
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": batch_text}
             ],
-            model="llama-3.3-70b-versatile",
+            model=model_id,
             temperature=0.1,
             max_tokens=2048
         )
@@ -249,7 +254,13 @@ def analyze_emails_ai(emails):
         
         return results
     except Exception as e:
-        st.error(f"AI Email Error: {e}")
+        err_msg = str(e)
+        if "429" in err_msg or "rate limit" in err_msg.lower():
+            st.error("📉 Límite de uso de IA alcanzado (Rate Limit).")
+            st.warning("Hemos cambiado a un modelo más ligero (8b) para evitar esto, pero si persiste, espera unos minutos.")
+            st.info("Tip: Reduce la cantidad de correos a analizar en la barra lateral.")
+        else:
+            st.error(f"AI Email Error: {e}")
         return []
 
 def analyze_existing_events_ai(events_list):
