@@ -1233,27 +1233,16 @@ def main_app():
                     )
                     
                     if st.button("💾 Guardar Cambios"):
-                        # Detect changes could be complex with data_editor state, 
-                        # simplicity: Iterate and save for selected user (or all modified if we could track)
-                        # For now, simplistic approach: Allow picking a user to update or rely on single edits
-                        # BETTER: Iterate the edited DF and update all.
-                        
-                        progress_log = st.empty()
-                        
-                        # Compare with original to find changes? 
-                        # Or just overwrite for safety (slower but safer)
-                        for index, row in edited_df.iterrows():
-                             user = row['user']
+                        with st.spinner("Guardando cambios masivos en la nube..."):
+                             # Use batch update for performance and consistency
+                             ok, msg = auth.update_users_batch(edited_df)
                              
-                             # Update Status
-                             ok, msg = auth.update_user_field(user, 'estado', row['estado'])
-                             if not ok: st.error(f"Error {user}: {msg}")
-                             
-                             # Update Limit
-                             ok, msg = auth.update_user_field(user, 'cant_corr', row['cant_corr'])
-                             if not ok: st.error(f"Error {user}: {msg}")
-                             
-                        st.success("✅ Cambios guardados en la nube.")
+                             if ok:
+                                 st.success(f"✅ {msg}")
+                                 time.sleep(1)
+                                 # st.rerun() # Optional: force reload
+                             else:
+                                 st.error(f"Error guardando: {msg}")
                         
                 st.divider()
                 st.markdown("**Simulación**")

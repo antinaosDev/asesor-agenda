@@ -316,3 +316,66 @@ def update_user_field(username, field_name, new_value):
     except Exception as e:
         return False, str(e)
 
+def update_users_batch(edited_df):
+    """
+    Updates multiple users/fields efficiently in one go.
+    Args:
+        edited_df: DataFrame containing the updated rows (must have 'user' column)
+    """
+    try:
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+             sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        original_df = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Ensure 'user' col exists in both
+        user_col = None
+        for c in original_df.columns:
+            if c.lower().strip() == 'user': user_col = c; break
+            
+        if not user_col: return False, "Columna USER no encontrada en hoja original."
+        
+        # Determine strict user column in edited_df (should be 'user' based on app.py logic)
+        edited_user_col = 'user'
+        if 'user' not in edited_df.columns:
+            return False, "DataFrame editado no tiene columna 'user'."
+
+        # Update Logic
+        # Iterate over edited rows and update original_df
+        # We assume edited_df has the same columns we allow editing
+        
+        count = 0
+        for idx, row in edited_df.iterrows():
+             u_val = str(row[edited_user_col]).strip()
+             
+             # Find index in original
+             match_indices = original_df.index[original_df[user_col].astype(str).str.strip() == u_val].tolist()
+             
+             if match_indices:
+                 real_idx = match_indices[0]
+                 
+                 # Update specific columns
+                 # Check for 'estado'
+                 if 'estado' in row:
+                      col_name = next((c for c in original_df.columns if c.lower().strip() == 'estado'), 'ESTADO')
+                      if col_name not in original_df.columns: original_df[col_name] = ""
+                      original_df.at[real_idx, col_name] = str(row['estado'])
+                      
+                 # Check for 'cant_corr'
+                 if 'cant_corr' in row:
+                      col_name = next((c for c in original_df.columns if c.lower().strip() == 'cant_corr'), 'CANT_CORR')
+                      if col_name not in original_df.columns: original_df[col_name] = ""
+                      original_df.at[real_idx, col_name] = str(row['cant_corr'])
+                 
+                 count += 1
+        
+        # Single Write Back
+        conn.update(spreadsheet=sheet_url, data=original_df)
+        return True, f"{count} usuarios actualizados correctamente."
+
+    except Exception as e:
+        return False, f"Batch Error: {str(e)}"
+
