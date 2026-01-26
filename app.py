@@ -1060,12 +1060,9 @@ def view_inbox():
                          st.session_state.fetched_emails = emails
                          with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
                              analyzed_items = analyze_emails_ai(emails)
-                            st.session_state.ai_gmail_events = analyzed_items 
+                             st.session_state.ai_gmail_events = analyzed_items 
                             
-                            # Auto-labeling REMOVED. Now handled manually in UI.
-
-                            if not analyzed_items:
-                                st.warning('La IA leyó los correos pero no encontró nada accionable.')
+                             # Auto-labeling REMOVED. Now handled manually in UI.
 
                              if not analyzed_items:
                                  st.warning('La IA leyó los correos pero no encontró nada accionable.')
