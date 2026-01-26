@@ -1075,100 +1075,104 @@ def view_inbox():
                  pass
 
     with col_g2:
-         if 'ai_gmail_events' in st.session_state and st.session_state.ai_gmail_events:
+         # Check if analysis has run (ignoring if empty)
+         if 'ai_gmail_events' in st.session_state:
              items = st.session_state.ai_gmail_events
-             st.success(f"✅ ¡Procesado! {len(items)} elementos detectados.")
-             
-             # Tabs for Events vs Tasks vs Labeling
-             tab_ev, tab_info, tab_labels = st.tabs(["📅 Eventos", "📝 Tareas / Info", "🏷️ Revisión Etiquetas"])
-             
-             # --- TAB LABELS (MANUAL REVIEW) ---
-             with tab_labels:
-                 st.info("Revisa y confirma las etiquetas antes de aplicarlas en Gmail.")
+             if not items:
+                 st.info("🤷‍♂️ La IA analizó los correos pero no detectó eventos ni tareas importantes.")
+             else:
+                 st.success(f"✅ ¡Procesado! {len(items)} elementos detectados.")
                  
-                 # Prepare data for display
-                 label_preview = []
-                 for x in items:
-                     lbl = f"Agente A2/{x.get('urgency', 'Media')}"
-                     label_preview.append({
-                         "Asunto": x.get('summary', 'Sin Asunto'),
-                         "Etiqueta Propuesta": lbl,
-                         "Categoría": x.get('category', '-')
-                     })
+                 # Tabs for Events vs Tasks vs Labeling
+                 tab_ev, tab_info, tab_labels = st.tabs(["📅 Eventos", "📝 Tareas / Info", "🏷️ Revisión Etiquetas"])
                  
-                 if label_preview:
-                     st.table(label_preview)
+                 # --- TAB LABELS (MANUAL REVIEW) ---
+                 with tab_labels:
+                     st.info("Revisa y confirma las etiquetas antes de aplicarlas en Gmail.")
                      
-                     if st.button("✅ Confirmar y Aplicar Etiquetas"):
-                         with st.spinner("Aplicando etiquetas en Gmail..."):
-                             from modules.google_services import ensure_label, add_label_to_email
-                             from googleapiclient.discovery import build
-                             
-                             # Re-auth specifically for this action
-                             creds_lbl = get_gmail_credentials()
-                             if creds_lbl:
-                                 svc_lbl = build('gmail', 'v1', credentials=creds_lbl)
-                                 count_ok = 0
-                                 
-                                 # Ensure Parent
-                                 try: ensure_label(svc_lbl, "Agente A2")
-                                 except: pass
-
-                                 for item in items:
-                                     if item.get('id'):
-                                         lbl_name = f"Agente A2/{item.get('urgency', 'Media')}"
-                                         try:
-                                             lid = ensure_label(svc_lbl, lbl_name)
-                                             if lid:
-                                                 add_label_to_email(svc_lbl, item['id'], lid)
-                                                 count_ok += 1
-                                         except: pass
-                                 
-                                 if count_ok > 0:
-                                     st.success(f"¡Listo! {count_ok} correos etiquetados.")
-                                     time.sleep(2)
-                                     st.rerun()
-                                 else:
-                                     st.warning("No se pudo etiquetar nada.")
-                 else:
-                     st.write("No hay correos para etiquetar.")
-
-             with tab_ev:
-                 events = [x for x in items if x.get('is_event') or x.get('start_time')]
-                 if not events: st.info("No hay eventos de calendario estrictos.")
-                 
-                 for i, ev in enumerate(events):
-                     with st.expander(f"🗓️ {ev.get('summary', 'Evento')} ({ev.get('urgency','?')})", expanded=True):
-                         c1, c2 = st.columns([3, 1])
-                         with c1:
-                             st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
-                             st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
-                         with c2:
-                             if st.button(f"Agendar", key=f"btn_ev_{i}"):
-                                 cal_id = st.session_state.get('connected_email', 'primary')
-                                 service_cal = get_calendar_service()
-                                 if service_cal:
-                                      res, msg = add_event_to_calendar(service_cal, ev, cal_id)
-                                      if res: st.success("¡Agendado!")
-                                      else: st.error(f"Error: {msg}")
-
-             with tab_info:
-                 tasks = [x for x in items if not x.get('is_event') and not x.get('start_time')]
-                 if not tasks: st.info("No hay información suelta o tareas sin fecha.")
-                 
-                 for i, t in enumerate(tasks):
-                     with st.expander(f"📌 {t.get('summary', 'Nota')} ({t.get('urgency','?')})", expanded=True):
-                         st.markdown(f"**Categoría**: {t.get('category','Otro')}")
-                         st.write(t.get('description', ''))
+                     # Prepare data for display
+                     label_preview = []
+                     for x in items:
+                         lbl = f"Agente A2/{x.get('urgency', 'Media')}"
+                         label_preview.append({
+                             "Asunto": x.get('summary', 'Sin Asunto'),
+                             "Etiqueta Propuesta": lbl,
+                             "Categoría": x.get('category', '-')
+                         })
+                     
+                     if label_preview:
+                         st.table(label_preview)
                          
-                         # Action: Save as Task for TODAY (Catch-all)
-                         if st.button("Guardar como Tarea (Para Hoy)", key=f"btn_tk_{i}"):
-                             svc_tasks = get_tasks_service()
-                             if svc_tasks:
-                                 # Current date for due date
-                                 due_today = datetime.datetime.now(datetime.timezone.utc)
-                                 add_task_to_google(svc_tasks, "@default", t.get('summary'), t.get('description'), due_date=due_today)
-                                 st.success("✅ Guardada en Google Tasks para hoy.")
+                         if st.button("✅ Confirmar y Aplicar Etiquetas"):
+                             with st.spinner("Aplicando etiquetas en Gmail..."):
+                                 from modules.google_services import ensure_label, add_label_to_email, get_gmail_credentials
+                                 from googleapiclient.discovery import build
+                                 
+                                 # Re-auth specifically for this action
+                                 creds_lbl = get_gmail_credentials()
+                                 if creds_lbl:
+                                     svc_lbl = build('gmail', 'v1', credentials=creds_lbl)
+                                     count_ok = 0
+                                     
+                                     # Ensure Parent
+                                     try: ensure_label(svc_lbl, "Agente A2")
+                                     except: pass
+
+                                     for item in items:
+                                         if item.get('id'):
+                                             lbl_name = f"Agente A2/{item.get('urgency', 'Media')}"
+                                             try:
+                                                 lid = ensure_label(svc_lbl, lbl_name)
+                                                 if lid:
+                                                     add_label_to_email(svc_lbl, item['id'], lid)
+                                                     count_ok += 1
+                                             except: pass
+                                     
+                                     if count_ok > 0:
+                                         st.success(f"¡Listo! {count_ok} correos etiquetados.")
+                                         time.sleep(2)
+                                         st.rerun()
+                                     else:
+                                         st.warning("No se pudo etiquetar nada.")
+                     else:
+                         st.write("No hay correos para etiquetar.")
+
+                 with tab_ev:
+                     events = [x for x in items if x.get('is_event') or x.get('start_time')]
+                     if not events: st.info("No hay eventos de calendario estrictos.")
+                     
+                     for i, ev in enumerate(events):
+                         with st.expander(f"🗓️ {ev.get('summary', 'Evento')} ({ev.get('urgency','?')})", expanded=True):
+                             c1, c2 = st.columns([3, 1])
+                             with c1:
+                                 st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
+                                 st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
+                             with c2:
+                                 if st.button(f"Agendar", key=f"btn_ev_{i}"):
+                                     cal_id = st.session_state.get('connected_email', 'primary')
+                                     service_cal = get_calendar_service()
+                                     if service_cal:
+                                          res, msg = add_event_to_calendar(service_cal, ev, cal_id)
+                                          if res: st.success("¡Agendado!")
+                                          else: st.error(f"Error: {msg}")
+                 
+                 with tab_info:
+                     tasks = [x for x in items if not x.get('is_event') and not x.get('start_time')]
+                     if not tasks: st.info("No hay información suelta o tareas sin fecha.")
+                     
+                     for i, t in enumerate(tasks):
+                         with st.expander(f"📌 {t.get('summary', 'Nota')} ({t.get('urgency','?')})", expanded=True):
+                             st.markdown(f"**Categoría**: {t.get('category','Otro')}")
+                             st.write(t.get('description', ''))
+                             
+                             # Action: Save as Task for TODAY (Catch-all)
+                             if st.button("Guardar como Tarea (Para Hoy)", key=f"btn_tk_{i}"):
+                                 svc_tasks = get_tasks_service()
+                                 if svc_tasks:
+                                     # Current date for due date
+                                     due_today = datetime.datetime.now(datetime.timezone.utc)
+                                     add_task_to_google(svc_tasks, "@default", t.get('summary'), t.get('description'), due_date=due_today)
+                                     st.success("✅ Guardada en Google Tasks para hoy.")
          
          elif 'fetched_emails' in st.session_state:
               st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")

@@ -237,8 +237,16 @@ def analyze_emails_ai(emails):
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
         
-        results = json.loads(content, strict=False)
+        results = json.loads(content) # clean_json always returns valid JSON string now
         if isinstance(results, dict): results = [results]
+        
+        # --- DEBUG FOR "NO EVENTS" ISSUE ---
+        if not results:
+             st.warning("⚠️ DEBUG: La IA devolvió 0 elementos.")
+             with st.expander("Ver Respuesta Cruda de la IA (Debug)"):
+                 st.text(completion.choices[0].message.content)
+        # -----------------------------------
+        
         return results
     except Exception as e:
         st.error(f"AI Email Error: {e}")
