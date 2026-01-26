@@ -744,28 +744,37 @@ def view_planner():
                              st.session_state.confirm_delete_all = False
                              st.rerun()
 
+            # --- DEBUG: SHOW LISTS ---
+            with st.expander("📂 Ver Listas de Tareas Detectadas"):
+                task_lists = get_task_lists(tasks_svc)
+                for tl in task_lists:
+                    st.write(f"- **{tl['title']}** (ID: `{tl['id']}`)")
+
             if not all_tasks:
                 st.caption("No hay tareas pendientes (o no se pudieron cargar).")
             else:
                 for t in all_tasks:
                      # Filter visually if due date is in range? Or just show all? User asked for control, showing all is safer
-                     with st.expander(f"☑️ {t['title']}"):
-                         ed_ti = st.text_input("Título", t['title'], key=f"t_ti_{t['id']}")
-                         ed_no = st.text_area("Notas", t.get('notes', ''), key=f"t_no_{t['id']}")
-                         
-                         d_val = datetime.date.today()
-                         if t.get('due'):
+                     list_tag = f"[{t['list_title']}]" if t.get('list_title') else ""
+                     
+                     with st.expander(f"☑️ {t['title']} {list_tag}"):
+                          st.caption(f"📍 Lista: {t.get('list_title', 'Desconocida')}")
+                          ed_ti = st.text_input("Título", t['title'], key=f"t_ti_{t['id']}")
+                          ed_no = st.text_area("Notas", t.get('notes', ''), key=f"t_no_{t['id']}")
+                          
+                          d_val = datetime.date.today()
+                          if t.get('due'):
                              try: d_val = datetime.datetime.fromisoformat(t['due'].replace('Z','')).date()
                              except: pass
-                         ed_du = st.date_input("Vencimiento", d_val, key=f"t_du_{t['id']}")
-                         
-                         c_t1, c_t2 = st.columns(2)
-                         with c_t1:
+                          ed_du = st.date_input("Vencimiento", d_val, key=f"t_du_{t['id']}")
+                          
+                          c_t1, c_t2 = st.columns(2)
+                          with c_t1:
                              if st.button("💾 Guardar Tarea", key=f"u_t_{t['id']}"):
                                  update_task_google(tasks_svc, t['list_id'], t['id'], title=ed_ti, notes=ed_no, due=ed_du)
                                  st.success("Guardado")
                                  st.rerun()
-                         with c_t2:
+                          with c_t2:
                              if st.button("🗑️ Borrar Tarea", key=f"d_t_{t['id']}"):
                                  delete_task_google(tasks_svc, t['list_id'], t['id'])
                                  st.rerun()
