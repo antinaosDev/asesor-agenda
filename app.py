@@ -559,8 +559,15 @@ def view_planner():
                     file_text = uploaded_file.read().decode("utf-8")
                 
                 if file_text:
+                    # OPTIMIZATION: Truncate for Qwen 32B Limit (6k TPM is tight)
+                    # 15k chars is roughly 4-5k tokens, leaving room for prompt + output
+                    MAX_CHARS = 15000
+                    if len(file_text) > MAX_CHARS:
+                        file_text = file_text[:MAX_CHARS] + "\n... [TRUNCADO POR LIMITE DE CREDITOS]"
+                        st.warning(f"⚠️ Documento largo. Se ha truncado a {MAX_CHARS} caracteres para cuidar tus créditos de IA.")
+                    
                     extra_context += f"\n\n--- DOCUMENTO ADJUNTO ({uploaded_file.name}) ---\n{file_text}"
-                    st.toast(f"📄 Documento '{uploaded_file.name}' procesado ({len(file_text)} caracteres).")
+                    st.toast(f"📄 Documento '{uploaded_file.name}' procesado.")
             except Exception as e:
                 st.error(f"Error leyendo archivo: {e}")
 
