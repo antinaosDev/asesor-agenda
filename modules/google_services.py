@@ -295,9 +295,18 @@ def get_gmail_credentials():
                              if 'user_data_full' in st.session_state:
                                   st.session_state.user_data_full['cod_val'] = creds_json
                              st.toast("✅ Sesión guardada.")
-                             st.success("✅ ¡Conectado! Recargando...")
-                             time.sleep(2)
-                             st.rerun()
+                
+                # --- UPDATE UI EMAIL IMMEDIATELY ---
+                try:
+                    service = build('gmail', 'v1', credentials=creds)
+                    profile = service.users().getProfile(userId='me').execute()
+                    st.session_state.connected_email = profile.get('emailAddress', 'Desconocido')
+                except: pass
+                # -----------------------------------
+
+                st.success("✅ ¡Conectado! Recargando...")
+                time.sleep(2)
+                st.rerun()
             except Exception as e:
                 st.error(f"Error de autenticación: {e}")
                 return None
