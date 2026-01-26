@@ -317,11 +317,15 @@ def get_gmail_credentials():
         else:
             st.stop()
     
-    # 5. Extract Email for UI
+    # 5. Extract Email for UI (ALWAYS, for any valid session)
     try:
         service = build('gmail', 'v1', credentials=creds)
         profile = service.users().getProfile(userId='me').execute()
-        st.session_state.connected_email = profile.get('emailAddress', 'Desconocido')
+        detected_email = profile.get('emailAddress', 'Desconocido')
+        
+        # Sync BOTH keys to ensure UI sidebar stays in sync
+        st.session_state.connected_email = detected_email
+        st.session_state.connected_email_input = detected_email
     except:
         pass
 
