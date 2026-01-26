@@ -240,6 +240,16 @@ def render_login_page():
                     st.session_state.authenticated = True
                     st.session_state.user_data_full = data
                     st.session_state.license_key = u
+                    
+                    # --- AUTO INIT CONNECTED EMAIL FROM DB ---
+                    # Prevents 404 if app tries to access wrong default calendar
+                    db_email = data.get('email_send') or data.get('USER_EMAIL')
+                    if db_email and '@' in str(db_email):
+                        st.session_state.connected_email = str(db_email).strip()
+                    else:
+                         st.session_state.connected_email = 'primary'
+                    # -----------------------------------------
+
                     st.rerun()
                 else:
                     st.error("Acceso Denegado")
@@ -594,7 +604,15 @@ def view_planner():
                     singleEvents=True, orderBy='startTime', maxResults=2000,
                     fields="items(summary,start,end,description)" 
                 ).execute().get('items', [])
-            except: pass
+            except Exception as e:
+                err_msg = str(e)
+                if "404" in err_msg or "Not Found" in err_msg:
+                    st.warning(f"⚠️ No se encontró el calendario **{calendar_id}** o no tienes permiso para verlo.")
+                    st.info("💡 Solución: Asegúrate de que esa cuenta de Google haya compartido su calendario con tu usuario actual (el que usaste para loguearte).")
+                else:
+                    st.error(f"Error cargando calendario: {e}")
+                st.session_state.c_events_cache = []
+    
     # Simplified Logic from original app.py
     # ... (Logic for fetching calendar context would go here)
     
