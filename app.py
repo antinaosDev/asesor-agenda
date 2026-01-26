@@ -576,16 +576,32 @@ def view_planner():
                      if st.checkbox(label, key=f"pj_task_{i}", value=True):
                          tasks_to_add.append({"title": title, "notes": notes})
                  
-                 if st.button("🚀 Añadir Tareas Seleccionadas a Google Tasks", type="primary"):
-                     tasks_svc = get_tasks_service()
-                     if tasks_svc:
-                         bar = st.progress(0)
-                         for idx, t in enumerate(tasks_to_add):
-                             add_task_to_google(tasks_svc, "@default", t['title'], t['notes'])
-                             bar.progress((idx+1)/len(tasks_to_add))
-                         st.success(f"¡{len(tasks_to_add)} tareas añadidas!")
-                     else:
-                         st.error("No se pudo conectar con Google Tasks.")
+                  if st.button("🚀 Añadir Tareas Seleccionadas a Google Tasks", type="primary"):
+                      tasks_svc = get_tasks_service()
+                      if tasks_svc:
+                          # 1. Create Parent Task
+                          proj_title = selected_proj.split("|")[0].strip() if selected_proj else "Proyecto Nuevo"
+                          with st.spinner(f"Creando tarea principal '{proj_title}'..."):
+                              parent_task = add_task_to_google(tasks_svc, "@default", proj_title, f"Proyecto generado por AI: {len(tasks_to_add)} tareas.")
+                          
+                          if parent_task:
+                              parent_id = parent_task['id']
+                              st.toast(f"📂 Carpeta creada: {proj_title}")
+                              
+                              # 2. Add Subtasks
+                              bar = st.progress(0)
+                              for idx, t in enumerate(tasks_to_add):
+                                  add_task_to_google(tasks_svc, "@default", t['title'], t['notes'], parent=parent_id)
+                                  bar.progress((idx+1)/len(tasks_to_add))
+                                  # time.sleep(0.1) # Optional rate limit
+                                  
+                              st.success(f"¡Proyecto '{proj_title}' creado con {len(tasks_to_add)} subtareas!")
+                              time.sleep(2)
+                              st.rerun()
+                          else:
+                              st.error("Error creando tarea principal (Parent Task).")
+                      else:
+                          st.error("No se pudo conectar con Google Tasks.")
              else:
                  st.write(plan_data)
 

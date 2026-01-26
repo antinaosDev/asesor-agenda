@@ -358,7 +358,7 @@ def create_task_list(service, title):
         st.error(f"Error creating task list: {e}")
         return None
 
-def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None):
+def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, parent=None):
     """Adds a task to the specified list."""
     try:
         task = {
@@ -368,6 +368,9 @@ def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None):
         if due_date:
             # Google Tasks expects RFC 3339 timestamp
             task['due'] = due_date.isoformat() + 'Z'
+        
+        if parent:
+            task['parent'] = parent
             
         result = service.tasks().insert(tasklist=tasklist_id, body=task).execute()
         return result
