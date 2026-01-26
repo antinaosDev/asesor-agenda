@@ -571,10 +571,11 @@ def view_planner():
                      else:
                          label = str(item)
                          title = str(item)
+                         date = ""
                          notes = ""
-                     
+                         
                      if st.checkbox(label, key=f"pj_task_{i}", value=True):
-                         tasks_to_add.append({"title": title, "notes": notes})
+                         tasks_to_add.append({"title": title, "notes": notes, "date": date})
                  
                  if st.button("🚀 Añadir Tareas Seleccionadas a Google Tasks", type="primary"):
                      tasks_svc = get_tasks_service()
@@ -591,7 +592,17 @@ def view_planner():
                              # 2. Add Subtasks
                              bar = st.progress(0)
                              for idx, t in enumerate(tasks_to_add):
-                                 add_task_to_google(tasks_svc, "@default", t['title'], t['notes'], parent=parent_id)
+                                 # Parse Date
+                                 d_obj = None
+                                 if t.get('date'):
+                                     try: 
+                                         # Try ISO format or simply YYYY-MM-DD
+                                         d_str = t['date'].strip()
+                                         d_obj = datetime.datetime.fromisoformat(d_str)
+                                     except:
+                                         pass # Fail gracefully, no date
+                                 
+                                 add_task_to_google(tasks_svc, "@default", t['title'], t['notes'], due_date=d_obj, parent=parent_id)
                                  bar.progress((idx+1)/len(tasks_to_add))
                                  # time.sleep(0.1) # Optional rate limit
                                  
