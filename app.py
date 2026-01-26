@@ -1054,14 +1054,16 @@ def view_inbox():
                 st.success(f"📧 Conectado: **{current_email}**")
             else:
                 st.info("📧 No conectado a Gmail")
-        except:
-            st.warning("📧 Error detectando cuenta")
-            if st.button("♻️ Cambiar Cuenta / Salir", key="btn_logout_gmail"):
-                # 1. Clear from Sheet (Cloud)
-                if 'license_key' in st.session_state:
-                     user = st.session_state.license_key
-                     st.toast("Desvinculando cuenta de Google...")
-                     auth.update_user_field(user, 'COD_VAL', '')
+        except Exception as e:
+            st.warning(f"📧 Error detectando cuenta: {e}")
+        
+        # --- BOTÓN LOGOUT (SIEMPRE VISIBLE) ---
+        if st.button("♻️ Cambiar Cuenta / Salir", key="btn_logout_gmail"):
+            # 1. Clear from Sheet (Cloud)
+            if 'license_key' in st.session_state:
+                 user = st.session_state.license_key
+                 st.toast("Desvinculando cuenta de Google...")
+                 auth.update_user_field(user, 'COD_VAL', '')
                 
                 # 2. Clear Local Session State (UI Reset)
                 keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'user_data_full']
