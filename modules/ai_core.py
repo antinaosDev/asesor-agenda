@@ -113,46 +113,60 @@ Output JSON Format:
 # --- HELPERS ---
 def _clean_json_output(content):
     """
-    Robust Strategy: Iterate through string and extract ALL valid JSON objects.
-    Useful when AI outputs multiple blocks "JSON 1 ... JSON 2" or garbage text.
+    Ultra-Robust Strategy: Stack-based bracket counting.
+    Extracts all top-level [...] AND {...} blocks.
+    SAFE: Ignores text outside blocks. Returns [] if nothing found.
     """
-    decoder = json.JSONDecoder()
-    pos = 0
+    content = content.strip()
     results = []
     
-    while pos < len(content):
-        try:
-            # Skip whitespace/garbage until we find a start char
-            if content[pos].isspace():
-                pos += 1
-                continue
-                
-            # Try decoding from this position
-            obj, end = decoder.raw_decode(content, idx=pos)
-            results.append(obj)
-            pos = end
-        except json.JSONDecodeError:
-            # If fail, just advance one char and try again (brute force search)
-            pos += 1
-            
-    # If we found multiple lists, merge them
-    final_list = []
+    # Scan for top-level brackets/braces
+    i = 0
+    depth_array = 0
+    depth_object = 0
+    start_idx = -1
     
-    # 1. Collect all lists found
-    for r in results:
-        if isinstance(r, list):
-            final_list.extend(r)
-        elif isinstance(r, dict):
-            final_list.append(r)
+    # We treat it as one continuous stream, capturing ANY valid top-level block
+    while i < len(content):
+        char = content[i]
+        
+        # Start of a block (if at depth 0)
+        if char == '[':
+            if depth_array == 0 and depth_object == 0:
+                start_idx = i
+            depth_array += 1
+        elif char == '{':
+            if depth_array == 0 and depth_object == 0:
+                start_idx = i
+            depth_object += 1
             
-    # 2. If nothing found by decoder, try fallback regex (for strict md blocks)
-    if not final_list and not results:
-        # Fallback to simple regex if raw_decode missed entirely
-        match = re.search(r'\[.*\]', content, re.DOTALL)
-        if match:
-             return match.group(0) # Return string for caller to try loading
-             
-    return json.dumps(final_list) # Return standardized JSON string
+        # End of a block
+        elif char == ']':
+            if depth_array > 0:
+                depth_array -= 1
+                # If we closed the last array and are not in an object
+                if depth_array == 0 and depth_object == 0:
+                    _try_parse_block(content[start_idx : i+1], results)
+
+        elif char == '}':
+            if depth_object > 0:
+                depth_object -= 1
+                if depth_array == 0 and depth_object == 0:
+                     _try_parse_block(content[start_idx : i+1], results)
+            
+        i += 1
+
+    return json.dumps(results)
+
+def _try_parse_block(block, results_list):
+    try:
+        parsed = json.loads(block)
+        if isinstance(parsed, list):
+            results_list.extend(parsed)
+        elif isinstance(parsed, dict):
+            results_list.append(parsed)
+    except:
+        pass
 
 # --- CORE FUNCTIONS ---
 
