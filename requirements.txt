@@ -10,3 +10,4 @@ google-auth-oauthlib
 beautifulsoup4
 st-gsheets-connection
 notificationapi-python-server-sdk
+pypdf

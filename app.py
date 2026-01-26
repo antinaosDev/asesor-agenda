@@ -546,6 +546,24 @@ def view_planner():
         
         extra_context = st.text_area("📝 Contexto / Documentación (Opcional)", height=100, placeholder="Pega aquí correos, requerimientos o detalles específicos para que la IA los considere...")
         
+        uploaded_file = st.file_uploader("📂 Subir Documentos (PDF/TXT)", type=["pdf", "txt"])
+        if uploaded_file:
+            try:
+                file_text = ""
+                if uploaded_file.type == "application/pdf":
+                    import pypdf
+                    reader = pypdf.PdfReader(uploaded_file)
+                    for page in reader.pages:
+                        file_text += page.extract_text() + "\n"
+                else: # txt
+                    file_text = uploaded_file.read().decode("utf-8")
+                
+                if file_text:
+                    extra_context += f"\n\n--- DOCUMENTO ADJUNTO ({uploaded_file.name}) ---\n{file_text}"
+                    st.toast(f"📄 Documento '{uploaded_file.name}' procesado ({len(file_text)} caracteres).")
+            except Exception as e:
+                st.error(f"Error leyendo archivo: {e}")
+
         if st.button("Desglosar", type="primary", width="stretch"):
              if selected_proj:
                  with st.spinner("Generando Roadmap..."):
