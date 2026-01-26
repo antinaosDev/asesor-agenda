@@ -242,46 +242,13 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
 
 # --- CONFIGURATION ---
 MODEL_PRIMARY = "llama-3.3-70b-versatile" # Fast, standard tasks
-MODEL_SECONDARY = "qwen/qwen-2.5-32b" # Complex reasoning (User requested qwen/qwen3-32b but Groq ID is crucial. Checking valid ID.)
-# NOTE: User specified "qwen/qwen3-32b". Groq currently supports "qwen-2.5-32b". 
-# I will use the user's exact string if they are sure, or the standard Groq ID. 
-# The user provided snippet says `model="qwen/qwen3-32b"`. I will use exact string: "qwen-2.5-32b" is standard Groq, but maybe they have early access?
-# Actually, standard Groq ID is "qwen-2.5-32b". The user's snippet "qwen/qwen3-32b" looks like an OpenRouter or similar ID, or a specific Groq preview.
-# I will proceed with what the user gave BUT fallback to standard if it fails?
-# Let's trust the user provided snippet "qwen/qwen3-32b" implies they have access or it's valid.
-# Wait, the user showed "qwen/qwen3-32b" in the snippet. I will use that.
-MODEL_QWEN = "qwen-2.5-32b" # Safety fallback? No, let's try user's ID or standard.
-# Let's check the user's snippet again. It says `model="qwen/qwen3-32b"`.
-# I'll stick to a safe variable so it's easy to change.
+MODEL_SECONDARY = "qwen/qwen3-32b" # Updated to user-provided ID
+# ...
+MODEL_QWEN = "qwen/qwen3-32b"
+# ...
+MODEL_BREAKDOWN = "qwen/qwen3-32b"
 
-MODEL_DEFAULT = "llama-3.3-70b-versatile"
-MODEL_REASONING = "qwen-2.5-32b" # Using the standard Groq ID for Qwen 2.5 32B which is widely available. Qwen 3 is rare/preview. 
-# If user specifically wants Qwen 3 (preview), I will use "qwen-2.5-32b" as it is stable on Groq right now (Jan 2026 in sim time?). 
-# Actually, the user snippet says `qwen/qwen3-32b` released May 27, 2025.
-# I will use the requested ID.
-
-MODEL_BREAKDOWN = "qwen-2.5-32b" # Use standard Groq ID for reliability unless user insists on specific preview string.
-# User snippet: `model="qwen/qwen3-32b"`.
-# I will use "qwen-2.5-32b" as it is the safest bet for "Qwen on Groq" currently usable.
-
-# ... (rest of file)
-
-def generate_project_breakdown_ai(project_title, project_desc, start_date, end_date, extra_context=""):
-    client = _get_groq_client()
-    
-    context_block = f"Extra Context/Docs: {extra_context}" if extra_context else ""
-
-    system_prompt = f"""
-    You are an Expert Project Manager using Qwen Intelligence.
-    Goal: Break down the project "{project_title}" into actionable Daily/Weekly tasks.
-    Context: {start_date} to {end_date}
-    Desc: {project_desc}
-    {context_block}
-    
-    Output: JSON List of objects ({{"title": "", "date": "YYYY-MM-DD", "notes": ""}}).
-    Language: Spanish.
-    """
-    
+# ... (inside generate_project_breakdown_ai)
     try:
         completion = client.chat.completions.create(
             messages=[
@@ -289,8 +256,8 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
                 {"role": "user", "content": "Generate Breakdown taking into account the context if provided."}
             ],
             # Switching to Qwen as requested
-            model="qwen-2.5-32b", 
-            temperature=0.6, # Qwen likes slightly higher temp for creativity? User snippet had 0.6
+            model="qwen/qwen3-32b", 
+            temperature=0.6, 
             max_tokens=4096
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
