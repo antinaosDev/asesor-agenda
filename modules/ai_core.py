@@ -112,39 +112,47 @@ Output JSON Format:
 
 # --- HELPERS ---
 def _clean_json_output(content):
-    """Robust Strategy to extract JSON from AI text."""
-    content = content.strip()
+    """
+    Robust Strategy: Iterate through string and extract ALL valid JSON objects.
+    Useful when AI outputs multiple blocks "JSON 1 ... JSON 2" or garbage text.
+    """
+    decoder = json.JSONDecoder()
+    pos = 0
+    results = []
     
-    # 0. Remove Markdown Formatting (```json ... ```)
-    if content.startswith("```"):
-        content = re.sub(r'^```(json)?', '', content)
-        content = re.sub(r'```$', '', content)
-        content = content.strip()
+    while pos < len(content):
+        try:
+            # Skip whitespace/garbage until we find a start char
+            if content[pos].isspace():
+                pos += 1
+                continue
+                
+            # Try decoding from this position
+            obj, end = decoder.raw_decode(content, idx=pos)
+            results.append(obj)
+            pos = end
+        except json.JSONDecodeError:
+            # If fail, just advance one char and try again (brute force search)
+            pos += 1
+            
+    # If we found multiple lists, merge them
+    final_list = []
     
-    # 1. Try finding the outer-most brackets defined by the first [ and last ]
-    # This captures a list even if it has nested objects
-    try:
-        start = content.find('[')
-        end = content.rfind(']')
-        if start != -1 and end != -1:
-            return content[start:end+1]
-    except: pass
-
-    # 2. Try finding outer braces if it's a dict
-    try:
-        start = content.find('{')
-        end = content.rfind('}')
-        if start != -1 and end != -1:
-            return content[start:end+1]
-    except: pass
-    
-    return content
-
-    # 2. Regex for raw list/dict
-    match = re.search(r'(\[.*\]|\{.*\})', content, re.DOTALL)
-    if match: return match.group(1)
-    
-    return content
+    # 1. Collect all lists found
+    for r in results:
+        if isinstance(r, list):
+            final_list.extend(r)
+        elif isinstance(r, dict):
+            final_list.append(r)
+            
+    # 2. If nothing found by decoder, try fallback regex (for strict md blocks)
+    if not final_list and not results:
+        # Fallback to simple regex if raw_decode missed entirely
+        match = re.search(r'\[.*\]', content, re.DOTALL)
+        if match:
+             return match.group(0) # Return string for caller to try loading
+             
+    return json.dumps(final_list) # Return standardized JSON string
 
 # --- CORE FUNCTIONS ---
 
