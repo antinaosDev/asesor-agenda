@@ -240,16 +240,6 @@ def render_login_page():
                     st.session_state.authenticated = True
                     st.session_state.user_data_full = data
                     st.session_state.license_key = u
-                    
-                    # --- AUTO INIT CONNECTED EMAIL FROM DB ---
-                    # Prevents 404 if app tries to access wrong default calendar
-                    db_email = data.get('email_send') or data.get('USER_EMAIL')
-                    if db_email and '@' in str(db_email):
-                        st.session_state.connected_email = str(db_email).strip()
-                    else:
-                         st.session_state.connected_email = 'primary'
-                    # -----------------------------------------
-
                     st.rerun()
                 else:
                     st.error("Acceso Denegado")
