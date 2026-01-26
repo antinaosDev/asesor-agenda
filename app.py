@@ -574,9 +574,12 @@ def view_planner():
         if st.button("Desglosar", type="primary", width="stretch"):
              if selected_proj:
                  with st.spinner("Generando Roadmap..."):
-                     # Dump mock logic or call AI
-                     # For brevity, calling AI with standard prompt
-                     breakdown = generate_project_breakdown_ai(selected_proj, "", "", "", extra_context=extra_context)
+                     # Parse Title and Date from string "Title | Date"
+                     parts = selected_proj.split("|")
+                     p_title = parts[0].strip()
+                     p_date = parts[1].strip() if len(parts) > 1 else str(datetime.date.today())
+                     
+                     breakdown = generate_project_breakdown_ai(p_title, "Proyecto extraído de calendario", p_date, "", extra_context=extra_context)
                      st.session_state.project_plan = breakdown
                      st.session_state.plan_type = 'project'
         
