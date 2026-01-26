@@ -15,18 +15,34 @@ def _get_groq_client():
 # --- SYSTEM PROMPTS (CONSTANTS) ---
 
 PROMPT_EMAIL_ANALYSIS = """
-You are an Executive Assistant. Review these emails.
-Identify ONLY items that definitely require a Calendar Event (meetings, deadlines).
-Ignore newsletters, fyi, spam, or completed tasks.
+You are an Elite Executive Assistant ("Agente A2").
+Analyze these emails. Your goal is to:
+1. Detect Calendar Events (meetings, deadlines).
+2. Detect INFO/TASKS that don't have a date but are IMPORTANT (e.g. "Review this report").
+3. Classify EVERY email by Urgency and Category.
 
 Current Date: {current_date}
 
-Output: JSON List of events (same format: summary, description, start_time, end_time, colorId).
+Output: JSON List of objects.
+Structure:
+{{
+    "id": "email_id_from_input",
+    "is_event": boolean, 
+    "summary": "Title in Spanish",
+    "description": "Details in Spanish",
+    "start_time": "YYYY-MM-DDTHH:MM:SS" (or null if no date),
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (or null),
+    "urgency": "Alta" | "Media" | "Baja",
+    "category": "Solicitud" | "Información" | "Pagos" | "Otro"
+}}
+
 Rules:
-- Use 'summary' for the event Title IN SPANISH.
-- Copy details to 'description' IN SPANISH.
-- Infer dates/times strictly. If unsure, do not create event.
+- If an email implies a task ("Do X") but has no date, set is_event=False, start_time=null.
+- Urgency "Alta": Deadlines today/tomorrow, money, angry clients.
+- Urgency "Media": Normal requests.
+- Urgency "Baja": newsletters, fyi.
 - LANGUAGE: SPANISH.
+- STRICTLY JSON.
 """
 
 PROMPT_EVENT_PARSING = """
@@ -159,9 +175,10 @@ def analyze_emails_ai(emails):
     if not emails: return []
     client = _get_groq_client()
     
-    batch_text = "ANALYZE THESE EMAILS and extract CALENDAR EVENTS:\n"
+    batch_text = "ANALYZE THESE EMAILS:\n"
     for i, e in enumerate(emails):
-        batch_text += f"EMAIL #{i+1} | FROM: {e['sender']} | SUBJ: {e['subject']} | BODY: {e['body']}\n---\n"
+        # Pass ID to map back
+        batch_text += f"ID: {e['id']} | FROM: {e['sender']} | SUBJ: {e['subject']} | BODY: {e['body']}\n---\n"
 
     prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
 
@@ -177,9 +194,9 @@ def analyze_emails_ai(emails):
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
         
-        events = json.loads(content, strict=False)
-        if isinstance(events, dict): events = [events]
-        return events
+        results = json.loads(content, strict=False)
+        if isinstance(results, dict): results = [results]
+        return results
     except Exception as e:
         st.error(f"AI Email Error: {e}")
         return []

@@ -550,3 +550,48 @@ def optimize_event(service, calendar_id, event_id, new_summary=None, color_id=No
     if not ok:
         st.error(f"Error optimizing event: {msg}")
     return ok
+
+# --- GMAIL LABELING HELPERS ---
+
+def ensure_label(service, label_name):
+    """
+    Checks if a label exists, if not creates it.
+    Returns the Label ID.
+    Handles hierarchy (e.g. 'Parent/Child').
+    """
+    try:
+        # List existing labels
+        results = service.users().labels().list(userId='me').execute()
+        labels = results.get('labels', [])
+        
+        # Check match
+        for l in labels:
+            if l['name'].lower() == label_name.lower():
+                return l['id']
+        
+        # Create if missing
+        label_object = {
+            'name': label_name,
+            'labelListVisibility': 'labelShow',
+            'messageListVisibility': 'show'
+        }
+        created = service.users().labels().create(userId='me', body=label_object).execute()
+        return created['id']
+    except Exception as e:
+        # Often fails if parent doesn't exist? Gmail API usually handles slashes automatically for hierarchy
+        # But if error "Label name exists" or similar, just ignore
+        print(f"Label Error ({label_name}): {e}")
+        return None
+
+def add_label_to_email(service, msg_id, label_id):
+    """Adds a specific label to a message."""
+    try:
+        body = {
+            'addLabelIds': [label_id],
+            'removeLabelIds': []
+        }
+        service.users().messages().modify(userId='me', id=msg_id, body=body).execute()
+        return True
+    except Exception as e:
+        print(f"Error labeling email {msg_id}: {e}")
+        return False

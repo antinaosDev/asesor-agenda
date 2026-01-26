@@ -1058,11 +1058,44 @@ def view_inbox():
                          st.warning("No se encontraron correos nuevos relevantes.")
                      else:
                          st.session_state.fetched_emails = emails
-                         with st.spinner(f"🧠 La IA está analizando {len(emails)} correos..."):
-                             events = analyze_emails_ai(emails)
-                             st.session_state.ai_gmail_events = events
-                             if not events:
-                                 st.warning('La IA leyó los correos pero no encontró eventos agendables.')
+                         with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
+                             analyzed_items = analyze_emails_ai(emails)
+                             st.session_state.ai_gmail_events = analyzed_items # Stores mixed events/tasks
+                             
+                             # --- AUTOMATIC LABELING LOOP ---
+                             count_labeled = 0
+                             for item in analyzed_items:
+                                 if item.get('id'):
+                                     # Determine Label Name
+                                     urgency = item.get('urgency', 'Media')
+                                     category = item.get('category', 'Otro')
+                                     
+                                     # Hierarchy: Agente A2 -> Urgency
+                                     label_name = f"Agente A2/{urgency}"
+                                     
+                                     # Ensure Label Exists
+                                     lbl_id = start_label_id = None
+                                     
+                                     # 1. Ensure Parent "Agente A2"
+                                     try:
+                                         from modules.google_services import ensure_label, add_label_to_email
+                                         p_id = ensure_label(service_gmail, "Agente A2")
+                                         
+                                         # 2. Ensure Child
+                                         lbl_id = ensure_label(service_gmail, label_name)
+                                         
+                                         # 3. Apply to Email
+                                         if lbl_id:
+                                             add_label_to_email(service_gmail, item['id'], lbl_id)
+                                             count_labeled += 1
+                                     except Exception as e:
+                                         print(f"Labeling failed: {e}")
+                             
+                             if count_labeled > 0:
+                                 st.toast(f"🏷️ {count_labeled} correos etiquetados en Gmail.")
+
+                             if not analyzed_items:
+                                 st.warning('La IA leyó los correos pero no encontró nada accionable.')
                  except Exception as e:
                      st.error(f"Error procesando correos: {e}")
                  finally:
@@ -1073,22 +1106,49 @@ def view_inbox():
 
     with col_g2:
          if 'ai_gmail_events' in st.session_state and st.session_state.ai_gmail_events:
-             st.success(f"✅ ¡He detectado {len(st.session_state.ai_gmail_events)} posibles eventos!")
+             items = st.session_state.ai_gmail_events
+             st.success(f"✅ ¡Procesado! {len(items)} elementos detectados.")
              
-             for i, ev in enumerate(st.session_state.ai_gmail_events):
-                 with st.expander(f"📅 {ev.get('summary', 'Evento Detectado')}", expanded=True):
-                     c1, c2 = st.columns([3, 1])
-                     with c1:
-                         st.write(f"**Detalles:** {ev.get('description', '-')}")
-                         st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
-                     with c2:
-                         if st.button(f"Agendar 📌", key=f"btn_gm_{i}"):
-                             cal_id = st.session_state.get('connected_email', 'primary')
-                             service_cal = get_calendar_service()
-                             if service_cal:
-                                  res, msg = add_event_to_calendar(service_cal, ev, cal_id)
-                                  if res: st.success(f"¡Agendado!")
-                                  else: st.error(f"Error: {msg}")
+             # Tabs for Events vs Tasks (Info)
+             tab_ev, tab_info = st.tabs(["📅 Eventos (Con Fecha)", "📝 Tareas / Info (Sin Fecha)"])
+             
+             with tab_ev:
+                 events = [x for x in items if x.get('is_event') or x.get('start_time')]
+                 if not events: st.info("No hay eventos de calendario estrictos.")
+                 
+                 for i, ev in enumerate(events):
+                     with st.expander(f"🗓️ {ev.get('summary', 'Evento')} ({ev.get('urgency','?')})", expanded=True):
+                         c1, c2 = st.columns([3, 1])
+                         with c1:
+                             st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
+                             st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
+                         with c2:
+                             if st.button(f"Agendar", key=f"btn_ev_{i}"):
+                                 cal_id = st.session_state.get('connected_email', 'primary')
+                                 service_cal = get_calendar_service()
+                                 if service_cal:
+                                      res, msg = add_event_to_calendar(service_cal, ev, cal_id)
+                                      if res: st.success("¡Agendado!")
+                                      else: st.error(f"Error: {msg}")
+
+             with tab_info:
+                 tasks = [x for x in items if not x.get('is_event') and not x.get('start_time')]
+                 if not tasks: st.info("No hay información suelta o tareas sin fecha.")
+                 
+                 for i, t in enumerate(tasks):
+                     with st.expander(f"📌 {t.get('summary', 'Nota')} ({t.get('urgency','?')})", expanded=True):
+                         st.markdown(f"**Categoría**: {t.get('category','Otro')}")
+                         st.write(t.get('description', ''))
+                         
+                         # Action: Save as Task for TODAY (Catch-all)
+                         if st.button("Guardar como Tarea (Para Hoy)", key=f"btn_tk_{i}"):
+                             svc_tasks = get_tasks_service()
+                             if svc_tasks:
+                                 # Current date for due date
+                                 due_today = datetime.datetime.now(datetime.timezone.utc)
+                                 add_task_to_google(svc_tasks, "@default", t.get('summary'), t.get('description'), due_date=due_today)
+                                 st.success("✅ Guardada en Google Tasks para hoy.")
+         
          elif 'fetched_emails' in st.session_state:
               st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")
 
