@@ -923,7 +923,37 @@ def view_planner():
                                          st.session_state.trigger_manager_search = True
                                          st.rerun()
             except Exception as e:
-                st.error(f"Error leyendo calendario: {e}")
+                err_msg = str(e)
+                fallback_success = False
+                
+                # --- FALLBACK: TRY SERVICE ACCOUNT (ROBOT) ---
+                if "404" in err_msg or "Not Found" in err_msg:
+                    try:
+                        cal_svc_sa = get_calendar_service(force_service_account=True)
+                        if cal_svc_sa:
+                             events_res = cal_svc_sa.events().list(
+                                calendarId=cal_id, timeMin=t_min, timeMax=t_max, 
+                                singleEvents=True, orderBy='startTime', maxResults=50
+                             ).execute()
+                             events_list = events_res.get('items', [])
+                             
+                             # Render Events (Duplicate code block, but necessary for fallback context)
+                             if not events_list:
+                                 st.caption("No se encontraron eventos en este rango (vía Robot).")
+                             else:
+                                 st.caption("ℹ️ Mostrando eventos con permiso de Robot")
+                                 for ev in events_list:
+                                     with st.expander(f"🗓️ {ev.get('summary', '(Sin Título)')} | {ev['start'].get('dateTime', ev['start'].get('date'))[:16]}"):
+                                         st.write(ev.get('description', ''))
+                                         # Editing via Robot might fail if SA is read-only, but better than 404
+                             fallback_success = True
+                    except: pass
+                
+                if not fallback_success:
+                    if "404" in err_msg or "Not Found" in err_msg:
+                         st.error(f"Error 404: No tienes permiso para ver el calendario {cal_id}.")
+                    else:
+                         st.error(f"Error leyendo calendario: {e}")
 
         st.divider()
         st.markdown("#### ✅ Tareas de Google Tasks")
