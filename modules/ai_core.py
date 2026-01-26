@@ -218,9 +218,9 @@ def analyze_emails_ai(emails, custom_model=None):
     if not emails: return []
     client = _get_groq_client()
     
-    # Use lighter model by default to avoid Rate Limits (429)
-    # llama-3.1-8b-instant is faster and has higher limits than 70b
-    model_id = custom_model if custom_model else "llama-3.1-8b-instant"
+    # Use powerful model for complex email analysis task
+    # llama-3.1-8b-instant is too simple and returns empty results
+    model_id = custom_model if custom_model else "llama-3.3-70b-versatile"
     
     batch_text = "ANALYZE THESE EMAILS:\n"
     for i, e in enumerate(emails):
