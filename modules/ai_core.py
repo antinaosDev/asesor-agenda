@@ -218,9 +218,12 @@ def analyze_emails_ai(emails, custom_model=None):
     if not emails: return []
     client = _get_groq_client()
     
-    # Use powerful model for complex email analysis task
-    # llama-3.1-8b-instant is too simple and returns empty results
-    model_id = custom_model if custom_model else "llama-3.3-70b-versatile"
+    # Primary model (most capable for complex tasks)
+    primary_model = "llama-3.3-70b-versatile"
+    # Fallback model (good balance: smarter than 8b-instant, lighter than 70b)
+    fallback_model = "mixtral-8x7b-32768"
+    
+    model_id = custom_model if custom_model else primary_model
     
     batch_text = "ANALYZE THESE EMAILS:\n"
     for i, e in enumerate(emails):
@@ -230,6 +233,7 @@ def analyze_emails_ai(emails, custom_model=None):
 
     prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
 
+    # Try primary model first
     try:
         completion = client.chat.completions.create(
             messages=[
@@ -241,27 +245,48 @@ def analyze_emails_ai(emails, custom_model=None):
             max_tokens=2048
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
-        
-        results = json.loads(content) # clean_json always returns valid JSON string now
+        results = json.loads(content)
         if isinstance(results, dict): results = [results]
         
-        # --- DEBUG FOR "NO EVENTS" ISSUE ---
         if not results:
              st.warning("⚠️ DEBUG: La IA devolvió 0 elementos.")
              with st.expander("Ver Respuesta Cruda de la IA (Debug)"):
                  st.text(completion.choices[0].message.content)
-        # -----------------------------------
         
         return results
+        
     except Exception as e:
         err_msg = str(e)
-        if "429" in err_msg or "rate limit" in err_msg.lower():
-            st.error("📉 Límite de uso de IA alcanzado (Rate Limit).")
-            st.warning("Hemos cambiado a un modelo más ligero (8b) para evitar esto, pero si persiste, espera unos minutos.")
-            st.info("Tip: Reduce la cantidad de correos a analizar en la barra lateral.")
+        
+        # AUTO-FALLBACK: If rate limit on primary model, try fallback
+        if ("429" in err_msg or "rate limit" in err_msg.lower()) and not custom_model:
+            st.warning(f"⚠️ Límite de tokens alcanzado en {model_id}")
+            st.info(f"🔄 Cambiando automáticamente a modelo alternativo: {fallback_model}")
+            
+            try:
+                completion = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": batch_text}
+                    ],
+                    model=fallback_model,
+                    temperature=0.1,
+                    max_tokens=2048
+                )
+                content = _clean_json_output(completion.choices[0].message.content.strip())
+                results = json.loads(content)
+                if isinstance(results, dict): results = [results]
+                
+                st.success(f"✅ Análisis completado con {fallback_model}")
+                return results
+                
+            except Exception as fallback_error:
+                st.error(f"❌ Error en modelo alternativo: {fallback_error}")
+                return []
         else:
+            # Other errors or custom model specified
             st.error(f"AI Email Error: {e}")
-        return []
+            return []
 
 def analyze_existing_events_ai(events_list):
     client = _get_groq_client()
