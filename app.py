@@ -1060,39 +1060,12 @@ def view_inbox():
                          st.session_state.fetched_emails = emails
                          with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
                              analyzed_items = analyze_emails_ai(emails)
-                             st.session_state.ai_gmail_events = analyzed_items # Stores mixed events/tasks
-                             
-                             # --- AUTOMATIC LABELING LOOP ---
-                             count_labeled = 0
-                             for item in analyzed_items:
-                                 if item.get('id'):
-                                     # Determine Label Name
-                                     urgency = item.get('urgency', 'Media')
-                                     category = item.get('category', 'Otro')
-                                     
-                                     # Hierarchy: Agente A2 -> Urgency
-                                     label_name = f"Agente A2/{urgency}"
-                                     
-                                     # Ensure Label Exists
-                                     lbl_id = start_label_id = None
-                                     
-                                     # 1. Ensure Parent "Agente A2"
-                                     try:
-                                         from modules.google_services import ensure_label, add_label_to_email
-                                         p_id = ensure_label(service_gmail, "Agente A2")
-                                         
-                                         # 2. Ensure Child
-                                         lbl_id = ensure_label(service_gmail, label_name)
-                                         
-                                         # 3. Apply to Email
-                                         if lbl_id:
-                                             add_label_to_email(service_gmail, item['id'], lbl_id)
-                                             count_labeled += 1
-                                     except Exception as e:
-                                         print(f"Labeling failed: {e}")
-                             
-                             if count_labeled > 0:
-                                 st.toast(f"🏷️ {count_labeled} correos etiquetados en Gmail.")
+                            st.session_state.ai_gmail_events = analyzed_items 
+                            
+                            # Auto-labeling REMOVED. Now handled manually in UI.
+
+                            if not analyzed_items:
+                                st.warning('La IA leyó los correos pero no encontró nada accionable.')
 
                              if not analyzed_items:
                                  st.warning('La IA leyó los correos pero no encontró nada accionable.')
@@ -1109,9 +1082,60 @@ def view_inbox():
              items = st.session_state.ai_gmail_events
              st.success(f"✅ ¡Procesado! {len(items)} elementos detectados.")
              
-             # Tabs for Events vs Tasks (Info)
-             tab_ev, tab_info = st.tabs(["📅 Eventos (Con Fecha)", "📝 Tareas / Info (Sin Fecha)"])
+             # Tabs for Events vs Tasks vs Labeling
+             tab_ev, tab_info, tab_labels = st.tabs(["📅 Eventos", "📝 Tareas / Info", "🏷️ Revisión Etiquetas"])
              
+             # --- TAB LABELS (MANUAL REVIEW) ---
+             with tab_labels:
+                 st.info("Revisa y confirma las etiquetas antes de aplicarlas en Gmail.")
+                 
+                 # Prepare data for display
+                 label_preview = []
+                 for x in items:
+                     lbl = f"Agente A2/{x.get('urgency', 'Media')}"
+                     label_preview.append({
+                         "Asunto": x.get('summary', 'Sin Asunto'),
+                         "Etiqueta Propuesta": lbl,
+                         "Categoría": x.get('category', '-')
+                     })
+                 
+                 if label_preview:
+                     st.table(label_preview)
+                     
+                     if st.button("✅ Confirmar y Aplicar Etiquetas"):
+                         with st.spinner("Aplicando etiquetas en Gmail..."):
+                             from modules.google_services import ensure_label, add_label_to_email, get_gmail_credentials
+                             from googleapiclient.discovery import build
+                             
+                             # Re-auth specifically for this action
+                             creds_lbl = get_gmail_credentials()
+                             if creds_lbl:
+                                 svc_lbl = build('gmail', 'v1', credentials=creds_lbl)
+                                 count_ok = 0
+                                 
+                                 # Ensure Parent
+                                 try: ensure_label(svc_lbl, "Agente A2")
+                                 except: pass
+
+                                 for item in items:
+                                     if item.get('id'):
+                                         lbl_name = f"Agente A2/{item.get('urgency', 'Media')}"
+                                         try:
+                                             lid = ensure_label(svc_lbl, lbl_name)
+                                             if lid:
+                                                 add_label_to_email(svc_lbl, item['id'], lid)
+                                                 count_ok += 1
+                                         except: pass
+                                 
+                                 if count_ok > 0:
+                                     st.success(f"¡Listo! {count_ok} correos etiquetados.")
+                                     time.sleep(2)
+                                     st.rerun()
+                                 else:
+                                     st.warning("No se pudo etiquetar nada.")
+                 else:
+                     st.write("No hay correos para etiquetar.")
+
              with tab_ev:
                  events = [x for x in items if x.get('is_event') or x.get('start_time')]
                  if not events: st.info("No hay eventos de calendario estrictos.")
