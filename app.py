@@ -927,15 +927,29 @@ def view_planner():
                              ).execute()
                              events_list = events_res.get('items', [])
                              
-                             # Render Events (Duplicate code block, but necessary for fallback context)
+                             # Render Events WITH FULL CONTROLS (Same as main block)
                              if not events_list:
                                  st.caption("No se encontraron eventos en este rango (vía Robot).")
                              else:
                                  st.caption("ℹ️ Mostrando eventos con permiso de Robot")
                                  for ev in events_list:
                                      with st.expander(f"🗓️ {ev.get('summary', '(Sin Título)')} | {ev['start'].get('dateTime', ev['start'].get('date'))[:16]}"):
-                                         st.write(ev.get('description', ''))
-                                         # Editing via Robot might fail if SA is read-only, but better than 404
+                                          # Edit Form
+                                          u_summ = st.text_input("Título", ev.get('summary', ''), key=f"ev_ti_sa_{ev['id']}")
+                                          u_desc = st.text_area("Descripción", ev.get('description', ''), key=f"ev_de_sa_{ev['id']}")
+                                          
+                                          c_u1, c_u2 = st.columns(2)
+                                          with c_u1:
+                                              if st.button("💾 Guardar Cambios", key=f"btn_sav_ev_sa_{ev['id']}"):
+                                                  ok, msg = update_event_calendar(cal_svc_sa, cal_id, ev['id'], summary=u_summ, description=u_desc)
+                                                  if ok: st.success("Guardado!"); st.session_state.trigger_manager_search = True; st.rerun()
+                                                  else: st.error(msg)
+                                          with c_u2:
+                                              if st.button("🗑️ Eliminar Evento", key=f"btn_del_ev_sa_{ev['id']}"):
+                                                  if delete_event(cal_svc_sa, ev['id']):
+                                                      st.success("Eliminado")
+                                                      st.session_state.trigger_manager_search = True
+                                                      st.rerun()
                              fallback_success = True
                     except: pass
                 
