@@ -316,6 +316,42 @@ def update_user_field(username, field_name, new_value):
     except Exception as e:
         return False, str(e)
 
+def change_password(username, old_password, new_password):
+    """
+    Cambia la contraseña del usuario en Google Sheets.
+    
+    Args:
+        username: Usuario actual
+        old_password: Contraseña actual (para verificar)
+        new_password: Nueva contraseña
+        
+    Returns:
+        (bool, str): (success, message)
+    """
+    try:
+        # 1. Validar nueva contraseña
+        if len(new_password) < 6:
+            return False, "La contraseña debe tener al menos 6 caracteres."
+        
+        if new_password == old_password:
+            return False, "La nueva contraseña debe ser diferente a la actual."
+        
+        # 2. Verificar contraseña actual
+        valid, user_data = login_user(username, old_password)
+        if not valid:
+            return False, "Contraseña actual incorrecta."
+        
+        # 3. Actualizar contraseña en Google Sheets
+        success, msg = update_user_field(username, 'PASS', new_password)
+        
+        if success:
+            return True, "✅ Contraseña actualizada correctamente."
+        else:
+            return False, f"Error al actualizar: {msg}"
+            
+    except Exception as e:
+        return False, f"Error: {e}"
+
 def update_users_batch(edited_df):
     """
     Updates multiple users/fields efficiently in one go.

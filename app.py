@@ -215,17 +215,17 @@ def render_login_page():
 
     c1, c2, c3 = st.columns([1, 1.2, 1])
     with c2:
-        st.markdown('<br><br>', unsafe_allow_html=True)
+        st.markdown('<br>', unsafe_allow_html=True)
         
-        # Use st.image for robust local file rendering
+        # Centered logo with optimized size
         c_img1, c_img2, c_img3 = st.columns([1, 1, 1])
         with c_img2:
-             st.image("logo_agent.png", width=120)
+             st.image("logo_agent.png", width=150)  # Increased for better visibility
         
         st.markdown("""
-        <div class="login-box">
-             <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Asistente Ejecutivo AI</h1>
-             <p style="color: #9cb6ba; margin-bottom: 2rem;">Acceso Seguro</p>
+        <div class="login-box" style="text-align: center;">
+             <h1 style="font-size: 2.2rem; margin-bottom: 0.3rem; font-weight: 600;">Asistente Ejecutivo AI</h1>
+             <p style="color: #0dd7f2; margin-bottom: 2rem; font-size: 0.95rem;">🔐 Acceso Seguro</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1358,25 +1358,91 @@ def view_optimize():
                             bar.progress((i+1)/len(events))
                         st.success(f"¡Agenda Transformada! {done} eventos optimizados.")
 
+def view_account():
+    """Vista de configuración de cuenta del usuario"""
+    render_header("Mi Cuenta", "Configuración Personal y Seguridad")
+    
+    if 'license_key' not in st.session_state or 'user_data_full' not in st.session_state:
+        st.error("No hay sesión activa.")
+        return
+    
+    user = st.session_state.license_key
+    user_data = st.session_state.user_data_full
+    
+    # --- USER INFORMATION ---
+    st.subheader("📋 Información de Usuario")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("👤 Usuario", user)
+        st.metric("📧 Email de Envío", user_data.get('email_send', 'No configurado'))
+    
+    with col2:
+        st.metric("📬 Límite de Correos", user_data.get('cant_corr', '50'))
+        st.metric("✅ Estado", user_data.get('ESTADO', 'ACTIVO'))
+    
+    st.divider()
+    
+    # --- PASSWORD CHANGE ---
+    st.subheader("🔐 Cambiar Contraseña")
+    
+    with st.form("change_password_form"):
+        st.markdown("🔒 **Seguridad:** Tu contraseña debe tener al menos 6 caracteres.")
+        
+        old_pass = st.text_input("Contraseña Actual", type="password", placeholder="••••••")
+        new_pass = st.text_input("Nueva Contraseña", type="password", placeholder="Mínimo 6 caracteres")
+        confirm_pass = st.text_input("Confirmar Nueva Contraseña", type="password", placeholder="••••••")
+        
+        submitted = st.form_submit_button("Cambiar Contraseña", type="primary", use_container_width=True)
+        
+        if submitted:
+            # Validations
+            if not old_pass or not new_pass or not confirm_pass:
+                st.error("❌ Todos los campos son obligatorios.")
+            elif new_pass != confirm_pass:
+                st.error("❌ Las contraseñas nuevas no coinciden.")
+            else:
+                from modules.auth import change_password
+                success, message = change_password(user, old_pass, new_pass)
+                
+                if success:
+                    st.success(message)
+                    st.balloons()
+                    st.info("ℹ️ Por seguridad, se recomienda cerrar sesión y volver a iniciar sesión con la nueva contraseña.")
+                else:
+                    st.error(message)
+    
+    st.divider()
+    
+    # --- USEFUL TIPS ---
+    st.subheader("💡 Consejos de Seguridad")
+    st.markdown("""
+    - 🔑 Usa una contraseña única y segura
+    - 🔄 Cambia tu contraseña periódicamente
+    - 🚫 No compartas tus credenciales
+    - ✅ Cierra sesión al terminar de usar la app
+    """)
+
 # --- NAVIGATION CONTROLLER ---
 
 def main_app():
     # Sidebar Navigation mimicking the "Rail"
     with st.sidebar:
-        st.markdown("<div style='text-align: center; margin-bottom: 20px;'>", unsafe_allow_html=True)
-        st.image("logo_agent.png", width=90)
+        st.markdown("<div style='text-align: center; margin-bottom: 25px; padding-top: 10px;'>", unsafe_allow_html=True)
+        st.image("logo_agent.png", width=100)  # Slightly larger for better sidebar presence
+        st.markdown("<p style='color: #0dd7f2; font-size: 0.75rem; margin-top: 5px;'>Asistente IA</p>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
              
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Navigation Buttons (using radio for state)
-        # Using icons in radio labels not supported natively well without hacking CSS, keeping text simple
+        # Navigation Buttons with icons and emojis for visual appeal
         nav_options = {
-            "Dashboard": "Panel Principal",
-            "Create": "Crear Evento",
-            "Planner": "Planificador",
-            "Inbox": "Bandeja IA",
-            "Optimize": "Optimizar"
+            "Dashboard": "📊 Panel Principal",
+            "Create": "➕ Crear Evento",
+            "Planner": "📅 Planificador",
+            "Inbox": "📧 Bandeja IA",
+            "Optimize": "⚡ Optimizar",
+            "Account": "⚙️ Mi Cuenta"
         }
         
         selection = st.radio("Navegación", list(nav_options.keys()), format_func=lambda x: nav_options[x], label_visibility="collapsed")
@@ -1496,6 +1562,7 @@ def main_app():
     elif selection == "Planner": view_planner()
     elif selection == "Inbox": view_inbox()
     elif selection == "Optimize": view_optimize()
+    elif selection == "Account": view_account()
     
     # --- FOOTER ---
     st.markdown("---")
