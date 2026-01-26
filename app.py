@@ -405,6 +405,69 @@ def view_dashboard():
                 st.plotly_chart(fig_bar, width="stretch", key="tasks_bar")
             else:
                  st.caption("Sin datos de tareas.")
+        
+        st.divider()
+        
+        # --- NEW: DETAILED TABLE & UTILIZATION ---
+        ac3, ac4 = st.columns([1.5, 1])
+        
+        with ac3:
+            st.markdown("###### 📋 Detalle de Agenda")
+            if today_events:
+                # Build nice dataframe
+                table_data = []
+                for e in today_events:
+                    summ = e.get('summary', 'Sin Título')
+                    start_raw = e['start'].get('dateTime', e['start'].get('date'))
+                    
+                    # Format Time
+                    try:
+                        dt_s = datetime.datetime.fromisoformat(start_raw)
+                        time_str = dt_s.strftime("%H:%M")
+                    except:
+                        time_str = "Todo el día"
+                        
+                    # Recalculate duration for table context
+                    dur_str = "-"
+                    if e['start'].get('dateTime') and e['end'].get('dateTime'):
+                        try:
+                            s = datetime.datetime.fromisoformat(e['start'].get('dateTime'))
+                            en = datetime.datetime.fromisoformat(e['end'].get('dateTime'))
+                            dur_min = (en - s).total_seconds() / 60
+                            dur_str = f"{int(dur_min)} min"
+                        except: pass
+                        
+                    table_data.append({"Hora": time_str, "Evento": summ, "Duración": dur_str})
+                
+                df_detail = pd.DataFrame(table_data)
+                st.dataframe(df_detail, use_container_width=True, hide_index=True)
+            else:
+                st.info("Agenda libre.")
+
+        with ac4:
+            st.markdown("###### ⏳ Carga Laboral (Base 9h)")
+            # Work Day Analysis
+            work_day_hours = 9.0
+            used_hours = min(hours, work_day_hours)
+            overtime = max(0, hours - work_day_hours)
+            free_hours = max(0, work_day_hours - hours)
+            
+            df_load = pd.DataFrame([
+                {"Tipo": "Reuniones", "Horas": used_hours, "Color": "Ocupado"},
+                {"Tipo": "Libre", "Horas": free_hours, "Color": "Libre"},
+                {"Tipo": "Extra", "Horas": overtime, "Color": "Extra"}
+            ])
+            
+            # Simple Stacked Bar only if there is data
+            if hours > 0 or free_hours > 0:
+                fig_load = px.bar(df_load, x="Horas", y="Color", orientation='h', color="Color", 
+                                color_discrete_map={"Ocupado": "#0dd7f2", "Libre": "#334155", "Extra": "#ef4444"}, text="Horas")
+                fig_load.update_layout(height=200, margin=dict(l=0, r=0, t=0, b=0), 
+                                     paper_bgcolor='rgba(0,0,0,0)', showlegend=False,
+                                     xaxis=dict(showgrid=False), yaxis=dict(showticklabels=False))
+                st.plotly_chart(fig_load, width="stretch", key="load_chart")
+            else:
+                 st.caption("Sin datos de carga.")
 
 
 def view_create():
