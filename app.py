@@ -616,15 +616,17 @@ def view_planner():
         account_label = f"👤 {st.session_state.connected_email}"
         status_color = "green"
 
-    st.markdown(f"""<div style="background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid {status_color}; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    msg_warn = f'<span style="color: orange; font-size: 0.8rem;">⚠️ Tus tareas personales NO se verán aquí.</span>' if is_robot else ''
+    
+    st.markdown(f'''
+    <div style="background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid {status_color}; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             <span style="color: #9cb6ba; font-size: 0.8rem;">Viendo datos de:</span>
             <div style="font-weight: bold; color: {status_color};">{account_label}</div>
         </div>
-        <div>
-            {f'<span style="color: orange; font-size: 0.8rem;">⚠️ Tus tareas personales NO se verán aquí.</span>' if is_robot else ''}
-        </div>
-    </div>""", unsafe_allow_html=True)
+        <div>{msg_warn}</div>
+    </div>
+    ''', unsafe_allow_html=True)
     
     if is_robot:
         if st.button("🔄 Conectar mi Cuenta Personal (Gmail)", key="btn_connect_manager"):
