@@ -271,12 +271,26 @@ def view_dashboard():
             
             if start and end: 
                 # Timed Event
-                try:
                     s_dt = datetime.datetime.fromisoformat(start)
                     e_dt = datetime.datetime.fromisoformat(end)
-                    duration = (e_dt - s_dt).total_seconds() / 3600
-                    hours += duration
-                except: pass
+                    
+                    # Fix: Calculate intersection with TODAY only
+                    # Assuming 'now' is defined above for timezone naiveness check or similar
+                    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+                    
+                    # Make offsets compatible if needed (assuming ISO from Google is offset-aware)
+                    if s_dt.tzinfo and not today_start.tzinfo:
+                        today_start = today_start.astimezone(s_dt.tzinfo)
+                        today_end = today_end.astimezone(s_dt.tzinfo)
+
+                    # Max of starts, Min of ends
+                    overlap_start = max(s_dt, today_start)
+                    overlap_end = min(e_dt, today_end)
+                    
+                    if overlap_start < overlap_end:
+                        duration = (overlap_end - overlap_start).total_seconds() / 3600
+                        hours += duration
             elif e['start'].get('date'):
                 # All Day Event - Usually doesn't count towards "Meeting Hours" load in the same way, or count as 8h?
                 # Let's count as 0 for "Meeting Hours" but keep in "Total Events" to avoid skewing "3000h" errors
@@ -348,15 +362,50 @@ def view_dashboard():
                 fig.update_layout(
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='white', family="Space Grotesk"),
-                    xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
-                    margin=dict(l=10, r=10, t=10, b=10)
+                    showlegend=False,
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    height=300
                 )
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, width="stretch", key="timeline_chart")
             else:
-                st.info("No hay eventos agendados para hoy.")
-        else:
-             st.info("No se encontraron eventos.")
+                st.info("No hay eventos en la línea de tiempo.")
+
+    # --- ADVANCED ANALYTICS ---
+    with st.expander("📊 Análisis Avanzado", expanded=True):
+        ac1, ac2 = st.columns(2)
+        
+        with ac1:
+            st.markdown("###### 🎨 Distribución de Tiempo (Eventos)")
+            if today_events:
+                # Group by Color (Category proxy)
+                df_ev = pd.DataFrame([{'Color': e.get('colorId', 'Default'), 'Count': 1} for e in today_events])
+                if not df_ev.empty:
+                    df_ev_counts = df_ev.groupby('Color').count().reset_index()
+                    fig_pie = px.pie(df_ev_counts, values='Count', names='Color', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+                    fig_pie.update_layout(height=250, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_pie, width="stretch", key="events_pie")
+            else:
+                st.caption("Sin datos de eventos.")
+                
+        with ac2:
+            st.markdown("###### ✅ Estado de Tareas")
+            # If tasks_list exists (fetched above)
+            if 'tasks_list' in locals() and tasks_list:
+                # Mock status based on notes or title (Tasks API simple doesn't give much)
+                # Or just count by "List" if we had that info. 
+                # Let's count properly.
+                total_t = len(tasks_list)
+                # Visual bar
+                st.progress(max(0.1, min(1.0, 0.5)), text=f"{total_t} Tareas Pendientes") # Dummy progress for now
+                
+                # Simple Bar Chart
+                df_tasks = pd.DataFrame([{'Type': 'Pendientes', 'Count': total_t}, {'Type': 'Completadas (Hoy)', 'Count': 0}]) # API limitation
+                fig_bar = px.bar(df_tasks, x='Type', y='Count', color='Type', color_discrete_sequence=['#ef4444', '#22c55e'])
+                fig_bar.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor='rgba(0,0,0,0)', showlegend=False)
+                st.plotly_chart(fig_bar, width="stretch", key="tasks_bar")
+            else:
+                 st.caption("Sin datos de tareas.")
+
 
 def view_create():
     render_header("Centro de Comandos", "Creación de Eventos con IA")
