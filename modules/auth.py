@@ -269,3 +269,50 @@ def update_user_token(username, token_json):
         print(f"❌ ERROR SAVE TOKEN: {e}")
         return False
 
+def update_user_field(username, field_name, new_value):
+    """
+    Updates a specific field for a user in the Google Sheet.
+    Used by Admin Panel to update 'CANT_CORR', 'ESTADO', etc.
+    """
+    try:
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+             sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Identify Columns
+        user_col = None
+        target_col = None
+        
+        for c in df.columns:
+            if c.lower().strip() == 'user': user_col = c
+            if c.lower().strip() == field_name.lower().strip(): target_col = c
+            
+        if not user_col:
+            return False, "Columna 'USER' no encontrada."
+
+        # Create target column if missing (e.g., CANT_CORR)
+        if not target_col:
+            target_col = field_name.upper()
+            df[target_col] = "" # Initialize new column
+        
+        # Find User
+        idx_list = df.index[df[user_col].astype(str).str.strip() == username.strip()].tolist()
+        
+        if not idx_list:
+            return False, f"Usuario {username} no encontrado."
+            
+        idx = idx_list[0]
+        
+        # Update
+        df.at[idx, target_col] = str(new_value)
+        conn.update(spreadsheet=sheet_url, data=df)
+        
+        return True, "Actualizado correctamente."
+        
+    except Exception as e:
+        return False, str(e)
+

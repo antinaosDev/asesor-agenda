@@ -988,7 +988,24 @@ def view_inbox():
         
         # Global Limit check
         global_limit = st.session_state.get('admin_max_emails', 50)
-        max_fetch = st.slider(f"Max Correos a Leer (Límite Admin: {global_limit}):", 5, global_limit, min(50, global_limit), help="Mayor cantidad consume más tokens.")
+        
+        # User Specific Limit (from Sheet)
+        user_limit = 50 # Default
+        if 'user_data_full' in st.session_state:
+            try:
+                raw_lim = st.session_state.user_data_full.get('cant_corr', '')
+                if raw_lim and str(raw_lim).strip():
+                    user_limit = int(float(str(raw_lim).strip()))
+            except:
+                pass
+        
+        # Enforce strict minimum of the two limits
+        effective_limit = min(global_limit, user_limit)
+        
+        if effective_limit < 5: effective_limit = 5 # Minimum sanity check
+        
+        st.caption(f"Límite de lectura asignado: **{effective_limit} emails**")
+        max_fetch = st.slider(f"Max Correos a Leer:", 5, effective_limit, effective_limit, help="Definido por Admin.")
 
         # Logic to handle auto-continue after auth reload
         if 'trigger_mail_analysis' not in st.session_state:
@@ -1175,15 +1192,71 @@ def main_app():
             
         if user_role.upper() == 'ADMIN':
             with st.expander("🛠️ Panel Admin"):
-                st.write(f"Rol Activo: {user_role}") # Debug confirmation
-                st.markdown("**Control de Límites**")
-                current_limit = st.session_state.get('admin_max_emails', 50)
-                new_limit = st.number_input("Max Correos (Global)", value=current_limit, step=10)
-                if new_limit != current_limit:
-                    st.session_state.admin_max_emails = new_limit
+                st.write(f"Rol Activo: {user_role}") 
+                
+                # --- USER MANAGEMENT ---
+                st.markdown("### Gestión de Usuarios")
+                if st.button("🔄 Cargar Usuarios"):
+                    users = auth.get_all_users()
+                    if users:
+                        df_users = pd.DataFrame(users)
+                        # Filter relevant columns for display
+                        cols_to_show = ['user', 'rol', 'estado', 'cant_corr']
+                        # Ensure columns exist
+                        for c in cols_to_show:
+                            if c not in df_users.columns: df_users[c] = ""
+                            
+                        st.session_state.admin_users_df = df_users[cols_to_show].copy()
+                    else:
+                        st.error("No se pudieron cargar usuarios.")
+
+                if 'admin_users_df' in st.session_state:
+                    edited_df = st.data_editor(
+                        st.session_state.admin_users_df,
+                        key="user_editor",
+                        disabled=["user", "rol"], # Prevent editing generic ID/Role here safely
+                        column_config={
+                            "estado": st.column_config.SelectboxColumn(
+                                "Estado",
+                                options=["ACTIVO", "SUSPENDIDO", "INACTIVO"],
+                                required=True
+                            ),
+                            "cant_corr": st.column_config.NumberColumn(
+                                "Límite Correos",
+                                help="Cantidad máxima de correos a procesar",
+                                min_value=0,
+                                max_value=100,
+                                step=1,
+                                format="%d"
+                            )
+                        }
+                    )
                     
-                st.markdown("**Simulación de Rol**")
-                # This affects specific UI elements if implemented, currently mostly placeholder for future role-based views
+                    if st.button("💾 Guardar Cambios"):
+                        # Detect changes could be complex with data_editor state, 
+                        # simplicity: Iterate and save for selected user (or all modified if we could track)
+                        # For now, simplistic approach: Allow picking a user to update or rely on single edits
+                        # BETTER: Iterate the edited DF and update all.
+                        
+                        progress_log = st.empty()
+                        
+                        # Compare with original to find changes? 
+                        # Or just overwrite for safety (slower but safer)
+                        for index, row in edited_df.iterrows():
+                             user = row['user']
+                             
+                             # Update Status
+                             ok, msg = auth.update_user_field(user, 'estado', row['estado'])
+                             if not ok: st.error(f"Error {user}: {msg}")
+                             
+                             # Update Limit
+                             ok, msg = auth.update_user_field(user, 'cant_corr', row['cant_corr'])
+                             if not ok: st.error(f"Error {user}: {msg}")
+                             
+                        st.success("✅ Cambios guardados en la nube.")
+                        
+                st.divider()
+                st.markdown("**Simulación**")
                 sim_role = st.selectbox("Ver como:", ["Admin", "User", "Manager"])
                 st.session_state.simulated_role = sim_role
         # -------------------

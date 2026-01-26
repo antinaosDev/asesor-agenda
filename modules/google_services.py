@@ -223,9 +223,6 @@ def get_gmail_credentials():
         # Priority 1.5: From Sheet (user_data_full) - FIX for Multi-Tenant OAuth
         if not client_config and 'user_data_full' in st.session_state:
              ud = st.session_state.user_data_full
-             # Debug
-             # st.write("DEBUG: Checking user_data_full keys:", list(ud.keys()))
-             
              # Key from Sheet column: CREDENCIALES_AUTH_USER (lowercased)
              if 'credenciales_auth_user' in ud:
                  try:
@@ -237,26 +234,17 @@ def get_gmail_credentials():
                          if cleaned.startswith('"') and cleaned.endswith('"'): cleaned = cleaned[1:-1]
                          
                          client_config = json.loads(cleaned)
-                         st.toast(f"🔑 Config loaded from Sheet ({client_config.get('installed', {}).get('client_id', '???')[:10]}...)")
                  except Exception as e:
                      print(f"Error parsing OAuth config from sheet: {e}")
-                     st.error(f"Error parsing OAuth: {e}")
                      pass
             
         # Priority 2: Secrets
         if not client_config and "google" in st.secrets:
             client_config = json.loads(st.secrets["google"]["client_config_json"]) if "client_config_json" in st.secrets["google"] else st.secrets["google"]
-            st.toast("Using Secrets Config")
             
         # Priority 3: Local File
         elif not client_config and os.path.exists('credentials.json'):
-            st.toast("⚠️ Usando credentials.json LOCAL (Posiblemente obsoleto)")
             client_config = json.load(open('credentials.json'))
-        
-        if client_config:
-             cid = client_config.get('installed', {}).get('client_id', 'Unknown')
-             st.write(f"ℹ️ **Usando Client ID:** `{cid}`")
-
         
         if not client_config:
             # Only warn if we really need user creds (and don't have SA)
