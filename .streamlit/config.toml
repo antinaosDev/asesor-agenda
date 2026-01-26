@@ -1,0 +1,9 @@
+[ui]
+# Configuración de idioma para widgets de fecha
+# Es-ES = Español de España
+locale = "es"
+
+[theme]
+# Mantener tema oscuro existente
+base = "dark"
+primaryColor = "#0dd7f2"
