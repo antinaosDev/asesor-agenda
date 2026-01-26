@@ -1112,7 +1112,7 @@ def view_inbox():
                          
                          if st.button("✅ Confirmar y Aplicar Etiquetas"):
                              with st.spinner("Aplicando etiquetas en Gmail..."):
-                                 from modules.google_services import ensure_label, add_label_to_email, get_gmail_credentials
+                                 from modules.google_services import ensure_label, add_label_to_email
                                  from googleapiclient.discovery import build
                                  
                                  # Re-auth specifically for this action
