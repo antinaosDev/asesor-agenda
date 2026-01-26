@@ -990,17 +990,20 @@ def view_inbox():
                      auth.update_user_field(user, 'COD_VAL', '')
                 
                 # 2. Clear Local Session State (UI Reset)
-                keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service']
+                keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'user_data_full']
                 for k in keys_to_clear:
                     if k in st.session_state:
                         del st.session_state[k]
                 
-                # 3. Delete Local Token File (Force Auth Flow)
+                # 3. Clear Caches (Force Fresh Data)
+                st.cache_data.clear()
+
+                # 4. Delete Local Token File (Force Auth Flow)
                 if os.path.exists('token.pickle'):
                     try: os.remove('token.pickle')
                     except: pass
 
-                # 4. Trigger Rerun
+                # 5. Trigger Rerun
                 st.session_state.logout_google = True
                 st.rerun()
         # --------------------------------
@@ -1216,7 +1219,10 @@ def main_app():
                 if k in st.session_state:
                     del st.session_state[k]
             
-            # 3. Delete Local Token File (Force Auth Flow)
+            # 3. Clear Caches
+            st.cache_data.clear()
+            
+            # 4. Delete Local Token File (Force Auth Flow)
             if os.path.exists('token.pickle'):
                 try: os.remove('token.pickle')
                 except: pass
@@ -1225,7 +1231,7 @@ def main_app():
                  try: os.remove('.license_key')
                  except: pass
 
-            # 4. Trigger Rerun
+            # 5. Trigger Rerun
             st.session_state.logout_google = True
             st.rerun()
 
