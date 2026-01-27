@@ -15,35 +15,35 @@ def _get_groq_client():
 # --- SYSTEM PROMPTS (CONSTANTS) ---
 
 PROMPT_EMAIL_ANALYSIS = """
-You are an Elite Executive Assistant ("Agente A2").
-Analyze these emails. Your goal is to:
-1. Detect Calendar Events (meetings, deadlines).
-2. Detect INFO/TASKS that don't have a date but are IMPORTANT (e.g. "Review this report").
-3. Classify EVERY email by Urgency and Category.
+Eres un Asistente Ejecutivo de Élite ("Agente A2").
+Analiza estos correos COMPLETAMENTE. Tu objetivo es:
+1. Detectar Eventos de Calendario (reuniones, plazos, citas).
+2. Detectar INFO/TAREAS importantes sin fecha.
+3. Clasificar CADA email por Urgencia y Categoría.
+4. **EXTRAER TODOS LOS DETALLES** del cuerpo del correo.
 
-Current Date: {current_date}
+Fecha Actual: {current_date}
 
-Output: JSON List of objects.
-Structure:
+Output: Lista JSON de objetos:
 {{
     "id": "email_id_from_input",
     "is_event": boolean, 
-    "summary": "Title in Spanish",
-    "description": "Details in Spanish",
-    "start_time": "YYYY-MM-DDTHH:MM:SS" (or null if no date),
-    "end_time": "YYYY-MM-DDTHH:MM:SS" (or null),
+    "summary": "Título profesional en español",
+    "description": "TODOS los detalles importantes del correo: contexto, nombres, acciones, fechas, números, enlaces. Sé comprensivo y detallado. NUNCA pongas 'No se proporciona información adicional'.",
+    "start_time": "YYYY-MM-DDTHH:MM:SS" (o null),
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (o null),
     "urgency": "Alta" | "Media" | "Baja",
-    "category": "Solicitud" | "Información" | "Pagos" | "Otro"
+    "category": "Solicitud" | "Información" | "Pagos" | "Reunión" | "Otro"
 }}
 
-Rules:
-- If an email implies a task ("Do X") but has no date, set is_event=False, start_time=null.
-- Urgency "Alta": Deadlines today/tomorrow, money, angry clients.
-- Urgency "Media": Normal requests.
-- Urgency "Baja": newsletters, fyi.
-- LANGUAGE: SPANISH.
-- LANGUAGE: SPANISH.
-- STRICTLY JSON. NO MARKDOWN. NO CODE BLOCKS. JUST THE RAW JSON LIST.
+Reglas CRÍTICAS:
+- description DEBE contener TODO el contexto del email.
+- NO usar frases genéricas - extraer contenido real.
+- Urgencia "Alta": URGENTE/ASAP/plazos inmediatos/dinero.
+- Urgencia "Media": Solicitudes normales.
+- Urgency "Baja": FYI/newsletters.
+- IDIOMA: ESPAÑOL.
+- JSON PURO. SIN MARKDOWN.
 """
 
 PROMPT_EVENT_PARSING = """
@@ -225,11 +225,11 @@ def analyze_emails_ai(emails, custom_model=None):
     
     model_id = custom_model if custom_model else primary_model
     
-    batch_text = "ANALYZE THESE EMAILS:\n"
+    batch_text = "ANALIZA ESTOS CORREOS:\n"
     for i, e in enumerate(emails):
-        # Pass ID to map back. Truncate body strictly (800 chars) to save tokens.
-        body_clean = (e.get('body', '') or '')[:800]
-        batch_text += f"ID: {e['id']} | FROM: {e['sender']} | SUBJ: {e['subject']} | BODY: {body_clean}\n---\n"
+        # Aumentar a 2000 chars para más contexto y detalles
+        body_clean = (e.get('body', '') or '')[:2000]
+        batch_text += f"ID: {e['id']} | DE: {e['sender']} | ASUNTO: {e['subject']} | CUERPO: {body_clean}\n---\n"
 
     prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
 
