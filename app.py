@@ -1283,8 +1283,18 @@ def view_planner():
 
 
 def view_inbox():
-    render_header("Inteligencia de Bandeja", "Filtrado de Correo con IA")
-    st.markdown("Filtra y extrae eventos de tu correo automáticamente.")
+    # Modern header with glassmorphism
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
+                padding: 25px; border-radius: 15px; border-left: 4px solid #0DD7F2; margin-bottom: 20px;'>
+        <h2 style='margin: 0; color: #0DD7F2; font-size: 1.8rem;'>
+            📧 Inteligencia de Bandeja
+        </h2>
+        <p style='margin: 8px 0 0 0; color: #9CB6BA; font-size: 1rem;'>
+            Filtrado de correo con IA - Extrae eventos automáticamente
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     col_g1, col_g2 = st.columns([1, 2])
     
