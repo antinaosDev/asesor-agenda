@@ -978,32 +978,32 @@ def view_planner():
             
         selected_proj = st.selectbox("Selecciona Proyecto/Evento:", long_events_opts)
         
-        extra_context = st.text_area("📝 Contexto / Documentación (Opcional)", height=100, placeholder="Pega aquí correos, requerimientos o detalles específicos para que la IA los considere...")
+        extra_context = st.text_area("📝 Contexto (Opcional)", height=100, placeholder="Pega aquí correos, requerimientos o detalles específicos para que la IA los considere...")
         
-        uploaded_file = st.file_uploader("📂 Subir Documentos (PDF/TXT)", type=["pdf", "txt"])
-        if uploaded_file:
-            try:
-                file_text = ""
-                if uploaded_file.type == "application/pdf":
-                    import pypdf
-                    reader = pypdf.PdfReader(uploaded_file)
-                    for page in reader.pages:
-                        file_text += page.extract_text() + "\n"
-                else: # txt
-                    file_text = uploaded_file.read().decode("utf-8")
-                
-                if file_text:
-                    # OPTIMIZATION: Truncate for Qwen 32B Limit (6k TPM is tight)
-                    # 15k chars is roughly 4-5k tokens, leaving room for prompt + output
-                    MAX_CHARS = 15000
-                    if len(file_text) > MAX_CHARS:
-                        file_text = file_text[:MAX_CHARS] + "\n... [TRUNCADO POR LIMITE DE CREDITOS]"
-                        st.warning(f"⚠️ Documento largo. Se ha truncado a {MAX_CHARS} caracteres para cuidar tus créditos de IA.")
-                    
-                    extra_context += f"\n\n--- DOCUMENTO ADJUNTO ({uploaded_file.name}) ---\n{file_text}"
-                    st.toast(f"📄 Documento '{uploaded_file.name}' procesado.")
-            except Exception as e:
-                st.error(f"Error leyendo archivo: {e}")
+        # uploaded_file = st.file_uploader("📂 Subir Documentos (PDF/TXT)", type=["pdf", "txt"])
+        # if uploaded_file:
+        #     try:
+        #         file_text = ""
+        #         if uploaded_file.type == "application/pdf":
+        #             import pypdf
+        #             reader = pypdf.PdfReader(uploaded_file)
+        #             for page in reader.pages:
+        #                 file_text += page.extract_text() + "\n"
+        #         else: # txt
+        #             file_text = uploaded_file.read().decode("utf-8")
+        #         
+        #         if file_text:
+        #             # OPTIMIZATION: Truncate for Qwen 32B Limit (6k TPM is tight)
+        #             # 15k chars is roughly 4-5k tokens, leaving room for prompt + output
+        #             MAX_CHARS = 15000
+        #             if len(file_text) > MAX_CHARS:
+        #                 file_text = file_text[:MAX_CHARS] + "\n... [TRUNCADO POR LIMITE DE CREDITOS]"
+        #                 st.warning(f"⚠️ Documento largo. Se ha truncado a {MAX_CHARS} caracteres para cuidar tus créditos de IA.")
+        #             
+        #             extra_context += f"\n\n--- DOCUMENTO ADJUNTO ({uploaded_file.name}) ---\n{file_text}"
+        #             st.toast(f"📄 Documento '{uploaded_file.name}' procesado.")
+        #     except Exception as e:
+        #         st.error(f"Error leyendo archivo: {e}")
 
         if st.button("Desglosar", type="primary", width="stretch"):
              if selected_proj:
