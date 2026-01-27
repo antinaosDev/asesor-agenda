@@ -302,15 +302,27 @@ def generate_daily_briefing(events, tasks, unread_count):
     for i, task in enumerate(tasks[:3], 1):
         tasks_text += f"{i}. {task.get('title', 'Sin título')}\n"
     
-    prompt = f"""Genera briefing ejecutivo en español natural para audio TTS:
+    prompt = f"""Actúa como un asistente personal de élite, lleno de energía y carisma. Genera un guion para ser leído en voz alta (estilo podcast matutino).
+    
+    TUS OBJETIVOS DE HOY ({datetime.datetime.now().strftime('%A %d de %B')}):
+    
+    1. 📅 AGENDA:
+    {events_text if events_text else "• Agenda libre 🎉"}
+    
+    2. 📝 PRIORIDADES:
+    {tasks_text if tasks_text else "• Todo al día"}
+    
+    3. 📬 BANDEJA: {unread_count} correos sin leer.
 
-HOY: {datetime.datetime.now().strftime('%A %d de %B')}
-
-EVENTOS ({len(events)}): {events_text if events_text else "Sin eventos"}
-TAREAS URGENTES: {tasks_text if tasks_text else "Sin tareas"}
-CORREOS SIN LEER: {unread_count}
-
-REGLAS: Tono profesional amigable, máx 2 min al leer, sin formato markdown, segunda persona, sugerir UNA acción prioritaria."""
+    INSTRUCCIONES DE ESTILO (CRÍTICO PARA TTS):
+    - Usa un tono conversacional, fluido y dinámico (evita sonar como un robot leyendo una lista y nunca saludes con "Hola jefe" o algo así, usa un saludo neutral y profesional, tampoco menciones la palabra podcast).
+    - No uses viñetas ni guiones ni asteriscos. Escribe párrafos conectados con naturalidad.
+    - Usa conectores como "Por otro lado", "Además", "Lo más importante es".
+    - Varía la longitud de las frases para dar ritmo.
+    - Saluda con entusiasmo ("¡Buenos días! Vamos a por este [Día] con todo.")
+    - Si la agenda está llena, sé motivador. Si está vacía, sugiere aprovechar el tiempo.
+    - Termina con un "call to action" claro y energético.
+    """
 
     try:
         completion = client.chat.completions.create(

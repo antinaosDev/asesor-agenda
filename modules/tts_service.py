@@ -21,7 +21,7 @@ VOICES = {
 
 DEFAULT_VOICE = 'es-MX-DaliaNeural'  # Voz por defecto
 
-async def generate_audio_async(text, voice=DEFAULT_VOICE, rate='+0%', volume='+0%'):
+async def generate_audio_async(text, voice=DEFAULT_VOICE, rate='+20%', volume='+0%'):
     """
     Genera audio MP3 usando Edge TTS (async)
     
