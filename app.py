@@ -1946,10 +1946,18 @@ def view_time_insights():
                         
                         for ev in events_list[:10]:
                             dur_val = ev['duration']
-                            if dur_val < 1.0:
-                                dur_str = f"{int(round(dur_val * 60))} min"
-                            else:
-                                dur_str = f"{dur_val:.1f}h"
+                            # DEBUG: Show raw value to understand why 3.0 < 1.0 is seemingly True
+                            # st.caption(f"DEBUG: val={dur_val} type={type(dur_val)}")
+                            
+                            try:
+                                val_float = float(dur_val)
+                                if val_float < 1.0:
+                                    dur_str = f"{int(round(val_float * 60))} min"
+                                else:
+                                    dur_str = f"{val_float:.1f}h"
+                            except:
+                                dur_str = f"{dur_val} (?)"
+                                
                             st.text(f"  • {ev['title']} ({dur_str})")
                         
                         st.markdown("")
