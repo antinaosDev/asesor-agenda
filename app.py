@@ -398,7 +398,13 @@ def view_dashboard():
 
     st.divider()
 
-    # --- Top Row: Stats ---
+    # --- MÉTRICAS PRINCIPALES (Diseño Moderno) ---
+    st.markdown("""
+    <h3 style='color: #0DD7F2; font-size: 1.3rem; margin-bottom: 15px;'>
+        📊 Resumen del Día
+    </h3>
+    """, unsafe_allow_html=True)
+    
     c1, c2, c3, c4 = st.columns(4)
     
     # Fetch Data (Cached)
