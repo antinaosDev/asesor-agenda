@@ -931,6 +931,16 @@ def view_planner():
                 }
                 days_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
                 
+                # --- DEFENSIVE CHECK FOR STALE STATE ---
+                if 'weekly_plan' in st.session_state:
+                     if isinstance(st.session_state.weekly_plan, list):
+                         if len(st.session_state.weekly_plan) > 0 and isinstance(st.session_state.weekly_plan[0], dict):
+                             st.session_state.weekly_plan = st.session_state.weekly_plan[0]
+                         else:
+                             st.session_state.weekly_plan = {}
+                     elif not isinstance(st.session_state.weekly_plan, dict):
+                         st.session_state.weekly_plan = {}
+                
                 tasks_to_sync = []
                 
                 for i, day_en in enumerate(days_en):
