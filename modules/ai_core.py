@@ -514,7 +514,10 @@ def analyze_existing_events_ai(events_list):
             max_tokens=4000
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
-        return json.loads(content)
+        result = json.loads(content)
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        return result
     except Exception as e:
         err_msg = str(e).lower()
         if "rate limit" in err_msg or "429" in err_msg:
@@ -534,7 +537,10 @@ def analyze_existing_events_ai(events_list):
                 )
                 raw_content = completion.choices[0].message.content.strip()
                 content = _clean_json_output(raw_content)
-                return json.loads(content)
+                result = json.loads(content)
+                if isinstance(result, list) and len(result) > 0:
+                    return result[0]
+                return result
              except Exception as e2:
                  st.error(f"❌ Error en Fallback (8B): {e2}")
                  if 'raw_content' in locals():
