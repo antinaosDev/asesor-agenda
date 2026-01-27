@@ -1390,6 +1390,12 @@ def view_inbox():
         if effective_limit < 5: effective_limit = 5 # Minimum sanity check
         
         st.caption(f"Límite de lectura asignado: **{effective_limit} emails**")
+        
+        # Display Quota Info
+        if 'license_key' in st.session_state:
+             _, rem, use, lim = auth.check_and_update_daily_quota(st.session_state.license_key)
+             st.progress(min(1.0, use/lim) if lim > 0 else 0, text=f"Cuota Diaria: {use}/{lim} analizados")
+
         max_fetch = st.slider(f"Max Correos a Leer:", 5, effective_limit, effective_limit, help="Definido por Admin.")
 
         # Logic to handle auto-continue after auth reload
@@ -1397,7 +1403,15 @@ def view_inbox():
             st.session_state.trigger_mail_analysis = False
 
         if st.button("🔄 Conectar y Analizar Buzón"):
-             st.session_state.trigger_mail_analysis = True
+             # 1. Pre-Check Quota UI
+             if 'license_key' in st.session_state:
+                 allowed, remaining, usage, limit = auth.check_and_update_daily_quota(st.session_state.license_key)
+                 if not allowed:
+                     st.error(f"⚠️ Cuota diaria excedida ({usage}/{limit}).")
+                 else:
+                     st.session_state.trigger_mail_analysis = True
+             else:
+                  st.session_state.trigger_mail_analysis = True
         
         # Execute if triggered
         if st.session_state.trigger_mail_analysis:
@@ -1407,6 +1421,17 @@ def view_inbox():
              if creds:
                  # Only proceed if we have valid creds (auth flow done)
                  try:
+                     # 2. Check Quota (Double Check before burning API)
+                     allowed, remaining, usage, limit = True, 100, 0, 100
+                     if 'license_key' in st.session_state:
+                         allowed, remaining, usage, limit = auth.check_and_update_daily_quota(st.session_state.license_key)
+                     
+                     if not allowed:
+                         st.error(f"❌ Has superado tu cuota diaria ({limit} correos).")
+                         st.info(f"Usados hoy: {usage}. Intenta mañana o contacta al admin.")
+                         st.session_state.trigger_mail_analysis = False
+                         st.stop()
+
                      service_gmail = build('gmail', 'v1', credentials=creds)
                      with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
                          emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
@@ -1418,6 +1443,10 @@ def view_inbox():
                          with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
                              analyzed_items = analyze_emails_ai(emails)
                              st.session_state.ai_gmail_events = analyzed_items 
+                             
+                             # 3. Update Quota Consumption
+                             if 'license_key' in st.session_state:
+                                  auth.check_and_update_daily_quota(st.session_state.license_key, requested_amount=len(emails))
                             
                              # Auto-labeling REMOVED. Now handled manually in UI.
 

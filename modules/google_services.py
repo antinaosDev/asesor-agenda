@@ -581,15 +581,25 @@ def check_event_exists(service, calendar_id, event_data):
         # Parse start time
         if isinstance(new_start, str):
             try:
-                new_start_dt = dt.datetime.fromisoformat(new_start.replace('Z', '+00:00'))
+                # Ensure it's a datetime object
+                if 'T' in new_start:
+                    new_start_dt = dt.datetime.fromisoformat(new_start.replace('Z', '+00:00'))
+                else: 
+                     # Handle simple date case or malformed
+                     new_start_dt = dt.datetime.fromisoformat(new_start)
             except:
+                # Fallback
                 return False
         else:
             new_start_dt = new_start
         
         # Search window: ±1 day from event start
-        time_min = (new_start_dt - dt.timedelta(days=1)).isoformat()
-        time_max = (new_start_dt + dt.timedelta(days=1)).isoformat()
+        # Use simple string manipulation to ensure "Z" is present if we treat them as UTC
+        time_min_dt = new_start_dt - dt.timedelta(days=1)
+        time_max_dt = new_start_dt + dt.timedelta(days=1)
+        
+        time_min = time_min_dt.isoformat().split('+')[0] + 'Z'
+        time_max = time_max_dt.isoformat().split('+')[0] + 'Z'
         
         # Fetch existing events in time window
         events_result = service.events().list(

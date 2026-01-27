@@ -415,3 +415,85 @@ def update_users_batch(edited_df):
     except Exception as e:
         return False, f"Batch Error: {str(e)}"
 
+        return True, f"{count} usuarios actualizados correctamente."
+
+    except Exception as e:
+        return False, f"Batch Error: {str(e)}"
+
+def check_and_update_daily_quota(username, requested_amount=0):
+    """
+    Gestiona la cuota diaria de correos.
+    Retorna: (is_allowed, remaining_quota, usage_today, limit)
+    
+    Lógica:
+    1. Lee LIMIT (CANT_CORR), USAGE (USO_HOY), LAST_DATE (FECHA_USO)
+    2. Si FECHA_USO != Hoy, reinicia USAGE = 0.
+    3. Si USAGE + requested <= LIMIT, permite y actualiza.
+    """
+    try:
+        import datetime
+        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+            sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Identify Case-Insensitive Columns
+        col_map = {c.lower().strip(): c for c in df.columns}
+        
+        c_user = col_map.get('user')
+        c_limit = col_map.get('cant_corr', 'CANT_CORR') # Limit
+        c_usage = col_map.get('uso_hoy', 'USO_HOY')     # Current Usage
+        c_date = col_map.get('fecha_uso', 'FECHA_USO')  # Last Usage Date
+        
+        if not c_user: return False, 0, 0, 0
+        
+        # Ensure cols exist in DF
+        for c in [c_limit, c_usage, c_date]:
+             if c not in df.columns: df[c] = ""
+        
+        # Find User
+        idx_list = df.index[df[c_user].astype(str).str.strip() == username.strip()].tolist()
+        if not idx_list: return False, 0, 0, 0
+        idx = idx_list[0]
+        
+        # Get Current Values
+        limit_val = pd.to_numeric(df.at[idx, c_limit], errors='coerce')
+        limit = int(limit_val) if pd.notnull(limit_val) else 20 # Default Limit
+        
+        last_date = str(df.at[idx, c_date]).strip()
+        usage_val = pd.to_numeric(df.at[idx, c_usage], errors='coerce')
+        usage = int(usage_val) if pd.notnull(usage_val) else 0
+        
+        # RESET Logic
+        if last_date != today_str:
+            usage = 0
+            # Update Date in memory (will write later if allowed or forcing reset)
+            df.at[idx, c_date] = today_str
+            df.at[idx, c_usage] = 0
+            
+        remaining = max(0, limit - usage)
+        
+        if requested_amount == 0:
+            # Just checking status
+            return True, remaining, usage, limit
+            
+        if usage + requested_amount <= limit:
+            # ALLOWED: Update Usage
+            new_usage = usage + requested_amount
+            df.at[idx, c_usage] = new_usage
+            df.at[idx, c_date] = today_str # Confirm date
+            
+            conn.update(spreadsheet=sheet_url, data=df)
+            return True, limit - new_usage, new_usage, limit
+        else:
+            # DENIED
+            return False, remaining, usage, limit
+
+    except Exception as e:
+        print(f"Quota Error: {e}")
+        return False, 0, 0, 0
