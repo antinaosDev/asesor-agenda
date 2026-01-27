@@ -366,18 +366,40 @@ def fetch_emails_batch(service, start_date=None, end_date=None, max_results=15):
                 subject = next((h['value'] for h in headers if h['name'] == 'Subject'), "Sin Asunto")
                 sender = next((h['value'] for h in headers if h['name'] == 'From'), "Desconocido")
                 
-                body = "Sin contenido"
-                if 'parts' in payload:
-                    for part in payload['parts']:
-                        if part['mimeType'] == 'text/plain':
+                # Recursive Body Extraction
+                def get_best_body(payload):
+                    # 1. Plain Text at current level
+                    if 'body' in payload and payload['body'].get('data'):
+                        if payload.get('mimeType') == 'text/plain':
                             import base64
-                            data = part['body'].get('data')
-                            if data:
-                                body = base64.urlsafe_b64decode(data).decode()
-                                break
-                elif 'body' in payload and payload['body'].get('data'):
-                     import base64
-                     body = base64.urlsafe_b64decode(payload['body']['data']).decode()
+                            return base64.urlsafe_b64decode(payload['body']['data']).decode()
+                    
+                    # 2. Search in Parts
+                    if 'parts' in payload:
+                        # Prioritize text/plain
+                        for part in payload['parts']:
+                            if part['mimeType'] == 'text/plain' and part.get('body', {}).get('data'):
+                                import base64
+                                return base64.urlsafe_b64decode(part['body']['data']).decode()
+                        
+                        # Fallback to text/html
+                        for part in payload['parts']:
+                            if part['mimeType'] == 'text/html' and part.get('body', {}).get('data'):
+                                import base64
+                                html = base64.urlsafe_b64decode(part['body']['data']).decode()
+                                return clean_email_body(html) # Helper we already have
+                                
+                        # Recursive deep dive if multipart
+                        for part in payload['parts']:
+                            if 'multipart' in part['mimeType']:
+                                found = get_best_body(part)
+                                if found: return found
+                                
+                    return None
+
+                # Call extraction
+                extracted_body = get_best_body(payload)
+                body = extracted_body if extracted_body else "Sin contenido (Posible adjunto o imagen)"
 
                 email_data.append({
                     "id": msg['id'],
