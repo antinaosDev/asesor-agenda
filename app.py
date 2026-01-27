@@ -324,7 +324,7 @@ def view_dashboard():
         # Botón con estado dinámico
         button_label = "🔄 Regenerar Resumen" if cache_valid else "🎧 Generar Resumen de Voz"
         
-        if st.button(button_label, use_container_width=True, type="primary", key="btn_briefing"):
+        if st.button(button_label, width="stretch", type="primary", key="btn_briefing"):
             with st.spinner("🧠 Creando tu resumen personalizado..."):
                 from modules.ai_core import generate_daily_briefing
                 from modules.tts_service import text_to_speech
@@ -618,7 +618,7 @@ def view_dashboard():
                     table_data.append({"Hora": time_str, "Evento": summ, "Duración": dur_str})
                 
                 df_detail = pd.DataFrame(table_data)
-                st.dataframe(df_detail, use_container_width=True, hide_index=True)
+                st.dataframe(df_detail, width="stretch", hide_index=True)
             else:
                 st.info("Agenda libre.")
 
@@ -682,7 +682,7 @@ def view_dashboard():
                     button_key = f"enrich_{event_id}_{idx}"
                     button_label = "🔄 Actualizar" if '🕵️ CONTEXTO' in event_desc else "🔍 Buscar Contexto"
                     
-                    if st.button(button_label, key=button_key, use_container_width=True):
+                    if st.button(button_label, key=button_key, width="stretch"):
                         with st.spinner("🌐 Buscando información en la web..."):
                             from modules.web_search import enrich_event_with_free_context
                             
@@ -1695,7 +1695,7 @@ def view_account():
         new_pass = st.text_input("Nueva Contraseña", type="password", placeholder="Mínimo 6 caracteres")
         confirm_pass = st.text_input("Confirmar Nueva Contraseña", type="password", placeholder="••••••")
         
-        submitted = st.form_submit_button("Cambiar Contraseña", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("Cambiar Contraseña", type="primary", width="stretch")
         
         if submitted:
             # Validations
@@ -1747,7 +1747,7 @@ def view_time_insights():
     st.markdown("🕵️ Analizamos los últimos 7 días de tu calendario para identificar oportunidades de optimización.")
     st.divider()
     
-    if st.button("🔍 Analizar Última Semana", use_container_width=True, type="primary"):
+    if st.button("🔍 Analizar Última Semana", width="stretch", type="primary"):
         with st.spinner("📊 Analizando 7 días de calendario..."):
             # Obtener eventos de últimos 7 días
             cal_svc = get_calendar_service()
@@ -1814,7 +1814,7 @@ def view_time_insights():
                     plot_bgcolor='rgba(0,0,0,0)',
                     font=dict(color='#FAFAFA')
                 )
-                st.plotly_chart(fig_pie, use_container_width=True)
+                st.plotly_chart(fig_pie, width="stretch")
             
             with col_bar:
                 st.markdown("**Comparativa**")
@@ -1835,7 +1835,7 @@ def view_time_insights():
                     plot_bgcolor='rgba(0,0,0,0)',
                     font=dict(color='#FAFAFA')
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, width="stretch")
             
             st.divider()
             
@@ -1889,7 +1889,7 @@ def main_app():
              st.session_state.connected_email = st.session_state.connected_email_input
 
         st.markdown("<br><br>", unsafe_allow_html=True)
-        if st.button("🔐 Cerrar Sesión App", key="btn_logout_sidebar", use_container_width=True):
+        if st.button("🔐 Cerrar Sesión App", key="btn_logout_sidebar", width="stretch"):
             # IMPORTANTE: NO borrar COD_VAL (token Google OAuth)
             # El token debe persistir en Google Sheets para evitar re-autenticación
             # Solo se borra si el usuario hace clic en "Cambiar Cuenta / Salir"
