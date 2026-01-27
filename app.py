@@ -686,8 +686,8 @@ def view_dashboard():
                         with st.spinner("🌐 Buscando información en la web..."):
                             from modules.web_search import enrich_event_with_free_context
                             
-                            # Buscar contexto
-                            context = enrich_event_with_free_context(event_title)
+                            # Buscar contexto (título + descripción)
+                            context = enrich_event_with_free_context(event_title, event_desc)
                             
                             if context:
                                 # Actualizar descripción del evento
