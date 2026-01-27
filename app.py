@@ -24,9 +24,12 @@ os.environ['LC_ALL'] = 'es_ES.UTF-8'
 # ============================================
 
 # --- FORCE RELOAD MODULES (Cloud Cache Fix) ---
-for mods in ['modules.auth', 'modules.notifications', 'modules.google_services', 'modules.ai_core']:
-    if mods in sys.modules:
-        del sys.modules[mods]
+try:
+    for mods in ['modules.auth', 'modules.notifications', 'modules.google_services', 'modules.ai_core']:
+        if mods in sys.modules:
+            del sys.modules[mods]
+except:
+    pass
 
 # --- MODULE IMPORTS ---
 import modules.auth as auth
@@ -415,9 +418,9 @@ def view_dashboard():
             now = datetime.datetime.now()
             # Construct ISO format with Z is risky if 'now' is local.
             # Safe bet: Get local start/end, convert to RFC3339 format expected by Google
-            # If we send '2023-01-01T00:00:00' (no Z), Google assumes calendar's time zone!
-            t_min = now.replace(hour=0, minute=0, second=0).isoformat()
-            t_max = now.replace(hour=23, minute=59, second=59).isoformat()
+            # Use astimezone() to include the local system offset (e.g., -03:00)
+            t_min = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone().isoformat()
+            t_max = now.replace(hour=23, minute=59, second=59, microsecond=999999).astimezone().isoformat()
             events = svc.events().list(
                 calendarId=calendar_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
             ).execute().get('items', [])

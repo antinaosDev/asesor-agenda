@@ -594,12 +594,18 @@ def check_event_exists(service, calendar_id, event_data):
             new_start_dt = new_start
         
         # Search window: ±1 day from event start
-        # Use simple string manipulation to ensure "Z" is present if we treat them as UTC
+        # Ensure we produce an offset-aware ISO string
         time_min_dt = new_start_dt - dt.timedelta(days=1)
         time_max_dt = new_start_dt + dt.timedelta(days=1)
         
-        time_min = time_min_dt.isoformat().split('+')[0] + 'Z'
-        time_max = time_max_dt.isoformat().split('+')[0] + 'Z'
+        # If naive, make it aware (local) or UTC
+        if not time_min_dt.tzinfo:
+            time_min_dt = time_min_dt.astimezone()
+        if not time_max_dt.tzinfo:
+            time_max_dt = time_max_dt.astimezone()
+            
+        time_min = time_min_dt.isoformat()
+        time_max = time_max_dt.isoformat()
         
         # Fetch existing events in time window
         events_result = service.events().list(
