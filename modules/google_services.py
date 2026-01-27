@@ -628,13 +628,27 @@ def check_event_exists(service, calendar_id, event_data):
                 continue
             
             try:
-                existing_start_dt = dt.datetime.fromisoformat(existing_start_raw.replace('Z', '+00:00'))
+                # Ensure existing is aware
+                if 'T' in existing_start_raw:
+                     # If replace('Z',...) works it's usually UTC, but if naive needs .astimezone()
+                     existing_start_dt = dt.datetime.fromisoformat(existing_start_raw.replace('Z', '+00:00'))
+                     if not existing_start_dt.tzinfo:
+                         existing_start_dt = existing_start_dt.astimezone()
+                else: 
+                     existing_start_dt = dt.datetime.fromisoformat(existing_start_raw).astimezone()
             except:
                 continue
             
-            # Similarity check: Title match (>80%) + Time match (±30 min)
+            # Ensure new event is aware/consistent BEFORE math
+            match_new_start = new_start_dt
+            if not match_new_start.tzinfo:
+                match_new_start = match_new_start.astimezone()
+
+            # Similarity check
             title_similarity = SequenceMatcher(None, new_summary, existing_summary).ratio()
-            time_diff = abs((new_start_dt - existing_start_dt).total_seconds() / 60)  # minutes
+            
+            # Use abs difference
+            time_diff = abs((match_new_start - existing_start_dt).total_seconds() / 60)
             
             if title_similarity > 0.8 and time_diff <= 30:
                 return True  # Duplicate found
