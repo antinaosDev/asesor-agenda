@@ -1945,7 +1945,12 @@ def view_time_insights():
                         st.markdown(f"**{cat_display}** ({len(events_list)} eventos)")
                         
                         for ev in events_list[:10]:
-                            st.text(f"  • {ev['title']} ({ev['duration']:.1f}h)")
+                            dur_val = ev['duration']
+                            if dur_val < 1.0:
+                                dur_str = f"{int(round(dur_val * 60))} min"
+                            else:
+                                dur_str = f"{dur_val:.1f}h"
+                            st.text(f"  • {ev['title']} ({dur_str})")
                         
                         st.markdown("")
 
