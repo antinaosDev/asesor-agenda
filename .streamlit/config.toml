@@ -1,9 +1,17 @@
-[ui]
-# Configuración de idioma para widgets de fecha
-# Es-ES = Español de España
-locale = "es"
-
 [theme]
-# Mantener tema oscuro existente
-base = "dark"
-primaryColor = "#0dd7f2"
+primaryColor = "#0DD7F2"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#1A1F2E"
+textColor = "#FAFAFA"
+font = "sans serif"
+
+[server]
+headless = true
+port = 8501
+
+# Configuración regional para español latinoamericano
+[browser]
+gatherUsageStats = false
+
+[runner]
+fastReruns = true
