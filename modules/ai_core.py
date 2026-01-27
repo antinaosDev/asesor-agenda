@@ -485,7 +485,7 @@ FORMATO: Diagnóstico > Top 3 sugerencias con tiempo ahorrado > Acción priorita
         'categories': categories
     }
 
-@st.cache_data(ttl=86400, show_spinner=False)
+# @st.cache_data(ttl=86400, show_spinner=False) # REMOVED: To prevent caching fallback errors
 def analyze_existing_events_ai(events_list):
     client = _get_groq_client()
     simplified_events = [{"id": e['id'], "summary": e.get('summary', 'Sin Título'), "start": e['start']} for e in events_list]
@@ -520,18 +520,27 @@ def analyze_existing_events_ai(events_list):
         if "rate limit" in err_msg or "429" in err_msg:
              st.warning("⚠️ Límite de tokens en Optimización. Usando modelo rápido...")
              try:
+                # Optimized prompt for 8B
+                simple_prompt = system_prompt + "\n\nCRÍTICO: Devuelve SOLO el JSON válido. Sin texto explicativo."
+                
                 completion = client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": simple_prompt},
                         {"role": "user", "content": json.dumps(simplified_events)}
                     ],
                     model="llama-3.1-8b-instant",
-                    temperature=0.1,
+                    temperature=0.2, # Slightly higher than 0.1 for better adherence
                     max_tokens=3000
                 )
-                content = _clean_json_output(completion.choices[0].message.content.strip())
+                raw_content = completion.choices[0].message.content.strip()
+                content = _clean_json_output(raw_content)
                 return json.loads(content)
-             except: pass
+             except Exception as e2:
+                 st.error(f"❌ Error en Fallback (8B): {e2}")
+                 if 'raw_content' in locals():
+                     with st.expander("Ver Respuesta Fallida (8B)"):
+                         st.code(raw_content)
+                 return {}
         
         st.error(f"AI Assistant Error: {e}")
         return {}
