@@ -10,6 +10,19 @@ from dotenv import load_dotenv
 
 import sys
 
+# === CONFIGURACIÓN ESPAÑOL LATINOAMERICANO ===
+import locale
+try:
+    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+except:
+    try:
+        locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
+    except:
+        pass
+os.environ['LANG'] = 'es_ES.UTF-8'
+os.environ['LC_ALL'] = 'es_ES.UTF-8'
+# ============================================
+
 # --- FORCE RELOAD MODULES (Cloud Cache Fix) ---
 for mods in ['modules.auth', 'modules.notifications', 'modules.google_services', 'modules.ai_core']:
     if mods in sys.modules:
