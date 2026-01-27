@@ -514,24 +514,25 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
              if pref and pref.lower() != 'nan' and pref != '':
                  model_id = pref
 
-    context_block = f"Extra Context/Docs: {extra_context}" if extra_context else ""
+    context_block = f"Contexto Extra/Docs: {extra_context}" if extra_context else ""
 
     system_prompt = f"""
-    You are an Expert Project Manager using Advanced Intelligence.
-    Goal: Break down the project "{project_title}" into actionable Daily/Weekly tasks.
-    Context: {start_date} to {end_date}
-    Desc: {project_desc}
+    Eres un Experto Gerente de Proyectos (Project Manager).
+    Objetivo: Desglosar el proyecto "{project_title}" en tareas accionables diarias/semanales.
+    Contexto Temporal: {start_date} hasta {end_date}
+    Descripción: {project_desc}
     {context_block}
     
-    Output: JSON List of objects ({{"title": "", "date": "YYYY-MM-DD", "notes": ""}}).
-    Language: Spanish.
+    CRÍTICO:
+    1. EL OUTPUT DEBE SER 100% EN ESPAÑOL.
+    2. Formato: Lista JSON de objetos ({{"title": "Título en Español", "date": "YYYY-MM-DD", "notes": "Detalles en Español"}}).
     """
     
     try:
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Generate Breakdown taking into account the context if provided."}
+                {"role": "user", "content": "Genera el desglose del proyecto en JSON (Español)."}
             ],
             model=model_id, 
             temperature=0.6, 
@@ -548,7 +549,7 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
                 completion = client.chat.completions.create(
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": "Generate Breakdown (Simplified)."}
+                        {"role": "user", "content": "Genera el desglose simplificado en Español."}
                     ],
                     model="llama-3.1-8b-instant",  # Fallback is always the fast one
                     temperature=0.6, 
