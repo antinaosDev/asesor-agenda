@@ -2014,38 +2014,37 @@ def main_app():
                         st.error("No se pudieron cargar usuarios.")
 
                 if 'admin_users_df' in st.session_state:
+                    # Make DataFrame editable but keep tracking IDs
                     edited_df = st.data_editor(
                         st.session_state.admin_users_df,
                         key="user_editor",
-                        disabled=["user", "rol"], # Prevent editing generic ID/Role here safely
+                        disabled=["user", "rol"],
                         column_config={
-                            "estado": st.column_config.SelectboxColumn(
-                                "Estado",
-                                options=["ACTIVO", "SUSPENDIDO", "INACTIVO"],
-                                required=True
-                            ),
-                            "cant_corr": st.column_config.NumberColumn(
-                                "Límite Correos",
-                                help="Cantidad máxima de correos a procesar",
-                                min_value=0,
-                                max_value=100,
-                                step=1,
-                                format="%d"
-                            )
+                            "estado": st.column_config.SelectboxColumn("Estado", options=["ACTIVO", "SUSPENDIDO", "INACTIVO"], required=True),
+                            "cant_corr": st.column_config.NumberColumn("Límite Correos", min_value=0, max_value=100, format="%d"),
                         }
                     )
                     
-                    if st.button("💾 Guardar Cambios"):
-                        with st.spinner("Guardando cambios masivos en la nube..."):
-                             # Use batch update for performance and consistency
-                             ok, msg = auth.update_users_batch(edited_df)
-                             
-                             if ok:
-                                 st.success(f"✅ {msg}")
-                                 time.sleep(1)
-                                 # st.rerun() # Optional: force reload
-                             else:
-                                 st.error(f"Error guardando: {msg}")
+                    c_act1, c_act2 = st.columns(2)
+                    
+                    with c_act1:
+                        if st.button("💾 Guardar Cambios"):
+                            with st.spinner("Guardando cambios masivos..."):
+                                 ok, msg = auth.update_users_batch(edited_df)
+                                 if ok:
+                                     st.success(f"✅ {msg}")
+                                     time.sleep(1)
+                                 else: st.error(f"Error: {msg}")
+
+                    with c_act2:
+                        # Reset Quota Action
+                        user_to_reset = st.selectbox("Seleccionar Usuario para Reiniciar Cuota:", edited_df['user'].unique(), key="sel_rst_usr")
+                        if st.button("🔄 Reiniciar Uso (0)", key="btn_rst_quota"):
+                            ok, msg = auth.update_user_field(user_to_reset, "USO_HOY", 0)
+                            if ok:
+                                st.success(f"✅ Contador reiniciado para {user_to_reset}")
+                                time.sleep(1)
+                            else: st.error(f"Error: {msg}")
                         
                 st.divider()
                 st.markdown("**Simulación**")
