@@ -142,16 +142,24 @@ def login_user(username, password):
                                  print(f"SUBSCRIPTION EXPIRED: {user_clean}")
                                  
                                  # Return Failure with Message
-                                 msg = f"""
-                                 🚫 **Suscripción Vencida**
-                                 Tu servicio ha finalizado. No se renueva automáticamente.
+                                 # Return Failure with Message
+                                 st.error("🚫 **Suscripción Vencida**")
+                                 st.markdown(f"""
+                                 <div style="background-color: #2b1c1c; padding: 15px; border-radius: 10px; border: 1px solid #ff4b4b;">
+                                     <p style="color: #ffcccc;">Tu servicio ha finalizado. No se renueva automáticamente.</p>
+                                     <h4 style="color: white; margin-top: 10px;">💳 Datos para Reactivación (Tenpo):</h4> 
+                                     <ul style="color: #e0e0e0;">
+                                         <li><b>Nombre:</b> ALAIN CESAR ANTINAO SEPULVEDA</li>
+                                         <li><b>RUT:</b> 18581575-7</li>
+                                         <li><b>Banco:</b> Tenpo (Prepago)</li>
+                                         <li><b>Tipo:</b> Cuenta Vista</li>
+                                         <li><b>Nro:</b> 111118581575</li>
+                                         <li><b>Correo:</b> alain.antinao.s@gmail.com</li>
+                                     </ul>
+                                     <p style="color: #ffcccc; font-size: 0.9em;">📧 Informa el pago a: <b>alain.antinao.s@gmail.com</b></p>
+                                 </div>
+                                 """, unsafe_allow_html=True)
                                  
-                                 **Para reactivar, realiza el pago:**
-                                 {PAYMENT_INFO}
-                                 
-                                 📧 Informa el pago a: alain.antinao.s@gmail.com
-                                 """
-                                 st.error(msg, icon="🚫")
                                  return False, {}
                          except Exception as e:
                              print(f"Date Check Error: {e}")
