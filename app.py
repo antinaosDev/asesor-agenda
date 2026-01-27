@@ -1502,9 +1502,10 @@ def view_inbox():
                                  st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
                                  st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
                                  if ev.get('id'):
-                                      # Valid Link Logic: Prefer threadId if available
+                                      # Valid Link Logic: Use authuser for multi-account support
                                       t_id = ev.get('threadId', ev['id'])
-                                      link = f"https://mail.google.com/mail/u/0/#inbox/{t_id}"
+                                      user_email = st.session_state.get('connected_email', '0') # defaults to 0 if unknown
+                                      link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
                                       st.markdown(f"🔗 [Ver Correo Original]({link})")
                              with c2:
                                  from modules.google_services import check_event_exists
@@ -1530,7 +1531,8 @@ def view_inbox():
                                                final_desc = ev.get('description', '-')
                                                if ev.get('id'):
                                                    t_id = ev.get('threadId', ev['id'])
-                                                   link = f"https://mail.google.com/mail/u/0/#inbox/{t_id}"
+                                                   user_email = st.session_state.get('connected_email', '0')
+                                                   link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
                                                    if link not in final_desc:
                                                        final_desc += f"\n\n🔗 Correo: {link}"
                                                
@@ -1557,7 +1559,8 @@ def view_inbox():
                              email_link = None
                              if t.get('id'):
                                  t_id = t.get('threadId', t['id'])
-                                 email_link = f"https://mail.google.com/mail/u/0/#inbox/{t_id}"
+                                 user_email = st.session_state.get('connected_email', '0')
+                                 email_link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
                                  st.markdown(f"🔗 [Ver Correo Original]({email_link})")
                              
                              # Action: Save as Task for TODAY (Catch-all)
