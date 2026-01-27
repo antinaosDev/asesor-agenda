@@ -643,9 +643,9 @@ def view_dashboard():
                 fig_load.update_layout(height=200, margin=dict(l=0, r=0, t=0, b=0), 
                                      paper_bgcolor='rgba(0,0,0,0)', showlegend=False,
                                      xaxis=dict(showgrid=False), yaxis=dict(showticklabels=False))
-                 st.plotly_chart(fig_load, width="stretch", key="load_chart")
+                st.plotly_chart(fig_load, width="stretch", key="load_chart")
             else:
-                 st.caption("Sin datos de carga.")
+                st.caption("Sin datos de carga.")
 
     # --- ENRIQUECIMIENTO CON CONTEXTO EXTERNO (GRATIS) ---
     if today_events:
