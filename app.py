@@ -413,8 +413,11 @@ def view_dashboard():
         svc = get_calendar_service()
         if svc:
             now = datetime.datetime.now()
-            t_min = now.replace(hour=0, minute=0, second=0).isoformat() + 'Z'
-            t_max = now.replace(hour=23, minute=59, second=59).isoformat() + 'Z'
+            # Construct ISO format with Z is risky if 'now' is local.
+            # Safe bet: Get local start/end, convert to RFC3339 format expected by Google
+            # If we send '2023-01-01T00:00:00' (no Z), Google assumes calendar's time zone!
+            t_min = now.replace(hour=0, minute=0, second=0).isoformat()
+            t_max = now.replace(hour=23, minute=59, second=59).isoformat()
             events = svc.events().list(
                 calendarId=calendar_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
             ).execute().get('items', [])
@@ -652,7 +655,7 @@ def view_dashboard():
         st.markdown("---")
         st.markdown("""
         <h3 style='color: #0DD7F2; font-size: 1.3rem; margin-bottom: 10px;'>
-            🕵️ Contexto Inteligente (Búsqueda Web Gratis)
+            🕵️ Contexto Inteligente
         </h3>
         <p style='color: #9CB6BA; font-size: 0.9rem; margin-bottom: 15px;'>
             Enriquece tus eventos con información actualizada de la web
