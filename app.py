@@ -1501,6 +1501,9 @@ def view_inbox():
                              with c1:
                                  st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
                                  st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
+                                 if ev.get('id'):
+                                      link = f"https://mail.google.com/mail/u/0/#inbox/{ev['id']}"
+                                      st.markdown(f"🔗 [Ver Correo Original]({link})")
                              with c2:
                                  from modules.google_services import check_event_exists
                                  cal_id = st.session_state.get('connected_email', 'primary')
@@ -1521,7 +1524,18 @@ def view_inbox():
                                  else:
                                      if st.button(f"Agendar", key=f"btn_ev_{i}"):
                                           if service_cal:
-                                               res, msg = add_event_to_calendar(service_cal, ev, cal_id)
+                                               # Append Link to Description
+                                               final_desc = ev.get('description', '-')
+                                               if ev.get('id'):
+                                                   link = f"https://mail.google.com/mail/u/0/#inbox/{ev['id']}"
+                                                   if link not in final_desc:
+                                                       final_desc += f"\n\n🔗 Correo: {link}"
+                                               
+                                               # Create copy to avoid mutating session state permanently if failed
+                                               ev_to_add = ev.copy()
+                                               ev_to_add['description'] = final_desc
+
+                                               res, msg = add_event_to_calendar(service_cal, ev_to_add, cal_id)
                                                if res: 
                                                    st.success("¡Agendado!")
                                                    st.rerun()
@@ -1536,13 +1550,24 @@ def view_inbox():
                              st.markdown(f"**Categoría**: {t.get('category','Otro')}")
                              st.write(t.get('description', ''))
                              
+                             # Display Link if ID exists
+                             email_link = None
+                             if t.get('id'):
+                                 email_link = f"https://mail.google.com/mail/u/0/#inbox/{t['id']}"
+                                 st.markdown(f"🔗 [Ver Correo Original]({email_link})")
+                             
                              # Action: Save as Task for TODAY (Catch-all)
                              if st.button("Guardar como Tarea (Para Hoy)", key=f"btn_tk_{i}"):
                                  svc_tasks = get_tasks_service()
                                  if svc_tasks:
+                                     # Append Link to Notes
+                                     final_notes = t.get('description', '')
+                                     if email_link:
+                                         final_notes += f"\n\n🔗 Correo: {email_link}"
+                                     
                                      # Current date for due date
                                      due_today = datetime.datetime.now(datetime.timezone.utc)
-                                     add_task_to_google(svc_tasks, "@default", t.get('summary'), t.get('description'), due_date=due_today)
+                                     add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_today)
                                      st.success("✅ Guardada en Google Tasks para hoy.")
          
          elif 'fetched_emails' in st.session_state:
