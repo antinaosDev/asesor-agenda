@@ -570,7 +570,11 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
             max_tokens=2048
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
-        return json.loads(content)
+        content = _clean_json_output(completion.choices[0].message.content.strip())
+        result = json.loads(content)
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        return result
     except Exception as e:
         err_msg = str(e).lower()
         if "rate limit" in err_msg or "429" in err_msg:
@@ -586,7 +590,10 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
                     max_tokens=2048
                 )
                 content = _clean_json_output(completion.choices[0].message.content.strip())
-                return json.loads(content)
+                result = json.loads(content)
+                if isinstance(result, list) and len(result) > 0:
+                    return result[0]
+                return result
              except: pass
         
         st.error(f"AI Planning Error: {e}")
