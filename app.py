@@ -2013,7 +2013,7 @@ def main_app():
                     if users:
                         df_users = pd.DataFrame(users)
                         # Filter relevant columns for display
-                        cols_to_show = ['user', 'rol', 'estado', 'cant_corr']
+                        cols_to_show = ['user', 'rol', 'estado', 'cant_corr', 'modelo_ia']
                         # Ensure columns exist
                         for c in cols_to_show:
                             if c not in df_users.columns: df_users[c] = ""
@@ -2030,7 +2030,17 @@ def main_app():
                         disabled=["user", "rol"],
                         column_config={
                             "estado": st.column_config.SelectboxColumn("Estado", options=["ACTIVO", "SUSPENDIDO", "INACTIVO"], required=True),
-                            "cant_corr": st.column_config.NumberColumn("Límite Correos", min_value=0, max_value=100, format="%d"),
+                            "cant_corr": st.column_config.NumberColumn("Límite Correos", min_value=0, max_value=200, format="%d"),
+                            "modelo_ia": st.column_config.SelectboxColumn(
+                                "Modelo IA Predefinido",
+                                options=[
+                                    "llama-3.3-70b-versatile",
+                                    "llama-3.1-8b-instant",
+                                    "mixtral-8x7b-32768"
+                                ],
+                                required=False,
+                                width="medium"
+                            )
                         }
                     )
                     

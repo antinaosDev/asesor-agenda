@@ -28,8 +28,8 @@ Output: Lista JSON de objetos:
 {{
     "id": "email_id_from_input",
     "is_event": boolean, 
-    "summary": "Título profesional en español",
-    "description": "TODOS los detalles importantes del correo: contexto, nombres, acciones, fechas, números, enlaces. Sé comprensivo y detallado. NUNCA pongas 'No se proporciona información adicional'.",
+    "summary": "Título profesional en español (Ej: 'Reunión con Cliente X', 'Pago de Factura')",
+    "description": "Resumen EJECUTIVO Y COMPLETO. Incluye: Nombres, Contactos, Fechas, Montos, Enlaces, Contexto previo. Si es un hilo, resume la conclusión final.",
     "start_time": "YYYY-MM-DDTHH:MM:SS" (o null),
     "end_time": "YYYY-MM-DDTHH:MM:SS" (o null),
     "urgency": "Alta" | "Media" | "Baja",
@@ -37,14 +37,16 @@ Output: Lista JSON de objetos:
 }}
 
 Reglas CRÍTICAS:
-- description DEBE contener TODO el contexto del email.
-- NO usar frases genéricas - extraer contenido real.
-- Urgencia "Alta": URGENTE/ASAP/plazos inmediatos/dinero.
-- Urgencia "Media": Solicitudes normales.
-- Urgency "Baja": FYI/newsletters.
-- IDIOMA: ESPAÑOL.
-- JSON PURO. SIN MARKDOWN.
+- **EVITAR FALSOS POSITIVOS**: Newsletters, promociones de webinars genéricos, alertas de sistema sin acción requerida -> `is_event: false`.
+- **FECHAS**: Si dice "mañana", calcula la fecha real basada en {current_date}.
+- **URGENCIA**: 
+    - "Alta": Requiere acción HOY o involucra dinero/riesgos.
+    - "Media": Solicitudes estándar de trabajo.
+    - "Baja": FYI, Confirmaciones automáticas, Newsletters.
+- **IDIOMA**: Output 100% en ESPAÑOL.
+- **JSON PURO**: No uses Markdown ni bloques de código.
 """
+
 
 PROMPT_EVENT_PARSING = """
 You are an intelligent assistant that extracts calendar events from text and categorizes them with colors.
@@ -170,6 +172,7 @@ def _try_parse_block(block, results_list):
 
 # --- CORE FUNCTIONS ---
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def parse_events_ai(text_input):
     client = _get_groq_client()
     now = datetime.datetime.now()
@@ -214,16 +217,25 @@ def parse_events_ai(text_input):
         st.error(f"AI Parsing Error: {e}")
         return []
 
+@st.cache_data(ttl=7200, show_spinner=False)
 def analyze_emails_ai(emails, custom_model=None):
     if not emails: return []
     client = _get_groq_client()
     
     # Primary model (most capable for complex tasks)
-    primary_model = "llama-3.3-70b-versatile"
-    # Fallback model (Upgrade from deprecated Mixtral)
+    default_primary = "llama-3.3-70b-versatile"
     fallback_model = "llama-3.1-8b-instant"
     
-    model_id = custom_model if custom_model else primary_model
+    # Logic: Custom > User Pref > Default
+    model_id = custom_model
+    if not model_id:
+         if 'user_data_full' in st.session_state and 'modelo_ia' in st.session_state.user_data_full:
+             pref = str(st.session_state.user_data_full['modelo_ia']).strip()
+             if pref and pref.lower() != 'nan' and pref != '':
+                 model_id = pref
+    
+    if not model_id:
+        model_id = default_primary
     
     batch_text = "ANALIZA ESTOS CORREOS:\n"
     for i, e in enumerate(emails):
@@ -294,6 +306,7 @@ def analyze_emails_ai(emails, custom_model=None):
             st.error(f"AI Email Error: {e}")
             return []
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def generate_daily_briefing(events, tasks, unread_count):
     """Genera briefing textual para TTS (max 300 palabras)"""
     import datetime
@@ -308,7 +321,7 @@ def generate_daily_briefing(events, tasks, unread_count):
     for i, task in enumerate(tasks[:3], 1):
         tasks_text += f"{i}. {task.get('title', 'Sin título')}\n"
     
-    prompt = f"""Actúa como un asistente personal de élite, lleno de energía y carisma. Genera un guion para ser leído en voz alta (estilo podcast matutino).
+    prompt = f"""Actúa como un asistente personal de élite (locutor de radio carismático). Genera un guion breve para ser leído en voz alta.
     
     TUS OBJETIVOS DE HOY ({datetime.datetime.now().strftime('%A %d de %B')}):
     
@@ -321,18 +334,21 @@ def generate_daily_briefing(events, tasks, unread_count):
     3. 📬 BANDEJA: {unread_count} correos sin leer.
 
     INSTRUCCIONES DE ESTILO (CRÍTICO PARA TTS):
-    - Usa un tono conversacional, fluido y dinámico (evita sonar como un robot leyendo una lista y nunca saludes con "Hola jefe" o algo así, usa un saludo neutral y profesional, tampoco menciones la palabra podcast).
-    - No uses viñetas ni guiones ni asteriscos. Escribe párrafos conectados con naturalidad.
-    - Usa conectores como "Por otro lado", "Además", "Lo más importante es".
-    - Varía la longitud de las frases para dar ritmo.
-    - Saluda con entusiasmo ("¡Buenos días! Vamos a por este [Día] con todo.")
-    - Si la agenda está llena, sé motivador. Si está vacía, sugiere aprovechar el tiempo.
-    - Termina con un "call to action" claro y energético.
+    - **TONO**: Conversacional, cálido, profesional pero cercano. NADA ROBÓTICO.
+    - **ESTRUCTURA**:
+        - Saludo breve y enérgico (Ej: "¡Muy buenos días! Vamos a revisar tu día.").
+        - Resumen fluido de la agenda (No digas "Número uno...", di "Primero, tienes...").
+        - Menciones breves de tareas ("En cuanto a pendientes, recuerda...").
+        - Cierre motivador ("¡A darle con todo hoy!").
+    - **EDICIÓN**:
+        - Convierte horas "14:00" a "las dos de la tarde".
+        - No leas IDs ni códigos raros.
+        - Usa conectores: "Por cierto", "Además", "Finalmente".
     """
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",  # Optimized for instruction following
+            model="llama-3.3-70b-versatile",  # Updated from deprecated 3.1
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=400
@@ -370,6 +386,7 @@ def calc_event_duration_hours(event):
     except:
         return 0
 
+@st.cache_data(ttl=21600, show_spinner=False)
 def analyze_time_leaks_weekly(events_last_7days):
     """Analiza distribución semanal con optimización extrema de tokens"""
     client = _get_groq_client()
@@ -426,6 +443,7 @@ FORMATO: Diagnóstico > Top 3 sugerencias con tiempo ahorrado > Acción priorita
         'categories': categories
     }
 
+@st.cache_data(ttl=86400, show_spinner=False)
 def analyze_existing_events_ai(events_list):
     client = _get_groq_client()
     simplified_events = [{"id": e['id'], "summary": e.get('summary', 'Sin Título'), "start": e['start']} for e in events_list]
@@ -459,6 +477,7 @@ def analyze_existing_events_ai(events_list):
         st.error(f"AI Assistant Error: {e}")
         return {}
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def generate_work_plan_ai(tasks_text, calendar_context=""):
     client = _get_groq_client()
     prompt = PROMPT_PLANNING.format(
@@ -482,13 +501,23 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
         st.error(f"AI Planning Error: {e}")
         return {}
 
+@st.cache_data(ttl=86400, show_spinner=False)
 def generate_project_breakdown_ai(project_title, project_desc, start_date, end_date, extra_context=""):
     client = _get_groq_client()
     
+    # 1. Determine Model (User Pref > Default)
+    # Default to 70b but respect limits
+    model_id = "llama-3.3-70b-versatile"
+    
+    if 'user_data_full' in st.session_state and 'modelo_ia' in st.session_state.user_data_full:
+             pref = str(st.session_state.user_data_full['modelo_ia']).strip()
+             if pref and pref.lower() != 'nan' and pref != '':
+                 model_id = pref
+
     context_block = f"Extra Context/Docs: {extra_context}" if extra_context else ""
 
     system_prompt = f"""
-    You are an Expert Project Manager using Qwen Intelligence.
+    You are an Expert Project Manager using Advanced Intelligence.
     Goal: Break down the project "{project_title}" into actionable Daily/Weekly tasks.
     Context: {start_date} to {end_date}
     Desc: {project_desc}
@@ -504,13 +533,32 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Generate Breakdown taking into account the context if provided."}
             ],
-            # Use llama-3.1-70b-versatile as safest high-intelligence model on Groq
-            model="llama-3.3-70b-versatile", 
+            model=model_id, 
             temperature=0.6, 
             max_tokens=4096
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
         return json.loads(content)
     except Exception as e:
-        st.error(f"AI Breakdown Error (Qwen): {e}")
+        err_msg = str(e).lower()
+        # Robust check for Rate Limits
+        if "429" in err_msg or "rate limit" in err_msg or "quota" in err_msg:
+             st.warning(f"⚠️ Límite de tokens en {model_id}. Usando modelo rápido (fallback)...")
+             try:
+                completion = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": "Generate Breakdown (Simplified)."}
+                    ],
+                    model="llama-3.1-8b-instant",  # Fallback is always the fast one
+                    temperature=0.6, 
+                    max_tokens=2048
+                )
+                content = _clean_json_output(completion.choices[0].message.content.strip())
+                return json.loads(content)
+             except Exception as e2:
+                 st.error(f"Fallback Error: {e2}")
+                 return []
+        
+        st.error(f"AI Breakdown Error ({model_id}): {e}")
         return []

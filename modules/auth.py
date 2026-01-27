@@ -406,6 +406,12 @@ def update_users_batch(edited_df):
                       if col_name not in original_df.columns: original_df[col_name] = ""
                       original_df.at[real_idx, col_name] = str(row['cant_corr'])
                  
+                 # Check for 'modelo_ia'
+                 if 'modelo_ia' in row:
+                      col_name = next((c for c in original_df.columns if c.lower().strip() == 'modelo_ia'), 'MODELO_IA')
+                      if col_name not in original_df.columns: original_df[col_name] = ""
+                      original_df.at[real_idx, col_name] = str(row['modelo_ia'])
+                 
                  count += 1
         
         # Single Write Back
