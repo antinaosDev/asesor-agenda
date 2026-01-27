@@ -381,6 +381,7 @@ def fetch_emails_batch(service, start_date=None, end_date=None, max_results=15):
 
                 email_data.append({
                     "id": msg['id'],
+                    "threadId": msg.get('threadId', msg['id']), # Add threadId, fallback to id
                     "subject": subject,
                     "sender": sender,
                     "body": clean_email_body(body)

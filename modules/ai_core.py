@@ -252,6 +252,12 @@ def analyze_emails_ai(emails, custom_model=None):
              st.warning("⚠️ DEBUG: La IA devolvió 0 elementos.")
              with st.expander("Ver Respuesta Cruda de la IA (Debug)"):
                  st.text(completion.choices[0].message.content)
+
+        # Re-attach threadId from original emails to results
+        email_map = {e['id']: e for e in emails}
+        for res in results:
+            if 'id' in res and res['id'] in email_map:
+                res['threadId'] = email_map[res['id']].get('threadId')
         
         return results
         

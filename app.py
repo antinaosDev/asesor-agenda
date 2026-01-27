@@ -1502,7 +1502,9 @@ def view_inbox():
                                  st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
                                  st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
                                  if ev.get('id'):
-                                      link = f"https://mail.google.com/mail/u/0/#inbox/{ev['id']}"
+                                      # Valid Link Logic: Prefer threadId if available
+                                      t_id = ev.get('threadId', ev['id'])
+                                      link = f"https://mail.google.com/mail/u/0/#inbox/{t_id}"
                                       st.markdown(f"🔗 [Ver Correo Original]({link})")
                              with c2:
                                  from modules.google_services import check_event_exists
@@ -1527,7 +1529,8 @@ def view_inbox():
                                                # Append Link to Description
                                                final_desc = ev.get('description', '-')
                                                if ev.get('id'):
-                                                   link = f"https://mail.google.com/mail/u/0/#inbox/{ev['id']}"
+                                                   t_id = ev.get('threadId', ev['id'])
+                                                   link = f"https://mail.google.com/mail/u/0/#inbox/{t_id}"
                                                    if link not in final_desc:
                                                        final_desc += f"\n\n🔗 Correo: {link}"
                                                
@@ -1553,7 +1556,8 @@ def view_inbox():
                              # Display Link if ID exists
                              email_link = None
                              if t.get('id'):
-                                 email_link = f"https://mail.google.com/mail/u/0/#inbox/{t['id']}"
+                                 t_id = t.get('threadId', t['id'])
+                                 email_link = f"https://mail.google.com/mail/u/0/#inbox/{t_id}"
                                  st.markdown(f"🔗 [Ver Correo Original]({email_link})")
                              
                              # Action: Save as Task for TODAY (Catch-all)
