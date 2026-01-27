@@ -255,6 +255,69 @@ def view_dashboard():
         st.info("⚠️ Por favor conecta tu Google Calendar en configuración para ver tu panel.")
         return
 
+    # === BRIEFING POR VOZ ===
+    st.markdown("### 🎙️ Briefing Diario")
+    col_brief1, col_brief2 = st.columns([2, 1])
+
+    with col_brief1:
+        if st.button("🎧 Generar Briefing de Voz", use_container_width=True, type="primary"):
+            with st.spinner("🧠 Generando briefing..."):
+                from modules.ai_core import generate_daily_briefing
+                from modules.tts_service import text_to_speech
+                from datetime import datetime, timedelta
+                
+                # Obtener eventos de hoy
+                cal_svc = get_calendar_service()
+                today_start = datetime.now().replace(hour=0, minute=0, second=0)
+                today_end = today_start + timedelta(days=1)
+                
+                try:
+                    events_result = cal_svc.events().list(
+                        calendarId=calendar_id,
+                        timeMin=today_start.isoformat() + 'Z',
+                        timeMax=today_end.isoformat() + 'Z',
+                        singleEvents=True,
+                        orderBy='startTime'
+                    ).execute()
+                    today_events = events_result.get('items', [])
+                except:
+                    today_events = []
+                
+                # Top 3 tareas
+                try:
+                    tasks_svc = get_tasks_service()
+                    task_lists = tasks_svc.tasklists().list().execute().get('items', [])
+                    all_tasks = []
+                    for tlist in task_lists[:1]:
+                        tasks = tasks_svc.tasks().list(tasklist=tlist['id']).execute().get('items', [])
+                        all_tasks.extend(tasks)
+                    top_tasks = all_tasks[:3]
+                except:
+                    top_tasks = []
+                
+                # Correos sin leer (simplificado)
+                unread_count = 0
+                
+                # 1. Generar texto con IA
+                briefing_text = generate_daily_briefing(today_events, top_tasks, unread_count)
+                
+                # 2. Convertir a audio
+                audio_bytes = text_to_speech(briefing_text)
+                
+                if audio_bytes:
+                    st.success("✅ Briefing generado")
+                    st.audio(audio_bytes, format='audio/mp3')
+                    
+                    with st.expander("📄 Ver transcripción"):
+                        st.markdown(briefing_text)
+                else:
+                    st.error("Error generando audio")
+
+    with col_brief2:
+        st.info("🎯 Briefing optimizado de 2 min con tu agenda del día")
+
+    st.divider()
+
     # --- Top Row: Stats ---
     c1, c2, c3, c4 = st.columns(4)
     
@@ -1429,6 +1492,127 @@ def view_account():
     - ✅ Cierra sesión al terminar de usar la app
     """)
 
+def view_time_insights():
+    """Vista de Análisis de Fuga de Tiempo"""
+    render_header("Análisis de Tiempo", "Descubre dónde va tu semana")
+    
+    from modules.ai_core import analyze_time_leaks_weekly
+    from datetime import datetime, timedelta
+    import plotly.graph_objects as go
+    
+    st.markdown("🕵️ Analizamos los últimos 7 días de tu calendario para identificar oportunidades de optimización.")
+    st.divider()
+    
+    if st.button("🔍 Analizar Última Semana", use_container_width=True, type="primary"):
+        with st.spinner("📊 Analizando 7 días de calendario..."):
+            # Obtener eventos de últimos 7 días
+            cal_svc = get_calendar_service()
+            calendar_id = st.session_state.get('connected_email', 'primary')
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=7)
+            
+            try:
+                events_result = cal_svc.events().list(
+                    calendarId=calendar_id,
+                    timeMin=start_date.isoformat() + 'Z',
+                    timeMax=end_date.isoformat() + 'Z',
+                    singleEvents=True
+                ).execute()
+                
+                events = events_result.get('items', [])
+            except Exception as e:
+                st.error(f"Error obteniendo eventos: {e}")
+                return
+            
+            if len(events) < 3:
+                st.warning("⚠️ Muy pocos eventos para análisis significativo (mínimo 3 requeridos)")
+                return
+            
+            # Analizar con IA
+            analysis = analyze_time_leaks_weekly(events)
+            
+            # --- VISUALIZACIÓN ---
+            st.markdown("### 📊 Distribución del Tiempo")
+            
+            # Métricas superiores
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Horas", f"{analysis['total_hours']}h", help="Tiempo total en eventos")
+            with col2:
+                st.metric("Eventos", len(events), help="Cantidad de eventos analizados")
+            with col3:
+                top_cat = max(analysis['stats'].items(), key=lambda x: x[1]['hours'])
+                st.metric("Mayor Consumo", top_cat[0].replace('_', ' ').title(), help=f"{top_cat[1]['hours']}h")
+            with col4:
+                avg_per_day = round(analysis['total_hours'] / 7, 1)
+                st.metric("Promedio/Día", f"{avg_per_day}h", help="Horas promedio por día")
+            
+            st.divider()
+            
+            # Gráficos
+            col_pie, col_bar = st.columns(2)
+            
+            with col_pie:
+                st.markdown("**Por Categoría**")
+                labels = [cat.replace('_', ' ').title() for cat in analysis['stats'].keys()]
+                values = [data['hours'] for data in analysis['stats'].values()]
+                
+                fig_pie = go.Figure(data=[go.Pie(
+                    labels=labels,
+                    values=values,
+                    hole=0.4,
+                    marker=dict(colors=['#0DD7F2', '#09A8C4', '#21C354', '#FF4B4B', '#9CB6BA'])
+                )])
+                fig_pie.update_layout(
+                    title="Distribución por Tipo",
+                    height=350,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#FAFAFA')
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
+            
+            with col_bar:
+                st.markdown("**Comparativa**")
+                cats = [cat.replace('_', ' ').title() for cat in analysis['stats'].keys()]
+                hours = [data['hours'] for data in analysis['stats'].values()]
+                
+                fig_bar = go.Figure(data=[go.Bar(
+                    x=cats,
+                    y=hours,
+                    marker_color='#0DD7F2'
+                )])
+                fig_bar.update_layout(
+                    title="Horas por Categoría",
+                    xaxis_title="Categoría",
+                    yaxis_title="Horas",
+                    height=350,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#FAFAFA')
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+            
+            st.divider()
+            
+            # Insights de IA
+            st.markdown("### 💡 Recomendaciones Estratégicas (IA)")
+            st.markdown(analysis['insights'])
+            
+            st.divider()
+            
+            # Desglose detallado
+            with st.expander("📋 Ver Desglose Completo de Eventos"):
+                for cat_name, events_list in analysis['categories'].items():
+                    if events_list:
+                        cat_display = cat_name.replace('_', ' ').title()
+                        st.markdown(f"**{cat_display}** ({len(events_list)} eventos)")
+                        
+                        for ev in events_list[:10]:
+                            st.text(f"  • {ev['title']} ({ev['duration']:.1f}h)")
+                        
+                        st.markdown("")
+
 # --- NAVIGATION CONTROLLER ---
 
 def main_app():
@@ -1448,6 +1632,7 @@ def main_app():
             "Planner": "📅 Planificador",
             "Inbox": "📧 Bandeja IA",
             "Optimize": "⚡ Optimizar",
+            "Insights": "📉 Insights",
             "Account": "⚙️ Mi Cuenta"
         }
         
@@ -1566,6 +1751,7 @@ def main_app():
     elif selection == "Planner": view_planner()
     elif selection == "Inbox": view_inbox()
     elif selection == "Optimize": view_optimize()
+    elif selection == "Insights": view_time_insights()
     elif selection == "Account": view_account()
     
     # --- FOOTER ---
