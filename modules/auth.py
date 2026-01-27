@@ -124,6 +124,7 @@ def login_user(username, password):
                         df.at[idx, 'proxima_renovacion'] = f_reno_str
                         conn.update(spreadsheet=sheet_url, data=df) # Persist immediately
                         f_reno_raw = f_reno_str # Update local var
+                        user_data['proxima_renovacion'] = f_reno_str # CRITICAL: Update returned dict
                         st.toast(f"📅 Renovación ({sistema}) calculada: {f_reno_str}")
                     
                     # Check Expiration

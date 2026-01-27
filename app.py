@@ -1981,8 +1981,9 @@ def main_app():
             ud = st.session_state.user_data_full
             sys_type = str(ud.get('sistema', '')).strip()
             
-            if sys_type in ['Suscripción', 'Pago Anual']:
+                if sys_type in ['Suscripción', 'Pago Anual']:
                 reno_date = ud.get('proxima_renovacion', 'Pendiente')
+                if str(reno_date).lower() == 'nan': reno_date = "Pendiente..."
                 
                 if sys_type == 'Suscripción':
                     price_text = "Monto: $5.500 / mes"
