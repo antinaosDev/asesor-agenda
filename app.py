@@ -643,9 +643,85 @@ def view_dashboard():
                 fig_load.update_layout(height=200, margin=dict(l=0, r=0, t=0, b=0), 
                                      paper_bgcolor='rgba(0,0,0,0)', showlegend=False,
                                      xaxis=dict(showgrid=False), yaxis=dict(showticklabels=False))
-                st.plotly_chart(fig_load, width="stretch", key="load_chart")
+                 st.plotly_chart(fig_load, width="stretch", key="load_chart")
             else:
                  st.caption("Sin datos de carga.")
+
+    # --- ENRIQUECIMIENTO CON CONTEXTO EXTERNO (GRATIS) ---
+    if today_events:
+        st.markdown("---")
+        st.markdown("""
+        <h3 style='color: #0DD7F2; font-size: 1.3rem; margin-bottom: 10px;'>
+            🕵️ Contexto Inteligente (Búsqueda Web Gratis)
+        </h3>
+        <p style='color: #9CB6BA; font-size: 0.9rem; margin-bottom: 15px;'>
+            Enriquece tus eventos con información actualizada de la web
+        </p>
+        """, unsafe_allow_html=True)
+        
+        for idx, event in enumerate(today_events[:5]):  # Limitar a 5 eventos
+            event_title = event.get('summary', 'Sin título')
+            event_id = event.get('id')
+            event_desc = event.get('description', '')
+            
+            with st.expander(f"📅 {event_title}", expanded=False):
+                col_evt1, col_evt2 = st.columns([3, 1])
+                
+                with col_evt1:
+                    if event_desc and '🕵️ CONTEXTO AUTOMÁTICO' not in event_desc:
+                        st.markdown(f"**Descripción actual:**\n{event_desc[:200]}...")
+                    elif '🕵️ CONTEXTO AUTOMÁTICO' in event_desc:
+                        st.success("✅ Este evento ya tiene contexto enriquecido")
+                        # Mostrar solo el contexto
+                        context_part = event_desc.split('🕵️ CONTEXTO AUTOMÁTICO:')[1] if '🕵️ CONTEXTO AUTOMÁTICO:' in event_desc else event_desc
+                        st.markdown(f"**Contexto:**\n{context_part[:300]}...")
+                    else:
+                        st.info("Sin descripción. Agrega contexto automático →")
+                
+                with col_evt2:
+                    button_key = f"enrich_{event_id}_{idx}"
+                    button_label = "🔄 Actualizar" if '🕵️ CONTEXTO' in event_desc else "🔍 Buscar Contexto"
+                    
+                    if st.button(button_label, key=button_key, use_container_width=True):
+                        with st.spinner("🌐 Buscando información en la web..."):
+                            from modules.web_search import enrich_event_with_free_context
+                            
+                            # Buscar contexto
+                            context = enrich_event_with_free_context(event_title)
+                            
+                            if context:
+                                # Actualizar descripción del evento
+                                current_desc = event_desc.split('---\n🕵️ CONTEXTO')[0] if '🕵️ CONTEXTO' in event_desc else event_desc
+                                
+                                new_desc = f"""{current_desc}
+
+---
+🕵️ CONTEXTO AUTOMÁTICO ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}):
+
+{context}
+
+[Fuente: Búsqueda web automática con DuckDuckGo + Groq AI]
+"""
+                                
+                                # Actualizar en Google Calendar
+                                try:
+                                    cal_svc = get_calendar_service()
+                                    event['description'] = new_desc
+                                    
+                                    updated_event = cal_svc.events().update(
+                                        calendarId=calendar_id,
+                                        eventId=event_id,
+                                        body=event
+                                    ).execute()
+                                    
+                                    st.success("✅ Contexto agregado exitosamente")
+                                    st.markdown(f"**Información encontrada:**\n{context}")
+                                    st.rerun()
+                                    
+                                except Exception as e:
+                                    st.error(f"Error al actualizar evento: {e}")
+                            else:
+                                st.warning("⚠️ No se encontró información relevante para este evento")
 
 
 def view_create():
