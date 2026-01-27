@@ -501,7 +501,7 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
         st.error(f"AI Planning Error: {e}")
         return {}
 
-@st.cache_data(ttl=86400, show_spinner=False)
+# @st.cache_data(ttl=86400, show_spinner=False) # REMOVED: To avoid caching error states
 def generate_project_breakdown_ai(project_title, project_desc, start_date, end_date, extra_context=""):
     client = _get_groq_client()
     
@@ -544,21 +544,29 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
         err_msg = str(e).lower()
         # Robust check for Rate Limits
         if "429" in err_msg or "rate limit" in err_msg or "quota" in err_msg:
-             st.warning(f"⚠️ Límite de tokens en {model_id}. Usando modelo rápido (fallback)...")
+             st.warning(f"⚠️ Límite de tokens en {model_id}. Reintentando con modelo ligero (llama-3.1-8b)...")
              try:
+                # Simplified prompt for 8B model to ensure JSON stability
+                simple_prompt = system_prompt + "\n\nIMPORTANTE: Responde SOLO con el JSON. Sin introducción."
+                
                 completion = client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": "Genera el desglose simplificado en Español."}
+                        {"role": "system", "content": simple_prompt},
+                        {"role": "user", "content": "Genera el desglose JSON ahora."}
                     ],
-                    model="llama-3.1-8b-instant",  # Fallback is always the fast one
-                    temperature=0.6, 
+                    model="llama-3.1-8b-instant",  # Fallback
+                    temperature=0.4, # Lower temp for 8B
                     max_tokens=2048
                 )
-                content = _clean_json_output(completion.choices[0].message.content.strip())
+                raw_content = completion.choices[0].message.content.strip()
+                content = _clean_json_output(raw_content)
                 return json.loads(content)
              except Exception as e2:
-                 st.error(f"Fallback Error: {e2}")
+                 st.error(f"❌ Error en Fallback (8B): {e2}")
+                 # Debug info for user/admin
+                 if 'raw_content' in locals():
+                     with st.expander("Ver Respuesta Fallida (Debug)"):
+                         st.code(raw_content)
                  return []
         
         st.error(f"AI Breakdown Error ({model_id}): {e}")
