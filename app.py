@@ -10,7 +10,14 @@ from dotenv import load_dotenv
 
 import sys
 
-# === CONFIGURACIÓN ESPAÑOL LATINOAMERICANO ===
+# === CONFIGURACIÓN ESPAÑOL LATINOAMERICANO & TIMEZONE ===
+from zoneinfo import ZoneInfo
+try:
+    CHILE_TZ = ZoneInfo("America/Santiago")
+except:
+    import pytz
+    CHILE_TZ = pytz.timezone("America/Santiago")
+
 import locale
 try:
     locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
@@ -415,12 +422,11 @@ def view_dashboard():
     try:
         svc = get_calendar_service()
         if svc:
-            now = datetime.datetime.now()
-            # Construct ISO format with Z is risky if 'now' is local.
+            now = datetime.datetime.now(CHILE_TZ)
             # Safe bet: Get local start/end, convert to RFC3339 format expected by Google
             # Use astimezone() to include the local system offset (e.g., -03:00)
-            t_min = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone().isoformat()
-            t_max = now.replace(hour=23, minute=59, second=59, microsecond=999999).astimezone().isoformat()
+            t_min = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+            t_max = now.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
             events = svc.events().list(
                 calendarId=calendar_id, timeMin=t_min, timeMax=t_max, singleEvents=True, orderBy='startTime'
             ).execute().get('items', [])
