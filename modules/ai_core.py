@@ -220,15 +220,15 @@ def analyze_emails_ai(emails, custom_model=None):
     
     # Primary model (most capable for complex tasks)
     primary_model = "llama-3.3-70b-versatile"
-    # Fallback model (good balance: smarter than 8b-instant, lighter than 70b)
-    fallback_model = "mixtral-8x7b-32768"
+    # Fallback model (Upgrade from deprecated Mixtral)
+    fallback_model = "llama-3.1-8b-instant"
     
     model_id = custom_model if custom_model else primary_model
     
     batch_text = "ANALIZA ESTOS CORREOS:\n"
     for i, e in enumerate(emails):
-        # Aumentar a 2000 chars para más contexto y detalles
-        body_clean = (e.get('body', '') or '')[:2000]
+        # Optimized context: Reduced to 1500 chars to avoid token limits on large batches
+        body_clean = (e.get('body', '') or '')[:1500]
         batch_text += f"ID: {e['id']} | DE: {e['sender']} | ASUNTO: {e['subject']} | CUERPO: {body_clean}\n---\n"
 
     prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
@@ -332,7 +332,7 @@ def generate_daily_briefing(events, tasks, unread_count):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # Mixtral descontinuado, usando Llama 70b
+            model="llama-3.1-70b-versatile",  # Optimized for instruction following
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=400
@@ -504,7 +504,8 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Generate Breakdown taking into account the context if provided."}
             ],
-            model="qwen/qwen3-32b", 
+            # Use llama-3.1-70b-versatile as safest high-intelligence model on Groq
+            model="llama-3.3-70b-versatile", 
             temperature=0.6, 
             max_tokens=4096
         )
