@@ -95,7 +95,7 @@ def login_user(username, password):
                 
                 # Check System Type
                 sistema = str(user_data.get('sistema', '')).strip()
-                if sistema == 'Suscripción':
+                if sistema in ['Suscripción', 'Pago Anual']:
                     
                     # 1. Check Date Columns
                     # Ensure columns exist in DF
@@ -113,14 +113,18 @@ def login_user(username, password):
                         except: pass
                     
                     # Calculate Renovation Date if missing
-                    # If subscription date exists but renovation is empty, set it to 1 month later
+                    # If subscription date exists but renovation is empty, set it to 1 month later or 1 year later
                     if f_susc_dt and (not f_reno_raw or f_reno_raw == 'nan'):
-                        f_reno_dt = f_susc_dt + pd.DateOffset(days=30)
+                        if sistema == 'Pago Anual':
+                            f_reno_dt = f_susc_dt + pd.DateOffset(years=1)
+                        else:
+                            f_reno_dt = f_susc_dt + pd.DateOffset(days=30)
+                            
                         f_reno_str = f_reno_dt.strftime('%d/%m/%Y') # Save as DD/MM/YYYY to match sheet format
                         df.at[idx, 'proxima_renovacion'] = f_reno_str
                         conn.update(spreadsheet=sheet_url, data=df) # Persist immediately
                         f_reno_raw = f_reno_str # Update local var
-                        st.toast(f"📅 Renovación calculada: {f_reno_str}")
+                        st.toast(f"📅 Renovación ({sistema}) calculada: {f_reno_str}")
                     
                     # Check Expiration
                     if f_reno_raw and f_reno_raw != 'nan':
