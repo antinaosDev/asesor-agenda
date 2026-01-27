@@ -288,6 +288,126 @@ def analyze_emails_ai(emails, custom_model=None):
             st.error(f"AI Email Error: {e}")
             return []
 
+def generate_daily_briefing(events, tasks, unread_count):
+    """Genera briefing textual para TTS (max 300 palabras)"""
+    import datetime
+    client = _get_groq_client()
+    
+    events_text = ""
+    for i, ev in enumerate(events[:5], 1):
+        time = ev.get('start', {}).get('dateTime', '')[:16] if 'start' in ev else ''
+        events_text += f"{i}. {ev.get('summary', 'Sin título')} a las {time[-5:]}\n"
+    
+    tasks_text = ""
+    for i, task in enumerate(tasks[:3], 1):
+        tasks_text += f"{i}. {task.get('title', 'Sin título')}\n"
+    
+    prompt = f"""Genera briefing ejecutivo en español natural para audio TTS:
+
+HOY: {datetime.datetime.now().strftime('%A %d de %B')}
+
+EVENTOS ({len(events)}): {events_text if events_text else "Sin eventos"}
+TAREAS URGENTES: {tasks_text if tasks_text else "Sin tareas"}
+CORREOS SIN LEER: {unread_count}
+
+REGLAS: Tono profesional amigable, máx 2 min al leer, sin formato markdown, segunda persona, sugerir UNA acción prioritaria."""
+
+    try:
+        completion = client.chat.completions.create(
+            model="mixtral-8x7b-32768",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=400
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Error generando briefing: {e}"
+
+def categorize_event_local(event):
+    """Categoriza evento SIN IA (ahorro tokens)"""
+    title = event.get('summary', '').lower()
+    description = event.get('description', '').lower()
+    keywords = {
+        'reuniones_internas': ['reunión', 'sync', 'standup', 'planning', 'retro', '1:1'],
+        'reuniones_externas': ['cliente', 'proveedor', 'demo', 'venta', 'externo'],
+        'trabajo_focalizado': ['desarrollo', 'diseño', 'análisis', 'investigación'],
+        'admin': ['admin', 'correo', 'review', 'reporte'],
+    }
+    for category, words in keywords.items():
+        if any(word in title or word in description for word in words):
+            return category
+    return 'otros'
+
+def calc_event_duration_hours(event):
+    """Calcula duración en horas"""
+    import datetime
+    start_str = event.get('start', {}).get('dateTime') or event.get('start', {}).get('date')
+    end_str = event.get('end', {}).get('dateTime') or event.get('end', {}).get('date')
+    if not start_str or not end_str:
+        return 0
+    try:
+        start = datetime.datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+        end = datetime.datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+        return min((end - start).total_seconds() / 3600, 12)
+    except:
+        return 0
+
+def analyze_time_leaks_weekly(events_last_7days):
+    """Analiza distribución semanal con optimización extrema de tokens"""
+    client = _get_groq_client()
+    
+    categories = {
+        'reuniones_internas': [],
+        'reuniones_externas': [],
+        'trabajo_focalizado': [],
+        'admin': [],
+        'otros': []
+    }
+    
+    total_hours = 0
+    for event in events_last_7days:
+        duration = calc_event_duration_hours(event)
+        category = categorize_event_local(event)
+        categories[category].append({'title': event.get('summary', ''), 'duration': duration})
+        total_hours += duration
+    
+    stats = {}
+    for cat, items in categories.items():
+        cat_hours = sum(e['duration'] for e in items)
+        stats[cat] = {
+            'hours': round(cat_hours, 1),
+            'percentage': round((cat_hours / total_hours * 100) if total_hours > 0 else 0, 1),
+            'count': len(items)
+        }
+    
+    prompt = f"""Analiza distribución semanal y da 3 sugerencias ACCIONABLES:
+
+TOTAL: {total_hours:.1f}h (7 días)
+- Reuniones Internas: {stats['reuniones_internas']['percentage']}% ({stats['reuniones_internas']['hours']}h, {stats['reuniones_internas']['count']} reuniones)
+- Reuniones Externas: {stats['reuniones_externas']['percentage']}% ({stats['reuniones_externas']['hours']}h)
+- Trabajo Focalizado: {stats['trabajo_focalizado']['percentage']}% ({stats['trabajo_focalizado']['hours']}h)
+- Admin/Otros: {stats['admin']['percentage']}% + {stats['otros']['percentage']}%
+
+FORMATO: Diagnóstico > Top 3 sugerencias con tiempo ahorrado > Acción prioritaria > Score 1-10"""
+
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=500
+        )
+        insights = completion.choices[0].message.content.strip()
+    except Exception as e:
+        insights = f"Error: {e}"
+    
+    return {
+        'stats': stats,
+        'total_hours': round(total_hours, 1),
+        'insights': insights,
+        'categories': categories
+    }
+
 def analyze_existing_events_ai(events_list):
     client = _get_groq_client()
     simplified_events = [{"id": e['id'], "summary": e.get('summary', 'Sin Título'), "start": e['start']} for e in events_list]
