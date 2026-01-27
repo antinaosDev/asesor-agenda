@@ -268,33 +268,66 @@ def view_dashboard():
         st.info("⚠️ Por favor conecta tu Google Calendar en configuración para ver tu panel.")
         return
 
-    # === BRIEFING POR VOZ ===
-    st.markdown("### 🎙️ Briefing Diario")
-    col_brief1, col_brief2 = st.columns([2, 1])
 
-    with col_brief1:
-        if st.button("🎧 Generar Briefing de Voz", use_container_width=True, type="primary"):
-            with st.spinner("🧠 Generando briefing..."):
+    # === RESUMEN MATUTINO CON VOZ (OPTIMIZADO CON CACHE) ===
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
+                padding: 20px; border-radius: 15px; border-left: 4px solid #0DD7F2; margin-bottom: 25px;'>
+        <h3 style='margin: 0; color: #0DD7F2; font-size: 1.4rem;'>
+            🎙️ Resumen Matutino con Voz
+        </h3>
+        <p style='margin: 5px 0 0 0; color: #9CB6BA; font-size: 0.9rem;'>
+            Tu asistente personal te informa sobre el día
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_b1, col_b2, col_b3 = st.columns([3, 1, 1])
+    
+    with col_b1:
+        # Verificar si ya existe un briefing de hoy en cache
+        today_key = datetime.datetime.now().strftime('%Y-%m-%d')
+        cache_key = f'briefing_{today_key}'
+        
+        # Obtener eventos actuales para comparar
+        cal_svc = get_calendar_service()
+        today_start = datetime.datetime.now().replace(hour=0, minute=0, second=0)
+        today_end = today_start + datetime.timedelta(days=1)
+        
+        try:
+            events_result = cal_svc.events().list(
+                calendarId=calendar_id,
+                timeMin=today_start.isoformat() + 'Z',
+                timeMax=today_end.isoformat() + 'Z',
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            current_events = events_result.get('items', [])
+            events_hash = hash(str([e.get('id') for e in current_events]))
+        except:
+            current_events = []
+            events_hash = 0
+        
+        # Verificar cache
+        cache_valid = False
+        if cache_key in st.session_state:
+            cached_data = st.session_state[cache_key]
+            if cached_data.get('events_hash') == events_hash:
+                cache_valid = True
+        
+        # Mostrar estado del cache
+        if cache_valid:
+            st.success("✅ Resumen del día ya generado (usando versión guardada)")
+        else:
+            st.info("💡 Genera tu resumen personalizado del día")
+        
+        # Botón con estado dinámico
+        button_label = "🔄 Regenerar Resumen" if cache_valid else "🎧 Generar Resumen de Voz"
+        
+        if st.button(button_label, use_container_width=True, type="primary", key="btn_briefing"):
+            with st.spinner("🧠 Creando tu resumen personalizado..."):
                 from modules.ai_core import generate_daily_briefing
                 from modules.tts_service import text_to_speech
-                from datetime import datetime, timedelta
-                
-                # Obtener eventos de hoy
-                cal_svc = get_calendar_service()
-                today_start = datetime.now().replace(hour=0, minute=0, second=0)
-                today_end = today_start + timedelta(days=1)
-                
-                try:
-                    events_result = cal_svc.events().list(
-                        calendarId=calendar_id,
-                        timeMin=today_start.isoformat() + 'Z',
-                        timeMax=today_end.isoformat() + 'Z',
-                        singleEvents=True,
-                        orderBy='startTime'
-                    ).execute()
-                    today_events = events_result.get('items', [])
-                except:
-                    today_events = []
                 
                 # Top 3 tareas
                 try:
@@ -308,26 +341,60 @@ def view_dashboard():
                 except:
                     top_tasks = []
                 
-                # Correos sin leer (simplificado)
                 unread_count = 0
                 
-                # 1. Generar texto con IA
-                briefing_text = generate_daily_briefing(today_events, top_tasks, unread_count)
+                # Generar con IA (SOLO si no hay cache válido o se fuerza)
+                briefing_text = generate_daily_briefing(current_events, top_tasks, unread_count)
                 
-                # 2. Convertir a audio
+                # Convertir a audio
                 audio_bytes = text_to_speech(briefing_text)
                 
-                if audio_bytes:
-                    st.success("✅ Briefing generado")
-                    st.audio(audio_bytes, format='audio/mp3')
-                    
-                    with st.expander("📄 Ver transcripción"):
-                        st.markdown(briefing_text)
-                else:
-                    st.error("Error generando audio")
-
-    with col_brief2:
-        st.info("🎯 Briefing optimizado de 2 min con tu agenda del día")
+                # Guardar en cache
+                st.session_state[cache_key] = {
+                    'text': briefing_text,
+                    'audio': audio_bytes,
+                    'events_hash': events_hash,
+                    'timestamp': datetime.datetime.now().isoformat()
+                }
+                
+                st.success("✅ Resumen generado y guardado")
+                st.rerun()
+    
+    with col_b2:
+        st.metric("Eventos Hoy", len(current_events))
+    
+    with col_b3:
+        if cache_valid:
+            cache_time = datetime.datetime.fromisoformat(st.session_state[cache_key]['timestamp'])
+            hours_ago = int((datetime.datetime.now() - cache_time).total_seconds() / 3600)
+            st.metric("Actualizado", f"Hace {hours_ago}h" if hours_ago > 0 else "Ahora")
+    
+    # Mostrar audio y transcripción si existe cache
+    if cache_valid or cache_key in st.session_state:
+        cached_data = st.session_state.get(cache_key, {})
+        
+        if cached_data.get('audio'):
+            st.markdown("---")
+            
+            # Player de audio con diseño moderno
+            st.markdown("""
+            <div style='background: rgba(13,215,242,0.05); padding: 15px; border-radius: 10px; margin: 10px 0;'>
+                <p style='margin: 0 0 10px 0; color: #0DD7F2; font-weight: 600;'>
+                    🔊 Reproducir Audio
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.audio(cached_data['audio'], format='audio/mp3')
+            
+            # Transcripción expandible con diseño
+            with st.expander("📄 Ver Transcripción Completa", expanded=False):
+                st.markdown(f"""
+                <div style='background: rgba(250,250,250,0.05); padding: 15px; border-radius: 8px; 
+                            line-height: 1.6; color: #FAFAFA;'>
+                    {cached_data.get('text', '')}
+                </div>
+                """, unsafe_allow_html=True)
 
     st.divider()
 
