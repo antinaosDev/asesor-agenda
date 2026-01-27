@@ -725,7 +725,18 @@ def view_dashboard():
 
 
 def view_create():
-    render_header("Centro de Comandos", "Creación de Eventos con IA")
+    # Modern header with glassmorphism
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
+                padding: 25px; border-radius: 15px; border-left: 4px solid #0DD7F2; margin-bottom: 25px;'>
+        <h2 style='margin: 0; color: #0DD7F2; font-size: 1.8rem;'>
+            🚀 Centro de Comandos
+        </h2>
+        <p style='margin: 8px 0 0 0; color: #9CB6BA; font-size: 1rem;'>
+            Creación de eventos con IA y lenguaje natural
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     col_input, col_viz = st.columns([1, 1])
 
@@ -801,7 +812,18 @@ def view_create():
 
 
 def view_planner():
-    render_header("Planificador Inteligente", "Orquestación Semanal de Tareas")
+    # Modern header with glassmorphism
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
+                padding: 25px; border-radius: 15px; border-left: 4px solid #0DD7F2; margin-bottom: 25px;'>
+        <h2 style='margin: 0; color: #0DD7F2; font-size: 1.8rem;'>
+            📅 Planificador Inteligente
+        </h2>
+        <p style='margin: 8px 0 0 0; color: #9CB6BA; font-size: 1rem;'>
+            Orquestación semanal de tareas y compromisos
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     mode = st.radio("Modo de Planificación", ["Semana Estándar (Manual + Calendario)", "Desglosar Proyecto (Eventos Largos)"], horizontal=True)
     
@@ -1480,13 +1502,30 @@ def view_inbox():
                                  st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
                                  st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
                              with c2:
-                                 if st.button(f"Agendar", key=f"btn_ev_{i}"):
-                                     cal_id = st.session_state.get('connected_email', 'primary')
-                                     service_cal = get_calendar_service()
-                                     if service_cal:
-                                          res, msg = add_event_to_calendar(service_cal, ev, cal_id)
-                                          if res: st.success("¡Agendado!")
-                                          else: st.error(f"Error: {msg}")
+                                 from modules.google_services import check_event_exists
+                                 cal_id = st.session_state.get('connected_email', 'primary')
+                                 service_cal = get_calendar_service()
+                                 
+                                 is_scheduled = False
+                                 if service_cal:
+                                     is_scheduled = check_event_exists(service_cal, cal_id, ev)
+                                 
+                                 if is_scheduled:
+                                     st.success("✅ Agendado")
+                                     if st.button(f"Regenerar", key=f"btn_ev_re_{i}"):
+                                         res, msg = add_event_to_calendar(service_cal, ev, cal_id)
+                                         if res: 
+                                             st.success("¡Agendado!")
+                                             st.rerun()
+                                         else: st.error(f"Error: {msg}")
+                                 else:
+                                     if st.button(f"Agendar", key=f"btn_ev_{i}"):
+                                          if service_cal:
+                                               res, msg = add_event_to_calendar(service_cal, ev, cal_id)
+                                               if res: 
+                                                   st.success("¡Agendado!")
+                                                   st.rerun()
+                                               else: st.error(f"Error: {msg}")
                  
                  with tab_info:
                      tasks = [x for x in items if not x.get('is_event') and not x.get('start_time')]
@@ -1510,7 +1549,18 @@ def view_inbox():
               st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")
 
 def view_optimize():
-    render_header("Optimizador de Agenda", "Auditoría de Tiempo")
+    # Modern header with glassmorphism
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
+                padding: 25px; border-radius: 15px; border-left: 4px solid #0DD7F2; margin-bottom: 25px;'>
+        <h2 style='margin: 0; color: #0DD7F2; font-size: 1.8rem;'>
+            ⚡ Optimizador de Agenda
+        </h2>
+        <p style='margin: 8px 0 0 0; color: #9CB6BA; font-size: 1rem;'>
+            Auditoría de tiempo y sugerencias estratégicas con IA
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     calendar_id = st.session_state.get('connected_email', '')
     if not calendar_id:
@@ -1601,7 +1651,18 @@ def view_optimize():
 
 def view_account():
     """Vista de configuración de cuenta del usuario"""
-    render_header("Mi Cuenta", "Configuración Personal y Seguridad")
+    # Modern header with glassmorphism
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
+                padding: 25px; border-radius: 15px; border-left: 4px solid #0DD7F2; margin-bottom: 25px;'>
+        <h2 style='margin: 0; color: #0DD7F2; font-size: 1.8rem;'>
+            ⚙️ Mi Cuenta
+        </h2>
+        <p style='margin: 8px 0 0 0; color: #9CB6BA; font-size: 1rem;'>
+            Configuración personal, seguridad y estado de licencias
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     if 'license_key' not in st.session_state or 'user_data_full' not in st.session_state:
         st.error("No hay sesión activa.")
@@ -1666,7 +1727,18 @@ def view_account():
 
 def view_time_insights():
     """Vista de Análisis de Fuga de Tiempo"""
-    render_header("Análisis de Tiempo", "Descubre dónde va tu semana")
+    # Modern header with glassmorphism
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
+                padding: 25px; border-radius: 15px; border-left: 4px solid #0DD7F2; margin-bottom: 25px;'>
+        <h2 style='margin: 0; color: #0DD7F2; font-size: 1.8rem;'>
+            📉 Insights de Tiempo
+        </h2>
+        <p style='margin: 8px 0 0 0; color: #9CB6BA; font-size: 1rem;'>
+            Análisis de distribución y oportunidades de optimización semanal
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     from modules.ai_core import analyze_time_leaks_weekly
     from datetime import datetime, timedelta
