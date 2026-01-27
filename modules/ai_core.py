@@ -205,6 +205,25 @@ def parse_events_ai(text_input):
             
         return events
     except Exception as e:
+        err_msg = str(e).lower()
+        if "rate limit" in err_msg or "429" in err_msg:
+             st.warning("⚠️ Límite de tokens en parse_events. Fallback a modelo rápido...")
+             try:
+                completion = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": "Generate JSON Simple."}
+                    ],
+                    model="llama-3.1-8b-instant",
+                    temperature=0.1,
+                    max_tokens=3072
+                )
+                content = _clean_json_output(completion.choices[0].message.content.strip())
+                events = json.loads(content, strict=False)
+                if isinstance(events, dict): events = [events]
+                return events
+             except: pass
+
         # Fallback manual cleaning if strict=False fails
         try:
             if "content" in locals():
@@ -348,13 +367,24 @@ def generate_daily_briefing(events, tasks, unread_count):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # Updated from deprecated 3.1
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=400
         )
         return completion.choices[0].message.content.strip()
     except Exception as e:
+        err_msg = str(e).lower()
+        if "rate limit" in err_msg or "429" in err_msg:
+             try:
+                completion = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7,
+                    max_tokens=400
+                )
+                return completion.choices[0].message.content.strip()
+             except: pass
         return f"Error generando briefing: {e}"
 
 def categorize_event_local(event):
@@ -434,7 +464,19 @@ FORMATO: Diagnóstico > Top 3 sugerencias con tiempo ahorrado > Acción priorita
         )
         insights = completion.choices[0].message.content.strip()
     except Exception as e:
-        insights = f"Error: {e}"
+        err_msg = str(e).lower()
+        if "rate limit" in err_msg or "429" in err_msg:
+             try:
+                completion = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.4,
+                    max_tokens=500
+                )
+                insights = completion.choices[0].message.content.strip()
+             except: insights = f"Error (Fallback Failed): {e}"
+        else:
+             insights = f"Error: {e}"
     
     return {
         'stats': stats,
@@ -474,6 +516,23 @@ def analyze_existing_events_ai(events_list):
         content = _clean_json_output(completion.choices[0].message.content.strip())
         return json.loads(content)
     except Exception as e:
+        err_msg = str(e).lower()
+        if "rate limit" in err_msg or "429" in err_msg:
+             st.warning("⚠️ Límite de tokens en Optimización. Usando modelo rápido...")
+             try:
+                completion = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": json.dumps(simplified_events)}
+                    ],
+                    model="llama-3.1-8b-instant",
+                    temperature=0.1,
+                    max_tokens=3000
+                )
+                content = _clean_json_output(completion.choices[0].message.content.strip())
+                return json.loads(content)
+             except: pass
+        
         st.error(f"AI Assistant Error: {e}")
         return {}
 
@@ -498,6 +557,23 @@ def generate_work_plan_ai(tasks_text, calendar_context=""):
         content = _clean_json_output(completion.choices[0].message.content.strip())
         return json.loads(content)
     except Exception as e:
+        err_msg = str(e).lower()
+        if "rate limit" in err_msg or "429" in err_msg:
+             st.warning("⚠️ Límite de tokens en Planificación. Usando modelo rápido...")
+             try:
+                completion = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": tasks_text}
+                    ],
+                    model="llama-3.1-8b-instant",
+                    temperature=0.1,
+                    max_tokens=2048
+                )
+                content = _clean_json_output(completion.choices[0].message.content.strip())
+                return json.loads(content)
+             except: pass
+        
         st.error(f"AI Planning Error: {e}")
         return {}
 
