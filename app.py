@@ -947,7 +947,16 @@ def view_planner():
                     day_es = days_map[day_en]
                     with cols[i]:
                         st.markdown(f"**{day_es}**")
-                        tasks = st.session_state.weekly_plan.get(day_en, st.session_state.weekly_plan.get(day_es, []))
+                        
+                        # FAIL-SAFE ACCESS
+                        plan_data = st.session_state.weekly_plan
+                        tasks = []
+                        
+                        if isinstance(plan_data, dict):
+                            tasks = plan_data.get(day_en, plan_data.get(day_es, []))
+                        elif isinstance(plan_data, list) and len(plan_data) > 0 and isinstance(plan_data[0], dict):
+                             # Fail-safe for stale list state
+                             tasks = plan_data[0].get(day_en, plan_data[0].get(day_es, []))
                         
                         for t in tasks:
                             st.markdown(f"""
