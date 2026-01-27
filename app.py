@@ -1974,6 +1974,23 @@ def main_app():
              
         st.markdown("<br>", unsafe_allow_html=True)
         
+        # --- SUBSCRIPTION STATUS BOX ---
+        if 'user_data_full' in st.session_state:
+            ud = st.session_state.user_data_full
+            if str(ud.get('sistema', '')).strip() == 'Suscripción':
+                reno_date = ud.get('proxima_renovacion', 'Pendiente')
+                
+                st.markdown(f"""
+                <div style="background-color: #1e293b; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0dd7f2;">
+                    <p style="color: #94a3b8; font-size: 0.75rem; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Próxima Renovación</p>
+                    <p style="color: white; font-weight: bold; font-size: 1rem; margin: 4px 0;">{reno_date}</p>
+                    <p style="color: #0dd7f2; font-size: 0.85rem; margin: 0;">Monto: $5.500 / mes</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("💳 Datos Transferencia"):
+                    st.caption(" Banco: Tenpo (Vista)\nNro: 111118581575\nRUT: 18.581.575-7\nMail: alain.antinao.s@gmail.com")
+        
         # Navigation Buttons with icons and emojis for visual appeal
         nav_options = {
             "Dashboard": "📊 Panel Principal",
