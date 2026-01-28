@@ -815,17 +815,64 @@ def view_create():
     with col_input:
         st.markdown("### 🗣️ Entrada de Lenguaje Natural")
         with st.form("create_event"):
-            prompt = st.text_area("¿Qué deseas agendar?", height=200, 
+            prompt = st.text_area("¿Qué deseas agendar?", height=150, 
                                 placeholder="Ejemplo: Reunión el próximo martes a las 14:00 sobre el presupuesto Q3...")
+
+            uploaded_files = st.file_uploader("📂 Adjuntar Docs (PDF/DOCX) - Opcional", 
+                                            type=["pdf", "docx"], 
+                                            accept_multiple_files=True)
 
             c_btn1, c_btn2 = st.columns([1, 4])
             with c_btn1:
                 submitted = st.form_submit_button("Procesar", type="primary", width="stretch")
 
-        if submitted and prompt:
-            with st.spinner("🧠 Analizando patrones y extrayendo datos..."):
-                events = parse_events_ai(prompt)
-                st.session_state.draft_events = events
+        if submitted:
+            full_text = prompt if prompt else ""
+            
+            # --- FILE PROCESSING ---
+            if uploaded_files:
+                with st.spinner("📄 Analizando documentos..."):
+                    docs_content = ""
+                    for uf in uploaded_files:
+                        try:
+                            f_text = ""
+                            # PDF
+                            if uf.type == "application/pdf":
+                                import pypdf
+                                reader = pypdf.PdfReader(uf)
+                                for page in reader.pages:
+                                    f_text += page.extract_text() + "\n"
+                                    
+                            # DOCX
+                            elif "word" in uf.type or uf.name.endswith(".docx"):
+                                import docx
+                                doc = docx.Document(uf)
+                                for para in doc.paragraphs:
+                                    f_text += para.text + "\n"
+                            
+                            # Safety Truncate (approx 4000 tokens per doc max to avoid overflow)
+                            if len(f_text) > 15000:
+                                f_text = f_text[:15000] + "... [TRUNCADO POR LONGITUD]"
+                            
+                            docs_content += f"\n\n--- CONTENIDO EXTRAÍDO DE '{uf.name}' ---\n{f_text}"
+                            
+                        except Exception as e:
+                            st.error(f"Error leyendo '{uf.name}': {e}")
+                    
+                    if docs_content:
+                        full_text += docs_content
+            
+            if not full_text.strip():
+                st.warning("⚠️ Por favor escribe algo o sube un documento.")
+            else:
+                with st.spinner("🧠 Analizando patrones y extrayendo datos..."):
+                    # Check for token limits (very rough estimation)
+                    if len(full_text) > 80000: # ~20k tokens? Llama 3.1 8b supports 128k but let's be safe with Groq
+                        st.info("ℹ️ Texto muy largo, se analizarán los primeros segmentos.")
+                        full_text = full_text[:80000]
+                        
+                    events = parse_events_ai(full_text)
+                    st.session_state.draft_events = events
 
     with col_viz:
         st.markdown("### 🧠 Procesador Semántico")
