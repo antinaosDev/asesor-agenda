@@ -222,7 +222,12 @@ def render_date_badge(start_str, end_str=None):
         if 'T' in start_str:
              d = datetime.datetime.fromisoformat(start_str.replace('Z', ''))
              color, period = get_time_period_color(d.hour)
-             fmt_date = d.strftime("%d %b")
+             
+             # Manual Spanish Localization
+             months_es = {1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 5: "May", 6: "Jun", 
+                          7: "Jul", 8: "Ago", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic"}
+             fmt_date = f"{d.day} {months_es[d.month]}"
+             
              fmt_time = d.strftime("%H:%M")
              
              return f"""<div style="display: inline-flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid {color}; border-radius: 8px; padding: 5px 10px; min-width: 80px;"><span style="color: {color}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">{period}</span><span style="color: white; font-weight: 700; font-size: 1.1rem;">{fmt_time}</span><span style="color: #9cb6ba; font-size: 0.75rem;">{fmt_date}</span></div>"""
