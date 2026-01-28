@@ -1497,38 +1497,46 @@ def view_inbox():
                      with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
                          emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
                      
+                     # --- GLOBAL HISTORY DISPLAY (ALWAYS SHOW) ---
+                     all_ids = set()
+                     if 'user_data_full' in st.session_state:
+                          history = auth.get_user_history(st.session_state.user_data_full)
+                          
+                          # Extract IDs for filtering later
+                          processed_mail = {x['id'] for x in history['mail']}
+                          processed_tasks = {x['id'] for x in history['tasks']} 
+                          processed_labels = {x['id'] for x in history['labels']}
+                          all_ids = processed_mail | processed_tasks | processed_labels
+                          
+                          # Display Global History
+                          total_hist = len(history['mail'])
+                          if total_hist > 0:
+                              with st.expander(f"📜 Historial Global ({total_hist} correos procesados)", expanded=False):
+                                  hist_df = pd.DataFrame(history['mail'])
+                                  if not hist_df.empty:
+                                      # Safe display of columns
+                                      cols_to_show = ['s', 'd']
+                                      # Ensure columns exist in DF (robustness)
+                                      for c in cols_to_show:
+                                          if c not in hist_df.columns: hist_df[c] = "-"
+                                          
+                                      st.dataframe(hist_df[cols_to_show], column_config={
+                                          "s": "Asunto Histórico",
+                                          "d": "Fecha"
+                                      }, width=800)
+                     # --------------------------------------------
+
                      if not emails:
-                         st.warning("No se encontraron correos nuevos relevantes.")
+                         st.warning("No se encontraron correos nuevos relevantes en el período.")
                      else:
-                         # --- OPTIMIZATION: FILTER PROCESSED EMAILS (RICH HISTORY) ---
-                         if 'user_data_full' in st.session_state:
-                              history = auth.get_user_history(st.session_state.user_data_full)
-                              
-                              # Extract IDs for filtering
-                              processed_mail = {x['id'] for x in history['mail']}
-                              processed_tasks = {x['id'] for x in history['tasks']} # Might overlap
-                              processed_labels = {x['id'] for x in history['labels']}
-                              all_ids = processed_mail | processed_tasks | processed_labels
-                              
-                              # Display Global History
-                              total_hist = len(history['mail'])
-                              if total_hist > 0:
-                                  with st.expander(f"📜 Historial Global ({total_hist} correos procesados)", expanded=False):
-                                      hist_df = pd.DataFrame(history['mail'])
-                                      if not hist_df.empty:
-                                          st.dataframe(hist_df[['s', 'd']], column_config={
-                                              "s": "Asunto Histórico",
-                                              "d": "Fecha"
-                                          }, width=800)
-                              
-                              # Filter
-                              initial_count = len(emails)
-                              emails = [e for e in emails if e['id'] not in all_ids]
-                              skipped_count = initial_count - len(emails)
-                              
-                              if skipped_count > 0:
-                                  st.info(f"⏩ Se omitieron **{skipped_count} correos** ya presentes en tu Historial Global.")
-                         # ---------------------------------------------
+                          # --- FILTER ---
+                          initial_count = len(emails)
+                          emails = [e for e in emails if e['id'] not in all_ids]
+                          skipped_count = initial_count - len(emails)
+                          
+                          if skipped_count > 0:
+                              st.info(f"⏩ Se omitieron **{skipped_count} correos** ya presentes en tu Historial Global.")
+                          # --------------
                          
                          if not emails:
                              st.warning("Todos los correos recientes ya fueron procesados. ¡Estás al día!")
