@@ -241,14 +241,14 @@ def render_smart_header(title, subtitle, weather_context=None):
         w_city = weather_context['location']['city']
         
         w_html = f"""
-        <div style="display: flex; align-items: center; gap: 1rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="text-align: right;">
-                <div style="color: white; font-weight: 700; font-size: 1.2rem; line-height: 1;">{w_temp}°</div>
-                <div style="color: #9cb6ba; font-size: 0.75rem;">{w_city}</div>
-            </div>
-            <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 2rem;">{w_icon}</span>
-        </div>
-        """
+<div style="display: flex; align-items: center; gap: 1rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+    <div style="text-align: right;">
+        <div style="color: white; font-weight: 700; font-size: 1.2rem; line-height: 1;">{w_temp}°</div>
+        <div style="color: #9cb6ba; font-size: 0.75rem;">{w_city}</div>
+    </div>
+    <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 2rem;">{w_icon}</span>
+</div>
+"""
     
     # Greeting logic based on hour
     hour = now.hour
