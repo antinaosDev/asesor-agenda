@@ -482,18 +482,52 @@ FORMATO: Diagnóstico > Top 3 sugerencias con tiempo ahorrado > Acción priorita
     }
 
 # @st.cache_data(ttl=86400, show_spinner=False) # REMOVED: To prevent caching fallback errors
+# @st.cache_data(ttl=86400, show_spinner=False)
 def analyze_agenda_ai(events_list, tasks_list=[]):
     client = _get_groq_client()
     
-    # Simplify Inputs
-    simplified_events = [{"id": e['id'], "summary": e.get('summary', 'Sin Título'), "start": e['start']} for e in events_list]
-    simplified_tasks = [{"id": t['id'], "title": t.get('title', 'Sin Título'), "due": t.get('due', 'Sin Fecha'), "list_id": t.get('list_id')} for t in tasks_list]
+    # Simplify Inputs First
+    s_events = [{"id": e['id'], "summary": e.get('summary', 'Sin Título'), "start": e['start']} for e in events_list]
+    s_tasks = [{"id": t['id'], "title": t.get('title', 'Sin Título'), "due": t.get('due', 'Sin Fecha'), "list_id": t.get('list_id')} for t in tasks_list]
     
-    payload = {
-        "events": simplified_events,
-        "tasks": simplified_tasks
+    final_plan = {}
+    notes = []
+    
+    # --- PROCESS EVENTS IN BATCHES ---
+    BATCH_EVENTS = 10
+    for i in range(0, len(s_events), BATCH_EVENTS):
+        chunk = s_events[i : i + BATCH_EVENTS]
+        payload = {"events": chunk, "tasks": []}
+        
+        # Call Helper
+        res = _call_agenda_ai_chunk(client, payload)
+        if res and 'optimization_plan' in res:
+             final_plan.update(res['optimization_plan'])
+        if res and 'advisor_note' in res:
+             notes.append(res['advisor_note'])
+
+    # --- PROCESS TASKS IN BATCHES ---
+    BATCH_TASKS = 5
+    for i in range(0, len(s_tasks), BATCH_TASKS):
+        chunk = s_tasks[i : i + BATCH_TASKS]
+        payload = {"events": [], "tasks": chunk}
+        
+        # Call Helper
+        res = _call_agenda_ai_chunk(client, payload)
+        if res and 'optimization_plan' in res:
+             final_plan.update(res['optimization_plan'])
+             
+    # Combine Note
+    full_note = " ".join(notes[:2]) # Keep it brief, maybe first 2 notes
+    if not full_note: full_note = "Agenda procesada por lotes para máxima precisión."
+    
+    return {
+        "optimization_plan": final_plan,
+        "advisor_note": full_note
     }
-    
+
+def _call_agenda_ai_chunk(client, payload):
+    """Helper to process one chunk with fallback logic"""
     system_prompt = """
     You are an Elite Executive Assistant. Your job is to OPTIMIZE the user's agenda (Calendar + Tasks).
     
@@ -526,21 +560,19 @@ def analyze_agenda_ai(events_list, tasks_list=[]):
             ],
             model="llama-3.3-70b-versatile",
             temperature=0.1,
-            max_tokens=4000
+            max_tokens=4096
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
         result = json.loads(content)
-        if isinstance(result, list) and len(result) > 0:
-            return result[0]
+        # Check if result is wrapped in list (sometimes happens)
+        if isinstance(result, list) and len(result) > 0: return result[0]
         return result
     except Exception as e:
+        # Fallback Logic
         err_msg = str(e).lower()
         if "rate limit" in err_msg or "429" in err_msg:
-             st.warning("⚠️ Límite de tokens en Optimización. Usando modelo rápido...")
              try:
-                # Optimized prompt for 8B
                 simple_prompt = system_prompt + "\n\nCRÍTICO: Devuelve SOLO el JSON válido. Sin texto explicativo."
-                
                 completion = client.chat.completions.create(
                     messages=[
                         {"role": "system", "content": simple_prompt},
@@ -550,17 +582,11 @@ def analyze_agenda_ai(events_list, tasks_list=[]):
                     temperature=0.2, 
                     max_tokens=3000
                 )
-                raw_content = completion.choices[0].message.content.strip()
-                content = _clean_json_output(raw_content)
+                content = _clean_json_output(completion.choices[0].message.content.strip())
                 result = json.loads(content)
-                if isinstance(result, list) and len(result) > 0:
-                    return result[0]
+                if isinstance(result, list) and len(result) > 0: return result[0]
                 return result
-             except Exception as e2:
-                 st.error(f"❌ Error en Fallback (8B): {e2}")
-                 return {}
-        
-        st.error(f"AI Assistant Error: {e}")
+             except: return {}
         return {}
 
 @st.cache_data(ttl=3600, show_spinner=False)
