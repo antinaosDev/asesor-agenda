@@ -1500,18 +1500,35 @@ def view_inbox():
                      if not emails:
                          st.warning("No se encontraron correos nuevos relevantes.")
                      else:
-                         # --- OPTIMIZATION: FILTER PROCESSED EMAILS ---
+                     else:
+                         # --- OPTIMIZATION: FILTER PROCESSED EMAILS (RICH HISTORY) ---
                          if 'user_data_full' in st.session_state:
-                              processed_data = auth.get_user_processed_ids(st.session_state.user_data_full)
-                              all_processed_ids = processed_data['mail'] | processed_data['tasks'] | processed_data['labels']
+                              history = auth.get_user_history(st.session_state.user_data_full)
+                              
+                              # Extract IDs for filtering
+                              processed_mail = {x['id'] for x in history['mail']}
+                              processed_tasks = {x['id'] for x in history['tasks']} # Might overlap
+                              processed_labels = {x['id'] for x in history['labels']}
+                              all_ids = processed_mail | processed_tasks | processed_labels
+                              
+                              # Display Global History
+                              total_hist = len(history['mail'])
+                              if total_hist > 0:
+                                  with st.expander(f"📜 Historial Global ({total_hist} correos procesados)", expanded=False):
+                                      hist_df = pd.DataFrame(history['mail'])
+                                      if not hist_df.empty:
+                                          st.dataframe(hist_df[['s', 'd']], column_config={
+                                              "s": "Asunto Histórico",
+                                              "d": "Fecha"
+                                          }, width=800)
                               
                               # Filter
                               initial_count = len(emails)
-                              emails = [e for e in emails if e['id'] not in all_processed_ids]
+                              emails = [e for e in emails if e['id'] not in all_ids]
                               skipped_count = initial_count - len(emails)
                               
                               if skipped_count > 0:
-                                  st.info(f"⏩ Se omitieron {skipped_count} correos ya analizados previamente.")
+                                  st.info(f"⏩ Se omitieron **{skipped_count} correos** ya presentes en tu Historial Global.")
                          # ---------------------------------------------
                          
                          if not emails:
@@ -1522,12 +1539,26 @@ def view_inbox():
                                  analyzed_items = analyze_emails_ai(emails)
                              st.session_state.ai_gmail_events = analyzed_items 
                              
-                             # --- SAVE HISTORY: ALL READ EMAILS ---
-                             # Save valid IDs to 'lectura_mail' to prevent re-reading
+                             # --- SAVE HISTORY: ALL READ EMAILS (RICH METADATA) ---
                              if emails and 'license_key' in st.session_state:
-                                  all_read_ids = [str(x['id']) for x in emails if x.get('id')]
-                                  if all_read_ids:
-                                      auth.update_user_processed_ids(st.session_state.license_key, {'mail': all_read_ids})
+                                  # Construct rich info (ID, Summary, Date)
+                                  rich_items = []
+                                  for e in emails:
+                                      if e.get('id'):
+                                          # Extract date safely
+                                          d_str = ""
+                                          # snippet is usually 'summary' proxy if not full analysis
+                                          # But here 'emails' are raw from Gmail. 
+                                          # We can try to use snippet as 's' (summary)
+                                          s_text = e.get('snippet', 'Sin Asunto')[:50]
+                                          rich_items.append({
+                                              'id': e['id'], 
+                                              's': s_text,
+                                              'd': datetime.date.today().strftime('%Y-%m-%d') # Capture read date
+                                          })
+                                          
+                                  if rich_items:
+                                      auth.update_user_history(st.session_state.license_key, {'mail': rich_items})
                              # -------------------------------------
                              
                              # 3. Update Quota Consumption
@@ -1601,10 +1632,18 @@ def view_inbox():
                                              except: pass
                                      
                                      if count_ok > 0:
-                                         # --- SAVE HISTORY: LABELS ---
-                                         processed_ids = [str(x['id']) for x in items if x.get('id')]
-                                         if processed_ids and 'license_key' in st.session_state:
-                                             auth.update_user_processed_ids(st.session_state.license_key, {'labels': processed_ids})
+                                         # --- SAVE HISTORY: LABELS (RICH METADATA) ---
+                                         rich_labels = []
+                                         for x in items:
+                                             if x.get('id'):
+                                                 rich_labels.append({
+                                                     'id': x['id'],
+                                                     's': x.get('summary', 'Etiquetado'),
+                                                     'd': datetime.date.today().strftime('%Y-%m-%d')
+                                                 })
+                                                 
+                                         if rich_labels and 'license_key' in st.session_state:
+                                             auth.update_user_history(st.session_state.license_key, {'labels': rich_labels})
                                          # ----------------------------
                                          
                                          st.success(f"¡Listo! {count_ok} correos etiquetados.")
@@ -1657,9 +1696,14 @@ def view_inbox():
                                      if st.button(f"Regenerar", key=f"btn_ev_re_{i}"):
                                          res, msg = add_event_to_calendar(service_cal, ev, cal_id)
                                          if res: 
-                                             # --- SAVE HISTORY: EVENT ---
+                                             # --- SAVE HISTORY: EVENT (RICH) ---
                                              if ev.get('id') and 'license_key' in st.session_state:
-                                                  auth.update_user_processed_ids(st.session_state.license_key, {'mail': [ev['id']]})
+                                                  rich_ev = [{
+                                                      'id': ev['id'],
+                                                      's': ev.get('summary', 'Evento Agendado'),
+                                                      'd': datetime.date.today().strftime('%Y-%m-%d')
+                                                  }]
+                                                  auth.update_user_history(st.session_state.license_key, {'mail': rich_ev})
                                              # ---------------------------
                                              st.success("¡Agendado!")
                                              st.rerun()
@@ -1682,9 +1726,14 @@ def view_inbox():
 
                                                res, msg = add_event_to_calendar(service_cal, ev_to_add, cal_id)
                                                if res: 
-                                                   # --- SAVE HISTORY: EVENT ---
+                                                   # --- SAVE HISTORY: EVENT (RICH) ---
                                                    if ev.get('id') and 'license_key' in st.session_state:
-                                                        auth.update_user_processed_ids(st.session_state.license_key, {'mail': [ev['id']]})
+                                                        rich_ev = [{
+                                                            'id': ev['id'],
+                                                            's': ev.get('summary', 'Evento Agendado'),
+                                                            'd': datetime.date.today().strftime('%Y-%m-%d')
+                                                        }]
+                                                        auth.update_user_history(st.session_state.license_key, {'mail': rich_ev})
                                                    # ---------------------------
                                                    st.success("¡Agendado!")
                                                    st.rerun()
@@ -1726,9 +1775,15 @@ def view_inbox():
                                      res = add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_dt)
                                     
                                      if res:
-                                         # --- SAVE HISTORY: TASK ---
+                                         # --- SAVE HISTORY: TASK (RICH) ---
                                          if t.get('id') and 'license_key' in st.session_state:
-                                             auth.update_user_processed_ids(st.session_state.license_key, {'tasks': [t['id']]})
+                                             rich_tk = [{
+                                                 'id': t['id'],
+                                                 's': t.get('summary', 'Tarea Guardada'),
+                                                 'd': datetime.date.today().strftime('%Y-%m-%d'),
+                                                 't': 'task'
+                                             }]
+                                             auth.update_user_history(st.session_state.license_key, {'tasks': rich_tk})
                                          # --------------------------
                                          st.success(f"✅ Guardada para el {selected_date.strftime('%d/%m')}")
                                      else:

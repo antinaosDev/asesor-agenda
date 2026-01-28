@@ -194,17 +194,19 @@ def login_user(username, password):
 *   **Correo:** alain.antinao.s@gmail.com
 """
 
-# --- NEW HELPERS FOR EMAIL HISTORY ---
+# --- NEW HELPERS FOR EMAIL HISTORY (RICH METADATA) ---
 import json
+import datetime
 
-def get_user_processed_ids(user_data):
+def get_user_history(user_data):
     """
-    Parses processed IDs from user_data dict.
-    Returns a dict with sets: {'mail': set(), 'tasks': set(), 'labels': set()}
+    Parses history from user_data dict.
+    Returns a dict with lists of objects: 
+    {'mail': [{'id':..., 's':..., 'd':...}], 'tasks': [...], 'labels': [...]}
+    Keys: id=ID, s=Summary, d=Date, t=Type
     """
-    result = {'mail': set(), 'tasks': set(), 'labels': set()}
+    result = {'mail': [], 'tasks': [], 'labels': []}
     
-    # Mapping keys in DB to our internal keys
     keys_map = {
         'lectura_mail': 'mail',
         'lectura_tareas': 'tasks',
@@ -214,31 +216,35 @@ def get_user_processed_ids(user_data):
     for db_key, internal_key in keys_map.items():
         raw_val = str(user_data.get(db_key, '')).strip()
         if raw_val and raw_val.lower() != 'nan':
-            # Try JSON first
             try:
-                ids_list = json.loads(raw_val)
-                if isinstance(ids_list, list):
-                    result[internal_key] = set(ids_list)
-                    continue
-            except: pass
-            
-            # Fallback to comma separation
-            try:
-                ids_list = [x.strip() for x in raw_val.split(',') if x.strip()]
-                result[internal_key] = set(ids_list)
-            except: pass
+                data = json.loads(raw_val)
+                # Handle Migration: If it's a list of strings (old format), convert to objects
+                clean_data = []
+                if isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, str):
+                            clean_data.append({'id': item, 's': 'Histórico Legacy', 'd': ''})
+                        elif isinstance(item, dict):
+                            clean_data.append(item)
+                result[internal_key] = clean_data
+            except:
+                # Fallback CSV
+                try:
+                    ids = [x.strip() for x in raw_val.split(',') if x.strip()]
+                    result[internal_key] = [{'id': i, 's': 'Histórico CSV', 'd': ''} for i in ids]
+                except: pass
             
     return result
 
-def update_user_processed_ids(username, new_ids_dict):
+def update_user_history(username, new_items_dict):
     """
-    Updates the user's processed IDs in Google Sheets.
-    new_ids_dict: {'mail': [id1, id2], 'tasks': [...], 'labels': [...]}
+    Updates the user's history in Google Sheets with rich objects.
+    new_items_dict: {'mail': [{'id':.., 's':..}, ...], ...}
     """
     if not username: return False
     
     try:
-        # 1. Fetch current Sheet Data (Fresh)
+        # 1. Fetch current Sheet Data
         if "private_sheet_url" not in st.secrets:
              sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
         else:
@@ -248,56 +254,66 @@ def update_user_processed_ids(username, new_ids_dict):
         df = conn.read(spreadsheet=sheet_url, ttl=0)
         df.columns = df.columns.str.lower().str.strip()
         
-        # Validate columns exist
-        db_map = {
-            'mail': 'lectura_mail',
-            'tasks': 'lectura_tareas',
-            'labels': 'lectura_etiquetas'
-        }
+        db_map = {'mail': 'lectura_mail', 'tasks': 'lectura_tareas', 'labels': 'lectura_etiquetas'}
         
-        # Create columns if missing (Robutness)
+        # Ensure columns
         for col in db_map.values():
-            if col not in df.columns:
-                df[col] = "" # Initialize empty string column
+            if col not in df.columns: df[col] = ""
         
         # Find User
         mask = df['user'].astype(str).str.strip() == username.strip()
-        if not mask.any():
-            return False
-            
+        if not mask.any(): return False
         idx = df[mask].index[0]
         
-        # Update Logic
         updated = False
         for internal_key, db_col in db_map.items():
-            new_ids = new_ids_dict.get(internal_key, [])
-            if not new_ids: continue
+            new_items = new_items_dict.get(internal_key, [])
+            if not new_items: continue
             
-            # Get existing
+            # Read Existing
             current_raw = str(df.at[idx, db_col])
-            current_set = set()
+            current_list = []
+            existing_ids = set()
+            
             if current_raw and current_raw.lower() != 'nan':
                 try:
-                    # Try JSON
-                    current_set = set(json.loads(current_raw))
+                    parsed = json.loads(current_raw)
+                    if isinstance(parsed, list):
+                        for item in parsed:
+                            if isinstance(item, str): 
+                                current_list.append({'id': item, 's': 'Legacy', 'd': ''})
+                                existing_ids.add(item)
+                            elif isinstance(item, dict):
+                                current_list.append(item)
+                                existing_ids.add(item.get('id'))
                 except:
-                    # Try Comma
-                    current_set = set([x.strip() for x in current_raw.split(',') if x.strip()])
+                    # CSV fallback
+                     ids = [x.strip() for x in current_raw.split(',') if x.strip()]
+                     for i in ids:
+                         current_list.append({'id': i, 's': 'Legacy', 'd': ''})
+                         existing_ids.add(i)
             
-            # Merge
-            original_len = len(current_set)
-            current_set.update(new_ids)
+            # Merge New (Avoid Duplicates by ID)
+            added_count = 0
+            for item in new_items:
+                if item.get('id') not in existing_ids:
+                    current_list.append(item)
+                    existing_ids.add(item.get('id'))
+                    added_count += 1
             
-            if len(current_set) > original_len:
-                # Write back as JSON list for stability
-                df.at[idx, db_col] = json.dumps(list(current_set))
+            if added_count > 0:
+                df.at[idx, db_col] = json.dumps(current_list)
                 updated = True
                 
         if updated:
             conn.update(spreadsheet=sheet_url, data=df)
             return True
             
-        return True # No changes needed, but successful call
+        return True
+        
+    except Exception as e:
+        print(f"Error updating history: {e}")
+        return False
         
     except Exception as e:
         print(f"Error updating processed IDs: {e}")
