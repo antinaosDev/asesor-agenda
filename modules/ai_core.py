@@ -486,33 +486,38 @@ FORMATO: Diagnóstico > Top 3 sugerencias con tiempo ahorrado > Acción priorita
     }
 
 # @st.cache_data(ttl=86400, show_spinner=False) # REMOVED: To prevent caching fallback errors
-def analyze_existing_events_ai(events_list):
+def analyze_agenda_ai(events_list, tasks_list=[]):
     client = _get_groq_client()
+    
+    # Simplify Inputs
     simplified_events = [{"id": e['id'], "summary": e.get('summary', 'Sin Título'), "start": e['start']} for e in events_list]
+    simplified_tasks = [{"id": t['id'], "title": t.get('title', 'Sin Título'), "due": t.get('due', 'Sin Fecha'), "list_id": t.get('list_id')} for t in tasks_list]
+    
+    payload = {
+        "events": simplified_events,
+        "tasks": simplified_tasks
+    }
     
     system_prompt = """
-    You are an Elite Executive Assistant. Your job is to OPTIMIZE the user's calendar.
+    You are an Elite Executive Assistant. Your job is to OPTIMIZE the user's agenda (Calendar + Tasks).
     
-    VALID COLOR IDs (String 1-11):
+    VALID COLOR IDs (String 1-11) for EVENTS:
     - "1": Lavanda (Misc)
     - "2": Salvia (Intercultural/VerdeClaro)
-    - "3": Uva (Proyectos/Morado)
-    - "4": Flamenco (Entrevistas/Rosa)
-    - "5": Banana (MAIS/Amarillo)
-    - "6": Mandarina (Reuniones Ext/Naranja)
-    - "7": Pavo Real (Trabajo Operativo/Azul)
-    - "8": Grafito (Admin/Gris)
-    - "9": Arándano (Personal)
-    - "10": Albahaca (Salud/Verde)
+    ... (Use standard Google Colors) ...
     - "11": Tomate (Urgente/Rojo)
 
+    GOALS:
+    1. EVENTS: Rewrite summaries to be professional/executive. Assign correct Color ID.
+    2. TASKS: Rewrite titles to be ACTIONABLE (Start with verb). Suggest 'new_due' ONLY if urgent/overdue context is obvious (otherwise keep same).
+    
     OUTPUT FORMAT (JSON):
     {
         "optimization_plan": {
-            "event_id_1": {"new_summary": "...", "colorId": "ID_STRING"},
-            ...
+            "event_id_1": {"type": "event", "new_summary": "...", "colorId": "ID_STRING"},
+            "task_id_1":  {"type": "task",  "new_title": "...", "list_id": "...", "new_due": "YYYY-MM-DD (Optional)"}
         },
-        "advisor_note": "..."
+        "advisor_note": "Resumen estratégico de mejoras..."
     }
     LANGUAGE: SPANISH.
     """
@@ -521,7 +526,7 @@ def analyze_existing_events_ai(events_list):
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": json.dumps(simplified_events)}
+                {"role": "user", "content": json.dumps(payload)}
             ],
             model="llama-3.3-70b-versatile",
             temperature=0.1,
@@ -543,10 +548,10 @@ def analyze_existing_events_ai(events_list):
                 completion = client.chat.completions.create(
                     messages=[
                         {"role": "system", "content": simple_prompt},
-                        {"role": "user", "content": json.dumps(simplified_events)}
+                        {"role": "user", "content": json.dumps(payload)}
                     ],
                     model="llama-3.1-8b-instant",
-                    temperature=0.2, # Slightly higher than 0.1 for better adherence
+                    temperature=0.2, 
                     max_tokens=3000
                 )
                 raw_content = completion.choices[0].message.content.strip()
@@ -557,9 +562,6 @@ def analyze_existing_events_ai(events_list):
                 return result
              except Exception as e2:
                  st.error(f"❌ Error en Fallback (8B): {e2}")
-                 if 'raw_content' in locals():
-                     with st.expander("Ver Respuesta Fallida (8B)"):
-                         st.code(raw_content)
                  return {}
         
         st.error(f"AI Assistant Error: {e}")

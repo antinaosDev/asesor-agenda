@@ -44,7 +44,7 @@ from modules.google_services import (
     add_event_to_calendar, delete_event, optimize_event, update_event_calendar, COLOR_MAP
 )
 from modules.ai_core import (
-    analyze_emails_ai, parse_events_ai, analyze_existing_events_ai,
+    analyze_emails_ai, parse_events_ai, analyze_agenda_ai,
     generate_work_plan_ai, generate_project_breakdown_ai
 )
 
@@ -1773,19 +1773,23 @@ def view_optimize():
     
     if 'opt_events' in st.session_state and st.session_state.opt_events:
         events = st.session_state.opt_events
-        st.write(f"📅 Se leyeron {len(events)} eventos en el periodo seleccionado.")
         
-        if st.button("🧠 AI: Analizar Historial y Tendencias"):
-            with st.spinner("Analizando patrones anuales, mensuales y semanales..."):
-                result = analyze_existing_events_ai(events)
-                # Safety check: AI might return list or dict
+        # Fetch Tasks for Context
+        task_svc = get_tasks_service()
+        tasks = []
+        if task_svc:
+            tasks = get_existing_tasks_simple(task_svc)
+        
+        st.write(f"📅 Se leyeron {len(events)} eventos y {len(tasks)} tareas activas.")
+        
+        if st.button("🧠 AI: Analizar Agenda Completa (Eventos + Tareas)"):
+            with st.spinner("Analizando patrones y optimizando agenda..."):
+                result = analyze_agenda_ai(events, tasks)
                 if isinstance(result, dict):
                     st.session_state.opt_plan = result.get('optimization_plan', {})
                     st.session_state.advisor_note = result.get('advisor_note', "Sin comentarios.")
                 else:
-                    st.warning("⚠️ Respuesta inesperada de la IA. Intenta nuevamente.")
-                    st.session_state.opt_plan = {}
-                    st.session_state.advisor_note = "Error al procesar análisis."
+                    st.warning("⚠️ Respuesta inesperada de la IA.")
         
         if 'opt_plan' in st.session_state:
             st.markdown("### 💡 Informe Estratégico:")
@@ -1796,32 +1800,84 @@ def view_optimize():
             with st.form("exec_optimization"):
                 c1, c2, c3 = st.columns([2, 2, 1])
                 c1.markdown("**Original**")
-                c2.markdown("**Propuesta**")
-                c3.markdown("**Estado**")
+                c2.markdown("**Propuesta IA**")
+                c3.markdown("**Acción**")
                 
-                for ev in events: 
-                    pid = ev['id']
-                    if pid in st.session_state.opt_plan:
-                        proposal = st.session_state.opt_plan[pid]
+                # Render Events from Plan
+                plan = st.session_state.opt_plan
+                
+                # We iterate through keys to find both events and tasks
+                count_props = 0
+                
+                for item_id, proposal in plan.items():
+                    item_type = proposal.get('type', 'event') # Default to event for backward compat
+                    
+                    # Find original item data for display
+                    orig_summary = "Desconocido"
+                    if item_type == 'event':
+                         found = next((e for e in events if e['id'] == item_id), None)
+                         if found: orig_summary = found.get('summary', '')
+                         new_text = proposal.get('new_summary', '')
+                    else: # Task
+                         found = next((t for t in tasks if t['id'] == item_id), None)
+                         if found: orig_summary = f"📝 {found.get('title', '')}"
+                         else: orig_summary = "📝 Tarea"
+                         new_text = f"📝 {proposal.get('new_title', '')}"
+                         if proposal.get('new_due'):
+                             new_text += f"\n📅 {proposal['new_due']}"
+
+                    if found:
                         c1, c2, c3 = st.columns([2, 2, 1])
-                        c1.text(ev.get('summary', ''))
-                        c2.markdown(f"**{proposal['new_summary']}**")
-                        c3.caption("Mejorable")
+                        c1.text(orig_summary)
+                        c2.markdown(f"**{new_text}**")
+                        c3.caption("Optimizar")
                         st.divider()
-                
+                        count_props += 1
+
+                if count_props == 0:
+                    st.write("No hay sugerencias de mejora para los ítems actuales.")
+
                 if st.form_submit_button("✨ Ejecutar Transformación"):
-                    service = get_calendar_service()
-                    if service:
+                    service_cal = get_calendar_service()
+                    service_task = get_tasks_service()
+                    
+                    if service_cal:
                         bar = st.progress(0)
                         done = 0
-                        plan = st.session_state.opt_plan
-                        for i, ev in enumerate(events):
-                            if ev['id'] in plan:
-                                p = plan[ev['id']]
-                                optimize_event(service, calendar_id, ev['id'], p['new_summary'], p['colorId'])
+                        total = len(plan)
+                        idx = 0
+                        
+                        for item_id, proposal in plan.items():
+                            item_type = proposal.get('type', 'event')
+                            
+                            try:
+                                if item_type == 'event':
+                                    optimize_event(service_cal, calendar_id, item_id, proposal.get('new_summary'), proposal.get('colorId'))
+                                elif item_type == 'task' and service_task:
+                                    # Parse due date if present
+                                    due_dt = None
+                                    if proposal.get('new_due'):
+                                        try:
+                                            due_dt = datetime.datetime.strptime(proposal['new_due'], "%Y-%m-%d").date()
+                                            # Add noon UTC for tasks
+                                            due_dt = datetime.datetime.combine(due_dt, datetime.time(12,0))
+                                        except: pass
+                                        
+                                    update_task_google(
+                                        service_task, 
+                                        proposal.get('list_id', '@default'), 
+                                        item_id, 
+                                        title=proposal.get('new_title'),
+                                        due=due_dt
+                                    )
                                 done += 1
-                            bar.progress((i+1)/len(events))
-                        st.success(f"¡Agenda Transformada! {done} eventos optimizados.")
+                            except Exception as ex:
+                                print(f"Error optimizing {item_id}: {ex}")
+                                
+                            idx += 1
+                            bar.progress(idx / total if total > 0 else 1.0)
+                            
+                        st.success(f"¡Agenda Transformada! {done} elementos optimizados.")
 
 def view_account():
     """Vista de configuración de cuenta del usuario"""
