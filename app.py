@@ -1501,16 +1501,24 @@ def view_inbox():
         if 'trigger_mail_analysis' not in st.session_state:
             st.session_state.trigger_mail_analysis = False
 
-        if st.button("🔄 Conectar y Analizar Buzón"):
-            # 1. Pre-Check Quota UI
-            if 'license_key' in st.session_state:
-                allowed, remaining, usage, limit = auth.check_and_update_daily_quota(st.session_state.license_key)
-                if not allowed:
-                    st.error(f"⚠️ Cuota diaria excedida ({usage}/{limit}).")
-                else:
-                    st.session_state.trigger_mail_analysis = True
-            else:
+        # Check Quota BEFORE Rendering Button
+        quota_allowed = True
+        if 'license_key' in st.session_state:
+            # Check without updating usage (just read)
+            # Since check_and_update_daily_quota updates usage only if requested_amount > 0 or default 0? 
+            # Looking at auth.py signature: check_and_update_daily_quota(key, requested_amount=0) -> returns status
+            allowed, remaining, usage, limit = auth.check_and_update_daily_quota(st.session_state.license_key, requested_amount=0)
+            if usage >= limit:
+                quota_allowed = False
+                st.error(f"❌ Has alcanzado tu límite diario de análisis ({usage}/{limit}).")
+                st.info("🕒 Podrás analizar más correos mañana.")
+
+        if quota_allowed:
+            if st.button("🔄 Conectar y Analizar Buzón"):
                 st.session_state.trigger_mail_analysis = True
+        else:
+            # Ensure analysis doesn't run if quota exceeded even if triggered somehow
+            st.session_state.trigger_mail_analysis = False
 
         # --- HISTORIAL GLOBAL INTERACTIVO (Moved Outside Conditional) ---
         all_ids = set()
