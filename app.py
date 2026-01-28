@@ -9,6 +9,17 @@ import plotly.graph_objects as go
 from dotenv import load_dotenv
 
 import sys
+import os
+# Ensure root directory is in sys.path for Streamlit Cloud
+root_path = os.path.dirname(os.path.abspath(__file__))
+if root_path not in sys.path:
+    sys.path.append(root_path)
+
+# Workaround for 'KeyError: modules' in some environments
+try:
+    import modules
+except ImportError:
+    pass
 
 # === CONFIGURACIÓN ESPAÑOL LATINOAMERICANO & TIMEZONE ===
 from zoneinfo import ZoneInfo
@@ -305,8 +316,10 @@ def view_dashboard():
     # Get User Name (First Name)
     user_name = "Ejecutivo"
     if 'user_data_full' in st.session_state:
-        full_n = st.session_state.user_data_full.get('nombre_completo', 'Ejecutivo')
-        user_name = full_n.split(' ')[0]
+        ud = st.session_state.user_data_full
+        # Try multiple keys for name
+        full_n = ud.get('nombre_completo') or ud.get('nombre') or ud.get('user') or 'Ejecutivo'
+        user_name = str(full_n).split(' ')[0]
         
     st.markdown(ui.render_smart_header(user_name, "Resumen Matutino y Estado Diario", weather_ctx), unsafe_allow_html=True)
 
