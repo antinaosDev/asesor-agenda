@@ -319,26 +319,7 @@ def analyze_emails_ai(emails, custom_model=None):
             final_clean.append(res)
             
     return final_clean
-                        {"role": "user", "content": batch_text}
-                    ],
-                    model=fallback_model,
-                    temperature=0.1,
-                    max_tokens=2048
-                )
-                content = _clean_json_output(completion.choices[0].message.content.strip())
-                results = json.loads(content)
-                if isinstance(results, dict): results = [results]
-                
-                st.success(f"✅ Análisis completado con {fallback_model}")
-                return results
-                
-            except Exception as fallback_error:
-                st.error(f"❌ Error en modelo alternativo: {fallback_error}")
-                return []
-        else:
-            # Other errors or custom model specified
-            st.error(f"AI Email Error: {e}")
-            return []
+
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def generate_daily_briefing(events, tasks, unread_count):
