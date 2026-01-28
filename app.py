@@ -1500,7 +1500,6 @@ def view_inbox():
                      if not emails:
                          st.warning("No se encontraron correos nuevos relevantes.")
                      else:
-                     else:
                          # --- OPTIMIZATION: FILTER PROCESSED EMAILS (RICH HISTORY) ---
                          if 'user_data_full' in st.session_state:
                               history = auth.get_user_history(st.session_state.user_data_full)
