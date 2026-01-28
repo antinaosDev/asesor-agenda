@@ -1673,14 +1673,12 @@ def view_inbox():
                                     if e.get('id'):
                                         # Extract date safely
                                         d_str = ""
-                                        # snippet is usually 'summary' proxy if not full analysis
-                                        # But here 'emails' are raw from Gmail. 
-                                        # We can try to use snippet as 's' (summary)
-                                        s_text = e.get('snippet', 'Sin Asunto')[:50]
+                                        # Use 'subject' logic with fallback
+                                        s_text = e.get('subject', e.get('snippet', 'Sin Asunto'))[:50]
                                         rich_items.append({
                                             'id': e['id'], 
                                             's': s_text,
-                                            'd': datetime.date.today().strftime('%Y-%m-%d') # Capture read date
+                                            'd': e.get('date', datetime.date.today().strftime('%Y-%m-%d')) # Fallback
                                         })
 
                                 if rich_items:
