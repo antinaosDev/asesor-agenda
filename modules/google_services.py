@@ -443,13 +443,15 @@ def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, p
             'notes': notes
         }
         if due_date:
-            # Google Tasks expects RFC 3339 timestamp with proper format
-            # The 'due' field specifically needs the date at midnight UTC
+            # Google Tasks 'due' field is strict RFC 3339 timestamp.
+            # To avoid timezone shifts (e.g. 00:00 UTC -> previous day in Chile),
+            # we set it to 12:00:00 UTC (Noon) which safely lands on the correct day globally.
             if hasattr(due_date, 'date'):
-                # If it's a datetime, extract just the date
-                due_date = due_date.date()
-            # Format as RFC 3339 date string (YYYY-MM-DD format, no time)
-            task['due'] = due_date.isoformat() + 'T00:00:00.000Z'
+                d_str = due_date.date().isoformat()
+            else:
+                d_str = str(due_date)[:10] # Ensure YYYY-MM-DD
+            
+            task['due'] = f"{d_str}T12:00:00.000Z"
         
         if parent:
             task['parent'] = parent
@@ -555,8 +557,8 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
 
         event_body = {
             'summary': summary,
-            'start': {'dateTime': start_time, 'timeZone': 'UTC'}, 
-            'end': {'dateTime': end_time, 'timeZone': 'UTC'},
+            'start': {'dateTime': start_time, 'timeZone': 'America/Santiago'}, 
+            'end': {'dateTime': end_time, 'timeZone': 'America/Santiago'},
             'description': description,
             'reminders': {
                 'useDefault': False,
@@ -718,8 +720,8 @@ def update_event_calendar(service, calendar_id, event_id, summary=None, descript
             s_iso = start_time.isoformat() if hasattr(start_time, 'isoformat') else start_time
             e_iso = end_time.isoformat() if hasattr(end_time, 'isoformat') else end_time
             
-            event['start'] = {'dateTime': s_iso, 'timeZone': 'UTC'} # UTC simplification
-            event['end'] = {'dateTime': e_iso, 'timeZone': 'UTC'}
+            event['start'] = {'dateTime': s_iso, 'timeZone': 'America/Santiago'}
+            event['end'] = {'dateTime': e_iso, 'timeZone': 'America/Santiago'}
             
         updated_event = service.events().update(calendarId=calendar_id, eventId=event_id, body=event).execute()
         return True, "Evento actualizado"
