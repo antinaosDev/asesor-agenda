@@ -37,26 +37,13 @@ def get_user_location():
             return {'lat': lat, 'lon': lon, 'city': city, 'country': 'CL'}
 
     try:
-        # Use a timeout to avoid hanging if the service is down
-        response = requests.get('http://ip-api.com/json/', timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            if data['status'] == 'success':
-                # IF USA/The Dalles (Server), fallback to Santiago or Temuco if it looks suspicious
-                if data['countryCode'] == 'US' or 'Dalles' in data.get('city', '') or 'Google' in data.get('isp', ''): 
-                     return {
-                        'lat': -38.6, # Default to Cholchol/Temuco region as user seems to be there
-                        'lon': -72.85, 
-                        'city': 'Cholchol',
-                        'country': 'CL'
-                    }
-                
-                return {
-                    'lat': data['lat'],
-                    'lon': data['lon'],
-                    'city': data['city'],
-                    'country': data['countryCode']
-                }
+        # IP API Removed as requested
+        return {
+            'lat': -38.6,
+            'lon': -72.85,
+            'city': 'Cholchol',
+            'country': 'CL'
+        }
     except Exception as e:
         print(f"Location Error: {e}")
     

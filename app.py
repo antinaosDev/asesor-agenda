@@ -308,10 +308,12 @@ def render_login_page():
 
 def view_dashboard():
     # --- WEATHER & CONTEXT ---
-    import modules.weather_service as ws
+    # --- WEATHER & CONTEXT REMOVED AS REQUESTED ---
+    # import modules.weather_service as ws (Removed)
     import modules.ui_components as ui
     
-    weather_ctx = ws.get_dashboard_weather_context()
+    weather_ctx = None # Disabled
+
     
     # Get User Name (First Name)
     user_name = "Ejecutivo"
