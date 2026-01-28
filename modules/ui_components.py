@@ -225,12 +225,16 @@ def render_smart_header(title, subtitle, weather_context=None):
     import datetime
     
     # Date Handling
+    # Date Handling - Manual Spanish
     now = datetime.datetime.now()
-    d_name = now.strftime("%A") # Day Name (requires locale set in app.py for Spanish)
-    d_num = now.day
-    m_name = now.strftime("%B")
+    days_es = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
+    months_es = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
     
-    date_str = f"{d_name} {d_num}, {m_name}".capitalize()
+    d_name = days_es[now.weekday()]
+    d_num = now.day
+    m_name = months_es[now.month]
+    
+    date_str = f"{d_name} {d_num}, {m_name}"
     
     # Weather Handling
     w_html = ""

@@ -7,12 +7,50 @@ def get_user_location():
     Approximates user location using IP address via ip-api.com.
     Returns dict with lat, lon, city, country.
     """
+    # Priority 1: Check Session State (Manual Selection from other widget)
+    if 'user_location' in st.session_state:
+        # We need coordinates for the weather API.
+        # This is a basic mapping for the known cities in context_services.
+        #Ideally we would geocode, but let's use a lookup for speed/stability.
+        known_coords = {
+            "Santiago": (-33.4489, -70.6693),
+            "Arica": (-18.4783, -70.3126),
+            "Iquique": (-20.2307, -70.1357),
+            "Antofagasta": (-23.6509, -70.3975),
+            "Copiapó": (-27.3667, -70.3333),
+            "La Serena": (-29.9027, -71.2520),
+            "Viña del Mar": (-33.0246, -71.5518),
+            "Concepción": (-36.8201, -73.0444),
+            "Los Ángeles": (-37.4697, -72.3537),
+            "Temuco": (-38.7359, -72.5904),
+            "Valdivia": (-39.8196, -73.2452),
+            "Osorno": (-40.5739, -73.1335),
+            "Puerto Montt": (-41.4693, -72.9424),
+            "Chiloé": (-42.5, -73.9), # Approx
+            "Punta Arenas": (-53.1638, -70.9171),
+            "Cholchol": (-38.6, -72.85),
+        }
+        
+        city = st.session_state.user_location
+        if city in known_coords:
+            lat, lon = known_coords[city]
+            return {'lat': lat, 'lon': lon, 'city': city, 'country': 'CL'}
+
     try:
         # Use a timeout to avoid hanging if the service is down
         response = requests.get('http://ip-api.com/json/', timeout=3)
         if response.status_code == 200:
             data = response.json()
             if data['status'] == 'success':
+                # IF USA/The Dalles (Server), fallback to Santiago or Temuco if it looks suspicious
+                if data['countryCode'] == 'US': 
+                     return {
+                        'lat': -38.6, # Default to Cholchol/Temuco region as user seems to be there
+                        'lon': -72.85, 
+                        'city': 'Cholchol',
+                        'country': 'CL'
+                    }
+                
                 return {
                     'lat': data['lat'],
                     'lon': data['lon'],
@@ -22,11 +60,11 @@ def get_user_location():
     except Exception as e:
         print(f"Location Error: {e}")
     
-    # Fallback to Santiago, Chile if detection fails
+    # Fallback
     return {
-        'lat': -33.4489,
-        'lon': -70.6693,
-        'city': 'Santiago',
+        'lat': -38.6,
+        'lon': -72.85,
+        'city': 'Cholchol',
         'country': 'CL'
     }
 
