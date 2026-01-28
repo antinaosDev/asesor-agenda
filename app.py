@@ -225,26 +225,10 @@ def render_date_badge(start_str, end_str=None):
              fmt_date = d.strftime("%d %b")
              fmt_time = d.strftime("%H:%M")
              
-             return f"""
-             <div style="display: inline-flex; flex-direction: column; align-items: center; 
-                         background: rgba(0,0,0,0.3); border: 1px solid {color}; border-radius: 8px; 
-                         padding: 5px 10px; min-width: 80px;">
-                 <span style="color: {color}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">{period}</span>
-                 <span style="color: white; font-weight: 700; font-size: 1.1rem;">{fmt_time}</span>
-                 <span style="color: #9cb6ba; font-size: 0.75rem;">{fmt_date}</span>
-             </div>
-             """
+             return f"""<div style="display: inline-flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid {color}; border-radius: 8px; padding: 5px 10px; min-width: 80px;"><span style="color: {color}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">{period}</span><span style="color: white; font-weight: 700; font-size: 1.1rem;">{fmt_time}</span><span style="color: #9cb6ba; font-size: 0.75rem;">{fmt_date}</span></div>"""
         else:
              # All day
-             return f"""
-             <div style="display: inline-flex; flex-direction: column; align-items: center; 
-                         background: rgba(0,0,0,0.3); border: 1px solid #0dd7f2; border-radius: 8px; 
-                         padding: 5px 10px; min-width: 80px;">
-                 <span style="color: #0dd7f2; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">DÍA</span>
-                 <span style="color: white; font-weight: 700; font-size: 1.1rem;">Todo</span>
-                 <span style="color: #9cb6ba; font-size: 0.75rem;">{start_str}</span>
-             </div>
-             """
+             return f"""<div style="display: inline-flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid #0dd7f2; border-radius: 8px; padding: 5px 10px; min-width: 80px;"><span style="color: #0dd7f2; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">DÍA</span><span style="color: white; font-weight: 700; font-size: 1.1rem;">Todo</span><span style="color: #9cb6ba; font-size: 0.75rem;">{start_str}</span></div>"""
     except:
         return f"<span>{start_str}</span>"
 
