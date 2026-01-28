@@ -267,7 +267,7 @@ def analyze_document_vision(text_content, images_base64=[]):
             messages=[
                 {"role": "user", "content": user_content}
             ],
-            model="llama-4-scout-17b-16e-instruct",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             temperature=0.1,
             max_tokens=4096
         )
