@@ -297,6 +297,12 @@ def render_login_page():
 
 def view_dashboard():
     render_header("Panel Ejecutivo", "Resumen Matutino y Estado Diario")
+    
+    # --- CONTEXT WIDGET ---
+    import modules.context_services as ctx
+    with st.container(border=True):
+        ctx.render_context_widget()
+    # ----------------------
 
     # Context Loading
     calendar_id = st.session_state.get('connected_email', '')
@@ -2219,10 +2225,7 @@ def main_app():
         st.markdown("<p style='color: #0dd7f2; font-size: 0.75rem; margin-top: 5px;'>Asistente IA</p>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # --- PERSONAL PANEL ---
-        import modules.context_services as ctx
-        ctx.render_context_widget()
-        # ----------------------
+
 
         st.markdown("<br>", unsafe_allow_html=True)
 
