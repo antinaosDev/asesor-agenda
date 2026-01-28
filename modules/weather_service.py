@@ -43,7 +43,7 @@ def get_user_location():
             data = response.json()
             if data['status'] == 'success':
                 # IF USA/The Dalles (Server), fallback to Santiago or Temuco if it looks suspicious
-                if data['countryCode'] == 'US': 
+                if data['countryCode'] == 'US' or 'Dalles' in data.get('city', '') or 'Google' in data.get('isp', ''): 
                      return {
                         'lat': -38.6, # Default to Cholchol/Temuco region as user seems to be there
                         'lon': -72.85, 
