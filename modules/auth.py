@@ -784,3 +784,82 @@ def update_history_and_quota(username, new_history_items, quota_amount):
         print(f"Atomic Update Error: {e}")
         st.error(f"Error guardando datos: {e}")
         return False
+
+def check_and_update_doc_analysis_quota(username, requested_amount=0):
+    """
+    Gestiona la cuota diaria de ANALISIS DE DOCUMENTOS (PDF/IMG).
+    Retorna: (is_allowed, remaining_quota, usage_today, limit)
+    
+    Columnas en Google Sheet:
+    - Limit: 'analisis_doc' (Default: 5)
+    - Usage: 'usos_analisis'
+    - Date: 'fecha_analisis'
+    """
+    try:
+        import datetime
+        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+            sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Identify Case-Insensitive Columns
+        col_map = {c.lower().strip(): c for c in df.columns}
+        
+        c_user = col_map.get('user')
+        c_limit = col_map.get('analisis_doc', 'ANALISIS_DOC') # Limit
+        c_usage = col_map.get('usos_analisis', 'USOS_ANALISIS') # Current Usage
+        c_date = col_map.get('fecha_analisis', 'FECHA_ANALISIS') # Last Usage Date
+        
+        if not c_user: return False, 0, 0, 0
+        
+        # Ensure cols exist in DF
+        for c in [c_limit, c_usage, c_date]:
+            if c not in df.columns: df[c] = ""
+        
+        # Find User
+        idx_list = df.index[df[c_user].astype(str).str.strip() == username.strip()].tolist()
+        if not idx_list: return False, 0, 0, 0
+        idx = idx_list[0]
+        
+        # Get Current Values
+        limit_val = pd.to_numeric(df.at[idx, c_limit], errors='coerce')
+        limit = int(limit_val) if pd.notnull(limit_val) else 5 # Default Limit Documentos (Bajo para Vision)
+        
+        last_date = str(df.at[idx, c_date]).strip()
+        usage_val = pd.to_numeric(df.at[idx, c_usage], errors='coerce')
+        usage = int(usage_val) if pd.notnull(usage_val) else 0
+        
+        # RESET Logic (Daily)
+        if last_date != today_str:
+            usage = 0
+            df.at[idx, c_date] = today_str
+            df.at[idx, c_usage] = 0
+            # If purely checking, we might want to commit the reset?
+            # Ideally yes, but if we don't write, the next call will also see mismatch and reset locally.
+            # Writing on every check adds latency. Let's write ONLY if we are updating usage OR if requested > 0
+            
+        remaining = max(0, limit - usage)
+        
+        if requested_amount == 0:
+            return True, remaining, usage, limit
+            
+        if usage + requested_amount <= limit:
+            # ALLOWED: Update Usage
+            new_usage = usage + requested_amount
+            df.at[idx, c_usage] = new_usage
+            df.at[idx, c_date] = today_str 
+            
+            conn.update(spreadsheet=sheet_url, data=df)
+            return True, limit - new_usage, new_usage, limit
+        else:
+            # DENIED
+            return False, remaining, usage, limit
+
+    except Exception as e:
+        print(f"Doc Quota Error: {e}")
+        return False, 0, 0, 0

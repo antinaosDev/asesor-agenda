@@ -230,6 +230,63 @@ def parse_events_ai(text_input):
         st.error(f"AI Parsing Error: {e}")
         return []
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def analyze_document_vision(text_content, images_base64=[]):
+    """
+    Analiza texto + imágenes usando Llama 3.2 Vision (11b).
+    """
+    client = _get_groq_client()
+    now = datetime.datetime.now()
+    
+    # Construct Content Payload
+    user_content = []
+    
+    # 1. Text Context
+    if text_content:
+        user_content.append({"type": "text", "text": f"DOCUMENT TEXT:\n{text_content}\n\n"})
+        
+    # 2. Images
+    for img_b64 in images_base64:
+        user_content.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{img_b64}"
+            }
+        })
+        
+    # 3. Final Instruction
+    prompt_instruction = PROMPT_EVENT_PARSING.format(
+        current_date=now.strftime("%Y-%m-%d"),
+        current_year=now.year
+    ) + "\n\nINSTRUCTION: Extract events from the provided text and images. Images might contain schedules, tables, or flyers."
+
+    user_content.append({"type": "text", "text": prompt_instruction})
+
+    try:
+        completion = client.chat.completions.create(
+            messages=[
+                {"role": "user", "content": user_content}
+            ],
+            model="llama-3.2-11b-vision-preview",
+            temperature=0.1,
+            max_tokens=4096
+        )
+        content = _clean_json_output(completion.choices[0].message.content.strip())
+        
+        # Safe Parse
+        events = json.loads(content, strict=False)
+        if isinstance(events, dict): events = [events]
+        
+        # Post-Processing
+        for event in events:
+            if event.get('start_time') and event['start_time'].endswith('Z'): event['start_time'] = event['start_time'][:-1]
+            if event.get('end_time') and event['end_time'].endswith('Z'): event['end_time'] = event['end_time'][:-1]
+            
+        return events
+    except Exception as e:
+        st.error(f"Vision Analysis Error: {e}")
+        return []
+
 @st.cache_data(ttl=7200, show_spinner=False)
 def analyze_emails_ai(emails, custom_model=None):
     if not emails: return []

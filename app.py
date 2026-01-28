@@ -56,8 +56,9 @@ from modules.google_services import (
 )
 from modules.ai_core import (
     analyze_emails_ai, parse_events_ai, analyze_agenda_ai,
-    generate_work_plan_ai, generate_project_breakdown_ai
+    generate_work_plan_ai, generate_project_breakdown_ai, analyze_document_vision
 )
+from modules.auth import check_and_update_doc_analysis_quota
 
 # Load environment variables
 load_dotenv()
@@ -827,52 +828,76 @@ def view_create():
                 submitted = st.form_submit_button("Procesar", type="primary", width="stretch")
 
         if submitted:
-            full_text = prompt if prompt else ""
+            # 1. Quota Check
+            user_key = st.session_state.get('license_key', 'unknown')
+            allowed, remaining, usage, limit = check_and_update_doc_analysis_quota(user_key, requested_amount=len(uploaded_files))
             
-            # --- FILE PROCESSING ---
-            if uploaded_files:
-                with st.spinner("📄 Analizando documentos..."):
-                    docs_content = ""
-                    for uf in uploaded_files:
-                        try:
-                            f_text = ""
-                            # PDF
-                            if uf.type == "application/pdf":
-                                import pypdf
-                                reader = pypdf.PdfReader(uf)
-                                for page in reader.pages:
-                                    f_text += page.extract_text() + "\n"
-                                    
-                            # DOCX
-                            elif "word" in uf.type or uf.name.endswith(".docx"):
-                                import docx
-                                doc = docx.Document(uf)
-                                for para in doc.paragraphs:
-                                    f_text += para.text + "\n"
-                            
-                            # Safety Truncate (approx 4000 tokens per doc max to avoid overflow)
-                            if len(f_text) > 15000:
-                                f_text = f_text[:15000] + "... [TRUNCADO POR LONGITUD]"
-                            
-                            docs_content += f"\n\n--- CONTENIDO EXTRAÍDO DE '{uf.name}' ---\n{f_text}"
-                            
-                        except Exception as e:
-                            st.error(f"Error leyendo '{uf.name}': {e}")
-                    
-                    if docs_content:
-                        full_text += docs_content
-            
-            if not full_text.strip():
-                st.warning("⚠️ Por favor escribe algo o sube un documento.")
+            if uploaded_files and not allowed:
+                st.error(f"❌ Has alcanzado tu límite diario de análisis de documentos ({limit}).")
+                st.progress(1.0, text=f"Uso: {usage}/{limit}")
             else:
-                with st.spinner("🧠 Analizando patrones y extrayendo datos..."):
-                    # Check for token limits (very rough estimation)
-                    if len(full_text) > 80000: # ~20k tokens? Llama 3.1 8b supports 128k but let's be safe with Groq
-                        st.info("ℹ️ Texto muy largo, se analizarán los primeros segmentos.")
-                        full_text = full_text[:80000]
+                if uploaded_files:
+                    st.toast(f"✅ Análisis autorizado. Cuota restante: {remaining}")
+                
+                full_text = prompt if prompt else ""
+                all_images = []
+
+                # --- FILE PROCESSING ---
+                if uploaded_files:
+                    with st.spinner("📄 Analizando documentos (Visión + Texto)..."):
+                        docs_content = ""
+                        for uf in uploaded_files:
+                            try:
+                                f_text = ""
+                                # PDF
+                                if uf.type == "application/pdf":
+                                    import pypdf
+                                    reader = pypdf.PdfReader(uf)
+                                    for page in reader.pages:
+                                        f_text += page.extract_text() + "\n"
+                                        # Image Extraction Logic (Simple)
+                                        try:
+                                            for image_file_object in page.images:
+                                                import base64
+                                                all_images.append(base64.b64encode(image_file_object.data).decode('utf-8'))
+                                        except: pass
+                                        
+                                # DOCX
+                                elif "word" in uf.type or uf.name.endswith(".docx"):
+                                    import docx
+                                    doc = docx.Document(uf)
+                                    for para in doc.paragraphs:
+                                        f_text += para.text + "\n"
+                                
+                                # Safety Truncate
+                                if len(f_text) > 15000:
+                                    f_text = f_text[:15000] + "... [TRUNCADO POR LONGITUD]"
+                                
+                                docs_content += f"\n\n--- CONTENIDO EXTRAÍDO DE '{uf.name}' ---\n{f_text}"
+                                
+                            except Exception as e:
+                                st.error(f"Error leyendo '{uf.name}': {e}")
                         
-                    events = parse_events_ai(full_text)
-                    st.session_state.draft_events = events
+                        if docs_content:
+                            full_text += docs_content
+                
+                if not full_text.strip() and not all_images:
+                    st.warning("⚠️ Por favor escribe algo o sube un documento.")
+                else:
+                    with st.spinner("🧠 Analizando patrones y extrayendo datos..."):
+                        if all_images:
+                            # Use Vision
+                            st.info(f"👁️ Usando IA Visual ({len(all_images)} imágenes detectadas)")
+                            # Optimization: Limit images to max 3 to save Vision tokens/Time
+                            events = analyze_document_vision(full_text[:60000], all_images[:3])
+                        else:
+                            # Use Text Optimized
+                            if len(full_text) > 80000: 
+                                st.info("ℹ️ Texto muy largo, se analizarán los primeros segmentos.")
+                                full_text = full_text[:80000]
+                            events = parse_events_ai(full_text)
+                            
+                        st.session_state.draft_events = events
 
     with col_viz:
         st.markdown("### 🧠 Procesador Semántico")
