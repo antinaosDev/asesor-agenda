@@ -417,23 +417,43 @@ def fetch_emails_batch(service, start_date=None, end_date=None, max_results=15):
 
 def get_task_lists(service):
     """Returns a list of task lists."""
-    try:
-        results = service.tasklists().list(maxResults=10).execute()
-        items = results.get('items', [])
-        return items
-    except Exception as e:
-        st.error(f"Error fetching task lists: {e}")
-        return []
+    retries = 3
+    for attempt in range(retries):
+        try:
+            results = service.tasklists().list(maxResults=10).execute()
+            items = results.get('items', [])
+            return items
+        except Exception as e:
+            err_str = str(e).lower()
+            if "broken pipe" in err_str or "ssl" in err_str or "connection" in err_str or "500" in err_str or "503" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            
+            if attempt == retries - 1:
+                st.error(f"Error fetching task lists: {e}")
+                return []
+    return []
 
 def create_task_list(service, title):
     """Creates a new task list."""
-    try:
-        tasklist = {'title': title}
-        result = service.tasklists().insert(body=tasklist).execute()
-        return result['id']
-    except Exception as e:
-        st.error(f"Error creating task list: {e}")
-        return None
+    retries = 3
+    for attempt in range(retries):
+        try:
+            tasklist = {'title': title}
+            result = service.tasklists().insert(body=tasklist).execute()
+            return result['id']
+        except Exception as e:
+            err_str = str(e).lower()
+            if "broken pipe" in err_str or "ssl" in err_str or "connection" in err_str or "500" in err_str or "503" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            
+            if attempt == retries - 1:
+                st.error(f"Error creating task list: {e}")
+                return None
+    return None
 
 def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, parent=None):
     """Adds a task to the specified list."""
@@ -481,33 +501,60 @@ def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, p
 
 def delete_task_google(service, tasklist_id, task_id):
     """Deletes a task from the specified list."""
-    try:
-        service.tasks().delete(tasklist=tasklist_id, task=task_id).execute()
-        return True
-    except Exception as e:
-        st.error(f"Error deleting task: {e}")
-        return False
+    retries = 3
+    for attempt in range(retries):
+        try:
+            service.tasks().delete(tasklist=tasklist_id, task=task_id).execute()
+            return True
+        except Exception as e:
+            err_str = str(e).lower()
+            if "broken pipe" in err_str or "ssl" in err_str or "connection" in err_str or "500" in err_str or "503" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+
+            # If it's a 404, consider it success (already deleted)
+            if "404" in str(e) or "notFound" in str(e):
+                return True
+                
+            if attempt == retries - 1:
+                st.error(f"Error deleting task: {e}")
+                return False
+    return False
 
 def update_task_google(service, tasklist_id, task_id, title=None, notes=None, status=None, due=None):
     """Updates an existing task."""
-    try:
-        # First get the existing task to preserve other fields
-        task = service.tasks().get(tasklist=tasklist_id, task=task_id).execute()
-        
-        if title: task['title'] = title
-        if notes: task['notes'] = notes
-        if status: task['status'] = status
-        
-        if due:
-             task['due'] = due.isoformat() + 'Z'
-        elif due == "": # Clear due date logic if needed, but for now basic update
-             if 'due' in task: del task['due']
+    retries = 3
+    for attempt in range(retries):
+        try:
+            # First get the existing task to preserve other fields
+            # We also wrap the 'get' in the retry logic implicitly by restarting the loop if it fails? 
+            # Ideally we want granular retries but simplistic block retry is safer for consistency.
+            
+            task = service.tasks().get(tasklist=tasklist_id, task=task_id).execute()
+            
+            if title: task['title'] = title
+            if notes: task['notes'] = notes
+            if status: task['status'] = status
+            
+            if due:
+                 task['due'] = due.isoformat() + 'Z'
+            elif due == "": # Clear due date logic if needed, but for now basic update
+                 if 'due' in task: del task['due']
 
-        result = service.tasks().update(tasklist=tasklist_id, task=task_id, body=task).execute()
-        return result
-    except Exception as e:
-        st.error(f"Error updating task: {e}")
-        return None
+            result = service.tasks().update(tasklist=tasklist_id, task=task_id, body=task).execute()
+            return result
+        except Exception as e:
+            err_str = str(e).lower()
+            if "broken pipe" in err_str or "ssl" in err_str or "connection" in err_str or "500" in err_str or "503" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            
+            if attempt == retries - 1:
+                st.error(f"Error updating task: {e}")
+                return None
+    return None
 
 def get_existing_tasks_simple(service):
     """Fetches all tasks from all lists (simplified for AI context)."""
