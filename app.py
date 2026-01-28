@@ -1369,6 +1369,13 @@ def view_planner():
 
 
 def view_inbox():
+    # --- CONTEXT WIDGET (Top of Dashboard) ---
+    import modules.context_services as ctx
+    with st.container(border=True):
+        st.caption("Panel Personal")
+        ctx.render_context_widget()
+    # -----------------------------------------
+
     # Modern header with glassmorphism
     st.markdown("""
     <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
@@ -1382,10 +1389,7 @@ def view_inbox():
     </div>
     """, unsafe_allow_html=True)
 
-    # --- NEW CONTEXT WIDGET: WEATHER & HOLIDAYS ---
-    import modules.context_services as ctx
-    ctx.render_context_widget() 
-    # ---------------------------------------------
+
 
     col_g1, col_g2 = st.columns([1, 2])
 
