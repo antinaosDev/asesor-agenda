@@ -235,69 +235,90 @@ def analyze_emails_ai(emails, custom_model=None):
     if not emails: return []
     client = _get_groq_client()
     
-    # Primary model (most capable for complex tasks)
+    # Configuration
+    BATCH_SIZE = 5 # Process 5 emails at a time to prevent token truncation
     default_primary = "llama-3.3-70b-versatile"
     fallback_model = "llama-3.1-8b-instant"
     
-    # Logic: Custom > User Pref > Default
+    # Model Selection
     model_id = custom_model
     if not model_id:
          if 'user_data_full' in st.session_state and 'modelo_ia' in st.session_state.user_data_full:
              pref = str(st.session_state.user_data_full['modelo_ia']).strip()
              if pref and pref.lower() != 'nan' and pref != '':
                  model_id = pref
+    if not model_id: model_id = default_primary
+
+    all_results = []
     
-    if not model_id:
-        model_id = default_primary
-    
-    batch_text = "ANALIZA ESTOS CORREOS:\n"
-    for i, e in enumerate(emails):
-        # Optimized context: Reduced to 1500 chars to avoid token limits on large batches
-        body_clean = (e.get('body', '') or '')[:1500]
-        batch_text += f"ID: {e['id']} | DE: {e['sender']} | ASUNTO: {e['subject']} | CUERPO: {body_clean}\n---\n"
-
-    prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
-
-    # Try primary model first
-    try:
-        completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": batch_text}
-            ],
-            model=model_id,
-            temperature=0.1,
-            max_tokens=2048
-        )
-        content = _clean_json_output(completion.choices[0].message.content.strip())
-        results = json.loads(content)
-        if isinstance(results, dict): results = [results]
+    # Chunking Loop
+    for i in range(0, len(emails), BATCH_SIZE):
+        batch = emails[i : i + BATCH_SIZE]
         
-        if not results:
-             st.warning("⚠️ DEBUG: La IA devolvió 0 elementos.")
-             with st.expander("Ver Respuesta Cruda de la IA (Debug)"):
-                 st.text(completion.choices[0].message.content)
-
-        # Re-attach threadId from original emails to results
-        email_map = {e['id']: e for e in emails}
-        for res in results:
-            if 'id' in res and res['id'] in email_map:
-                res['threadId'] = email_map[res['id']].get('threadId')
-        
-        return results
-        
-    except Exception as e:
-        err_msg = str(e)
-        
-        # AUTO-FALLBACK: If rate limit on primary model, try fallback
-        if ("429" in err_msg or "rate limit" in err_msg.lower()) and not custom_model:
-            st.warning(f"⚠️ Límite de tokens alcanzado en {model_id}")
-            st.info(f"🔄 Cambiando automáticamente a modelo alternativo: {fallback_model}")
+        # Prepare Prompt for this Batch
+        batch_text = "ANALIZA ESTOS CORREOS:\n"
+        for e in batch:
+            body_clean = (e.get('body', '') or '')[:1500]
+            batch_text += f"ID: {e['id']} | DE: {e['sender']} | ASUNTO: {e['subject']} | CUERPO: {body_clean}\n---\n"
             
-            try:
-                completion = client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": prompt},
+        prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
+        
+        try:
+            # Call AI
+            completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": batch_text}
+                ],
+                model=model_id,
+                temperature=0.1,
+                max_tokens=4096 # Increased from 2048
+            )
+            content = _clean_json_output(completion.choices[0].message.content.strip())
+            results = json.loads(content)
+            if isinstance(results, dict): results = [results]
+            
+            # Verify results exist
+            if not results:
+                 # Only warn if it's a real failure
+                 pass 
+                 
+            all_results.extend(results)
+            
+        except Exception as e:
+            err_msg = str(e)
+            # Automatic Fallback for 429 Rate Limits
+            if ("429" in err_msg or "rate limit" in err_msg.lower()) and not custom_model:
+                st.warning(f"⚠️ Limit (Batch {i//BATCH_SIZE + 1}): Swapping to {fallback_model}...")
+                try:
+                    completion = client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": prompt},
+                            {"role": "user", "content": batch_text}
+                        ],
+                        model=fallback_model,
+                        temperature=0.1,
+                        max_tokens=3072
+                    )
+                    content = _clean_json_output(completion.choices[0].message.content.strip())
+                    fb_results = json.loads(content)
+                    if isinstance(fb_results, dict): fb_results = [fb_results]
+                    all_results.extend(fb_results)
+                except Exception as e2:
+                    st.error(f"❌ Fallback Error (Batch {i}): {e2}")
+            else:
+                st.error(f"❌ Error Analysis (Batch {i}): {e}")
+
+    # Final Post-Processing (Thread ID Attachment)
+    email_map = {e['id']: e for e in emails}
+    final_clean = []
+    for res in all_results:
+        # Validate ID match
+        if 'id' in res and res['id'] in email_map:
+            res['threadId'] = email_map[res['id']].get('threadId')
+            final_clean.append(res)
+            
+    return final_clean
                         {"role": "user", "content": batch_text}
                     ],
                     model=fallback_model,
