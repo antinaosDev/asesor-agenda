@@ -770,3 +770,94 @@ def add_label_to_email(service, msg_id, label_id):
     except Exception as e:
         print(f"Error labeling email {msg_id}: {e}")
         return False
+
+# --- DEDUPLICATION HELPERS ---
+
+def deduplicate_calendar_events(service, calendar_id, start_date=None, end_date=None):
+    """
+    Removes duplicate events based on (summary, start_time).
+    Respects the provided date range (default: last 30 days).
+    """
+    try:
+        import datetime as dt
+        
+        # Default window: Last 30 days to Next 365 days if no range provided
+        if not start_date:
+            start_date = dt.date.today() - dt.timedelta(days=30)
+        if not end_date:
+            end_date = dt.date.today() + dt.timedelta(days=365)
+            
+        t_min = dt.datetime.combine(start_date, dt.time.min).isoformat() + 'Z'
+        t_max = dt.datetime.combine(end_date, dt.time.max).isoformat() + 'Z'
+        
+        events_result = service.events().list(
+            calendarId=calendar_id, 
+            timeMin=t_min, 
+            timeMax=t_max, 
+            singleEvents=True, 
+            orderBy='startTime',
+            maxResults=2500 # Reasonable limit
+        ).execute()
+        
+        events = events_result.get('items', [])
+        deleted_count = 0
+        
+        # Group by hash key: (summary_lower, start_time)
+        seen = {}
+        for ev in events:
+            summary = ev.get('summary', '').strip().lower()
+            start = ev.get('start', {}).get('dateTime') or ev.get('start', {}).get('date')
+            
+            if not summary or not start: continue
+            
+            key = (summary, start)
+            
+            if key in seen:
+                # Duplicate found! Delete this one.
+                try:
+                    service.events().delete(calendarId=calendar_id, eventId=ev['id']).execute()
+                    deleted_count += 1
+                except: pass
+            else:
+                seen[key] = True
+                
+        return deleted_count
+    except Exception as e:
+        st.error(f"Error deduplicating events: {e}")
+        return 0
+
+def deduplicate_tasks(service):
+    """
+    Removes duplicate tasks based on (title, due, list_id).
+    """
+    try:
+        deleted_count = 0
+        tasklists = get_task_lists(service)
+        
+        for tl in tasklists:
+            # Get all tasks for this list
+            results = service.tasks().list(tasklist=tl['id'], showCompleted=False, maxResults=100).execute()
+            tasks = results.get('items', [])
+            
+            seen = {}
+            for t in tasks:
+                title = t.get('title', '').strip().lower()
+                due = t.get('due', 'no-due')
+                
+                if not title: continue
+                
+                key = (title, due)
+                
+                if key in seen:
+                    # Duplicate!
+                    try:
+                        service.tasks().delete(tasklist=tl['id'], task=t['id']).execute()
+                        deleted_count += 1
+                    except: pass
+                else:
+                    seen[key] = True
+                    
+        return deleted_count
+    except Exception as e:
+        st.error(f"Error deduplicating tasks: {e}")
+        return 0

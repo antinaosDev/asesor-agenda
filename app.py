@@ -1744,6 +1744,34 @@ def view_optimize():
             except Exception as e:
                 st.error(f"Error cargando calendario: {e}")
     
+    st.divider()
+    st.markdown("### 🧹 Limpieza de Duplicados")
+    c_dup1, c_dup2 = st.columns([3, 1])
+    c_dup1.info("Esta herramienta escaneará los eventos en el rango seleccionado y todas tus tareas para eliminar copias exactas.")
+    
+    if c_dup2.button("♻️ Escanear y Eliminar", type="secondary"):
+        with st.spinner("Buscando y eliminando duplicados..."):
+            from modules.google_services import deduplicate_calendar_events, deduplicate_tasks
+            
+            cal_svc = get_calendar_service()
+            task_svc = get_tasks_service()
+            
+            deleted_ev = 0
+            if cal_svc:
+                deleted_ev = deduplicate_calendar_events(cal_svc, calendar_id, start_date, end_date)
+            
+            deleted_tk = 0
+            if task_svc:
+                deleted_tk = deduplicate_tasks(task_svc)
+                
+            if deleted_ev > 0 or deleted_tk > 0:
+                st.success(f"✅ Limpieza Completada: Se eliminaron **{deleted_ev} eventos** y **{deleted_tk} tareas** duplicadas.")
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.success("✨ No se encontraron duplicados. Tu agenda está limpia.")
+
+    
     if 'opt_events' in st.session_state and st.session_state.opt_events:
         events = st.session_state.opt_events
         st.write(f"📅 Se leyeron {len(events)} eventos en el periodo seleccionado.")
@@ -2054,7 +2082,31 @@ def main_app():
                 """, unsafe_allow_html=True)
                 
                 with st.expander("💳 Datos Transferencia"):
-                    st.caption(" Banco: Tenpo (Vista)\nNro: 111118581575\nRUT: 18.581.575-7\nMail: alain.antinao.s@gmail.com")
+                    st.markdown("""
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <span style="font-size: 1.5rem;">🏦</span>
+                            <div>
+                                <div style="color: #9cb6ba; font-size: 0.75rem; text-transform: uppercase;">Banco</div>
+                                <div style="color: white; font-weight: bold;">Tenpo (Vista)</div>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <div style="color: #9cb6ba; font-size: 0.75rem; text-transform: uppercase;">Nro Cuenta</div>
+                            <div style="color: #0dd7f2; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;">111118581575</div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <div>
+                                <div style="color: #9cb6ba; font-size: 0.75rem; text-transform: uppercase;">RUT</div>
+                                <div style="color: white;">18.581.575-7</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="color: #9cb6ba; font-size: 0.75rem; text-transform: uppercase;">Mail</div>
+                                <div style="color: white; font-size: 0.9rem;">alain.antinao.s@gmail.com</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
         
         # Navigation Buttons with icons and emojis for visual appeal
         nav_options = {
