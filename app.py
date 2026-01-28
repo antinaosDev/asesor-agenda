@@ -1673,29 +1673,28 @@ def view_inbox():
                                 analyzed_items = analyze_emails_ai(emails)
                             st.session_state.ai_gmail_events = analyzed_items 
 
-                            # --- SAVE HISTORY: ALL READ EMAILS (RICH METADATA) ---
-                            if emails and 'license_key' in st.session_state:
-                                # Construct rich info (ID, Summary, Date)
-                                rich_items = []
-                                for e in emails:
-                                    if e.get('id'):
-                                        # Extract date safely
-                                        d_str = ""
-                                        # Use 'subject' logic with fallback
-                                        s_text = e.get('subject', e.get('snippet', 'Sin Asunto'))[:50]
-                                        rich_items.append({
-                                            'id': e['id'], 
-                                            's': s_text,
-                                            'd': e.get('date', datetime.date.today().strftime('%Y-%m-%d')) # Fallback
-                                        })
-
-                                if rich_items:
-                                    auth.update_user_history(st.session_state.license_key, {'mail': rich_items})
-                            # -------------------------------------
-
-                            # 3. Update Quota Consumption
+                            # --- ATOMIC SAVE: HISTORY + QUOTA ---
                             if 'license_key' in st.session_state:
-                                auth.check_and_update_daily_quota(st.session_state.license_key, requested_amount=len(emails))
+                                rich_items = []
+                                if emails:
+                                    for e in emails:
+                                        if e.get('id'):
+                                            s_text = e.get('subject', e.get('snippet', 'Sin Asunto'))[:50]
+                                            rich_items.append({
+                                                'id': e['id'], 
+                                                's': s_text,
+                                                'd': e.get('date', datetime.date.today().strftime('%Y-%m-%d'))
+                                            })
+
+                                # Call ATOMIC function
+                                # Even if rich_items is empty (unlikely if len(emails)>0), we update quota.
+                                # If emails is empty, len is 0.
+                                auth.update_history_and_quota(
+                                    st.session_state.license_key, 
+                                    {'mail': rich_items}, 
+                                    quota_amount=len(emails)
+                                )
+                            # -------------------------------------
 
                             # Auto-labeling REMOVED. Now handled manually in UI.
 
