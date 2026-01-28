@@ -1500,9 +1500,26 @@ def view_inbox():
                      if not emails:
                          st.warning("No se encontraron correos nuevos relevantes.")
                      else:
-                         st.session_state.fetched_emails = emails
-                         with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
-                             analyzed_items = analyze_emails_ai(emails)
+                         # --- OPTIMIZATION: FILTER PROCESSED EMAILS ---
+                         if 'user_data_full' in st.session_state:
+                              processed_data = auth.get_user_processed_ids(st.session_state.user_data_full)
+                              all_processed_ids = processed_data['mail'] | processed_data['tasks'] | processed_data['labels']
+                              
+                              # Filter
+                              initial_count = len(emails)
+                              emails = [e for e in emails if e['id'] not in all_processed_ids]
+                              skipped_count = initial_count - len(emails)
+                              
+                              if skipped_count > 0:
+                                  st.info(f"⏩ Se omitieron {skipped_count} correos ya analizados previamente.")
+                         # ---------------------------------------------
+                         
+                         if not emails:
+                             st.warning("Todos los correos recientes ya fueron procesados. ¡Estás al día!")
+                         else:
+                             st.session_state.fetched_emails = emails
+                             with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
+                                 analyzed_items = analyze_emails_ai(emails)
                              st.session_state.ai_gmail_events = analyzed_items 
                              
                              # 3. Update Quota Consumption
@@ -1576,6 +1593,12 @@ def view_inbox():
                                              except: pass
                                      
                                      if count_ok > 0:
+                                         # --- SAVE HISTORY: LABELS ---
+                                         processed_ids = [str(x['id']) for x in items if x.get('id')]
+                                         if processed_ids and 'license_key' in st.session_state:
+                                             auth.update_user_processed_ids(st.session_state.license_key, {'labels': processed_ids})
+                                         # ----------------------------
+                                         
                                          st.success(f"¡Listo! {count_ok} correos etiquetados.")
                                          time.sleep(2)
                                          st.rerun()
@@ -1626,6 +1649,10 @@ def view_inbox():
                                      if st.button(f"Regenerar", key=f"btn_ev_re_{i}"):
                                          res, msg = add_event_to_calendar(service_cal, ev, cal_id)
                                          if res: 
+                                             # --- SAVE HISTORY: EVENT ---
+                                             if ev.get('id') and 'license_key' in st.session_state:
+                                                  auth.update_user_processed_ids(st.session_state.license_key, {'mail': [ev['id']]})
+                                             # ---------------------------
                                              st.success("¡Agendado!")
                                              st.rerun()
                                          else: st.error(f"Error: {msg}")
@@ -1647,6 +1674,10 @@ def view_inbox():
 
                                                res, msg = add_event_to_calendar(service_cal, ev_to_add, cal_id)
                                                if res: 
+                                                   # --- SAVE HISTORY: EVENT ---
+                                                   if ev.get('id') and 'license_key' in st.session_state:
+                                                        auth.update_user_processed_ids(st.session_state.license_key, {'mail': [ev['id']]})
+                                                   # ---------------------------
                                                    st.success("¡Agendado!")
                                                    st.rerun()
                                                else: st.error(f"Error: {msg}")
@@ -1687,6 +1718,10 @@ def view_inbox():
                                      res = add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_dt)
                                     
                                      if res:
+                                         # --- SAVE HISTORY: TASK ---
+                                         if t.get('id') and 'license_key' in st.session_state:
+                                             auth.update_user_processed_ids(st.session_state.license_key, {'tasks': [t['id']]})
+                                         # --------------------------
                                          st.success(f"✅ Guardada para el {selected_date.strftime('%d/%m')}")
                                      else:
                                          st.error("❌ Error al guardar tarea.")

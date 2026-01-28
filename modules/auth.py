@@ -190,14 +190,118 @@ def login_user(username, password):
     
     return False, {}
 
-PAYMENT_INFO = """
-*   **Nombre:** ALAIN CESAR ANTINAO SEPULVEDA
-*   **RUT:** 18581575-7
-*   **Banco:** Tenpo (Prepago)
-*   **Tipo:** Cuenta Vista
-*   **Nro:** 111118581575
+"""
 *   **Correo:** alain.antinao.s@gmail.com
 """
+
+# --- NEW HELPERS FOR EMAIL HISTORY ---
+import json
+
+def get_user_processed_ids(user_data):
+    """
+    Parses processed IDs from user_data dict.
+    Returns a dict with sets: {'mail': set(), 'tasks': set(), 'labels': set()}
+    """
+    result = {'mail': set(), 'tasks': set(), 'labels': set()}
+    
+    # Mapping keys in DB to our internal keys
+    keys_map = {
+        'lectura_mail': 'mail',
+        'lectura_tareas': 'tasks',
+        'lectura_etiquetas': 'labels'
+    }
+    
+    for db_key, internal_key in keys_map.items():
+        raw_val = str(user_data.get(db_key, '')).strip()
+        if raw_val and raw_val.lower() != 'nan':
+            # Try JSON first
+            try:
+                ids_list = json.loads(raw_val)
+                if isinstance(ids_list, list):
+                    result[internal_key] = set(ids_list)
+                    continue
+            except: pass
+            
+            # Fallback to comma separation
+            try:
+                ids_list = [x.strip() for x in raw_val.split(',') if x.strip()]
+                result[internal_key] = set(ids_list)
+            except: pass
+            
+    return result
+
+def update_user_processed_ids(username, new_ids_dict):
+    """
+    Updates the user's processed IDs in Google Sheets.
+    new_ids_dict: {'mail': [id1, id2], 'tasks': [...], 'labels': [...]}
+    """
+    if not username: return False
+    
+    try:
+        # 1. Fetch current Sheet Data (Fresh)
+        if "private_sheet_url" not in st.secrets:
+             sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+        else:
+             sheet_url = st.secrets["private_sheet_url"]
+             
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        df.columns = df.columns.str.lower().str.strip()
+        
+        # Validate columns exist
+        db_map = {
+            'mail': 'lectura_mail',
+            'tasks': 'lectura_tareas',
+            'labels': 'lectura_etiquetas'
+        }
+        
+        # Create columns if missing (Robutness)
+        for col in db_map.values():
+            if col not in df.columns:
+                df[col] = "" # Initialize empty string column
+        
+        # Find User
+        mask = df['user'].astype(str).str.strip() == username.strip()
+        if not mask.any():
+            return False
+            
+        idx = df[mask].index[0]
+        
+        # Update Logic
+        updated = False
+        for internal_key, db_col in db_map.items():
+            new_ids = new_ids_dict.get(internal_key, [])
+            if not new_ids: continue
+            
+            # Get existing
+            current_raw = str(df.at[idx, db_col])
+            current_set = set()
+            if current_raw and current_raw.lower() != 'nan':
+                try:
+                    # Try JSON
+                    current_set = set(json.loads(current_raw))
+                except:
+                    # Try Comma
+                    current_set = set([x.strip() for x in current_raw.split(',') if x.strip()])
+            
+            # Merge
+            original_len = len(current_set)
+            current_set.update(new_ids)
+            
+            if len(current_set) > original_len:
+                # Write back as JSON list for stability
+                df.at[idx, db_col] = json.dumps(list(current_set))
+                updated = True
+                
+        if updated:
+            conn.update(spreadsheet=sheet_url, data=df)
+            return True
+            
+        return True # No changes needed, but successful call
+        
+    except Exception as e:
+        print(f"Error updating processed IDs: {e}")
+        return False
 
 @st.cache_data(ttl=600)
 def get_all_users():
