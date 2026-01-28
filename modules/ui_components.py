@@ -240,15 +240,7 @@ def render_smart_header(title, subtitle, weather_context=None):
         w_icon = weather_context['weather']['icon']
         w_city = weather_context['location']['city']
         
-        w_html = f"""
-<div style="display: flex; align-items: center; gap: 1rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-    <div style="text-align: right;">
-        <div style="color: white; font-weight: 700; font-size: 1.2rem; line-height: 1;">{w_temp}°</div>
-        <div style="color: #9cb6ba; font-size: 0.75rem;">{w_city}</div>
-    </div>
-    <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 2rem;">{w_icon}</span>
-</div>
-"""
+        w_html = f'<div style="display: flex; align-items: center; gap: 1rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);"><div style="text-align: right;"><div style="color: white; font-weight: 700; font-size: 1.2rem; line-height: 1;">{w_temp}°</div><div style="color: #9cb6ba; font-size: 0.75rem;">{w_city}</div></div><span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 2rem;">{w_icon}</span></div>'
     
     # Greeting logic based on hour
     hour = now.hour
@@ -256,34 +248,5 @@ def render_smart_header(title, subtitle, weather_context=None):
     if 12 <= hour < 20: greeting = "Buenas tardes"
     elif hour >= 20: greeting = "Buenas noches"
     
-    return f"""
-<div class="glass-panel" style="
-    background: linear-gradient(135deg, rgba(24, 40, 42, 0.9) 0%, rgba(16, 32, 34, 0.95) 100%);
-    border-left: 4px solid var(--primary);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    position: relative;
-    overflow: hidden;
-">
-    <!-- Background Decor -->
-    <div style="position: absolute; right: -20px; top: -50px; font-size: 10rem; opacity: 0.05; color: var(--primary); font-family: 'Material Symbols Outlined'; pointer-events: none;">
-        water_drop
-    </div>
-    
-    <div style="z-index: 2;">
-        <p style="color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; margin: 0 0 0.5rem 0;">
-            {date_str}
-        </p>
-        <h1 style="margin: 0; font-size: 2.5rem; color: white; font-weight: 700;">{greeting}, {title.split(' ')[0]}</h1>
-        <p style="color: #9cb6ba; font-size: 1rem; margin: 0.5rem 0 0 0;">{subtitle}</p>
-    </div>
-    
-    <div style="z-index: 2; display: flex; align-items: center; gap: 1.5rem;">
-        {w_html}
-    </div>
-</div>
-"""
+    return f'<div class="glass-panel" style="background: linear-gradient(135deg, rgba(24, 40, 42, 0.9) 0%, rgba(16, 32, 34, 0.95) 100%); border-left: 4px solid var(--primary); display: flex; justify-content: space-between; align-items: center; padding: 2rem; margin-bottom: 2rem; position: relative; overflow: hidden;"><div style="position: absolute; right: -20px; top: -50px; font-size: 10rem; opacity: 0.05; color: var(--primary); font-family: \'Material Symbols Outlined\'; pointer-events: none;">water_drop</div><div style="z-index: 2;"><p style="color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; margin: 0 0 0.5rem 0;">{date_str}</p><h1 style="margin: 0; font-size: 2.5rem; color: white; font-weight: 700;">{greeting}, {title.split(" ")[0]}</h1><p style="color: #9cb6ba; font-size: 1rem; margin: 0.5rem 0 0 0;">{subtitle}</p></div><div style="z-index: 2; display: flex; align-items: center; gap: 1.5rem;">{w_html}</div></div>'
 
