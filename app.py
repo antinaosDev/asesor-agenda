@@ -205,6 +205,49 @@ def render_header(title, subtitle=None):
     </div>
     """, unsafe_allow_html=True)
 
+def get_time_period_color(hour):
+    """Returns color based on time of day."""
+    if 5 <= hour < 12:
+        return "#10b981", "Mañana" # Green/Teal
+    elif 12 <= hour < 18:
+        return "#f59e0b", "Tarde" # Orange
+    elif 18 <= hour < 22:
+        return "#6366f1", "Noche" # Indigo
+    else: # 22 - 5
+        return "#64748b", "Madrugada" # Slate
+
+def render_date_badge(start_str, end_str=None):
+    """Renders a stylish time badge."""
+    try:
+        if 'T' in start_str:
+             d = datetime.datetime.fromisoformat(start_str.replace('Z', ''))
+             color, period = get_time_period_color(d.hour)
+             fmt_date = d.strftime("%d %b")
+             fmt_time = d.strftime("%H:%M")
+             
+             return f"""
+             <div style="display: inline-flex; flex-direction: column; align-items: center; 
+                         background: rgba(0,0,0,0.3); border: 1px solid {color}; border-radius: 8px; 
+                         padding: 5px 10px; min-width: 80px;">
+                 <span style="color: {color}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">{period}</span>
+                 <span style="color: white; font-weight: 700; font-size: 1.1rem;">{fmt_time}</span>
+                 <span style="color: #9cb6ba; font-size: 0.75rem;">{fmt_date}</span>
+             </div>
+             """
+        else:
+             # All day
+             return f"""
+             <div style="display: inline-flex; flex-direction: column; align-items: center; 
+                         background: rgba(0,0,0,0.3); border: 1px solid #0dd7f2; border-radius: 8px; 
+                         padding: 5px 10px; min-width: 80px;">
+                 <span style="color: #0dd7f2; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">DÍA</span>
+                 <span style="color: white; font-weight: 700; font-size: 1.1rem;">Todo</span>
+                 <span style="color: #9cb6ba; font-size: 0.75rem;">{start_str}</span>
+             </div>
+             """
+    except:
+        return f"<span>{start_str}</span>"
+
 def card_metric(label, value, icon, subtext=""):
     st.markdown(f"""
     <div class="glass-panel" style="padding: 1.2rem; display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
@@ -791,14 +834,21 @@ def view_create():
             time_str = f"{ev.get('start_time')} -> {ev.get('end_time')}"
             desc = ev.get('description', 'Sin detalles.')
             
+            # Custom Badge Rendering
+            start_iso = ev.get('start_time', '2025-01-01')
+            badge_html = render_date_badge(start_iso)
+            
             st.markdown(f"""
             <div class="glass-panel" style="border-left: 4px solid #0dd7f2;">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div>
+                <div style="display: flex; gap: 15px; align-items: start;">
+                    {badge_html}
+                    <div style="flex-grow: 1;">
                         <h3 style="margin: 0; color: white;">{summary}</h3>
-                        <p style="color: #9cb6ba; font-size: 0.9rem; margin-top: 5px;">{time_str}</p>
+                        <p style="color: #9cb6ba; font-size: 0.9rem; margin-top: 5px;">{desc}</p>
                     </div>
-                     <span class="material-symbols-outlined" style="color: #0dd7f2;">event</span>
+                    <div>
+                         <span class="material-symbols-outlined" style="color: #0dd7f2;">event</span>
+                    </div>
                 </div>
                 <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-top: 10px;">
                     <p style="color: #ccc; font-size: 0.9rem;">{desc}</p>
@@ -1559,8 +1609,20 @@ def view_inbox():
                          with st.expander(f"🗓️ {ev.get('summary', 'Evento')} ({ev.get('urgency','?')})", expanded=True):
                              c1, c2 = st.columns([3, 1])
                              with c1:
-                                 st.markdown(f"**{ev.get('category','-')}** | {ev.get('description', '-')}")
-                                 st.caption(f"🕒 {ev.get('start_time')} ➡ {ev.get('end_time')}")
+                                 # Badge Logic
+                                 s_time = ev.get('start_time', '')
+                                 badge = render_date_badge(s_time)
+                                 
+                                 # Layout with Badge
+                                 st.markdown(f"""
+                                 <div style="display: flex; gap: 15px; align-items: start;">
+                                     {badge}
+                                     <div>
+                                         <div style="font-weight: bold; color: white;">{ev.get('category','-')}</div>
+                                         <div style="color: #ccc; font-size: 0.9rem;">{ev.get('description', '-')}</div>
+                                     </div>
+                                 </div>
+                                 """, unsafe_allow_html=True)
                                  if ev.get('id'):
                                       # Valid Link Logic: Use authuser for multi-account support
                                       t_id = ev.get('threadId', ev['id'])

@@ -540,7 +540,14 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
             'summary': summary,
             'start': {'dateTime': start_time, 'timeZone': 'UTC'}, 
             'end': {'dateTime': end_time, 'timeZone': 'UTC'},
-            'description': description
+            'description': description,
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'popup', 'minutes': 30},
+                    {'method': 'popup', 'minutes': 1440} # 24 hours
+                ]
+            }
         }
         
         # Simple heuristic: If string doesn't have Z or offset, assume it needs a specific TZ
@@ -550,7 +557,7 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
             event_body['colorId'] = color_id
             
         created_event = service.events().insert(calendarId=calendar_id, body=event_body).execute()
-        return True, "Evento creado exitosamente"
+        return True, "Evento creado exitosamente (con recordatorios)"
     except Exception as e:
         return False, str(e)
 
