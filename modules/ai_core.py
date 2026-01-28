@@ -182,7 +182,7 @@ def parse_events_ai(text_input):
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": text_input}
             ],
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant", # Optimized for speed/cost
             temperature=0.1,
             max_tokens=3072
         )
@@ -237,7 +237,9 @@ def analyze_emails_ai(emails, custom_model=None):
     
     # Configuration
     BATCH_SIZE = 5 # Process 5 emails at a time to prevent token truncation
-    default_primary = "llama-3.3-70b-versatile"
+    # Cost Optimization: Switched to 8B-Instant to fit $5/mo budget for 15 users.
+    # Previous 70B model would cost ~$12/mo. 8B costs ~$1.50/mo.
+    default_primary = "llama-3.1-8b-instant" 
     fallback_model = "llama-3.1-8b-instant"
     
     # Model Selection
