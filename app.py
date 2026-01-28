@@ -1522,6 +1522,14 @@ def view_inbox():
                                  analyzed_items = analyze_emails_ai(emails)
                              st.session_state.ai_gmail_events = analyzed_items 
                              
+                             # --- SAVE HISTORY: ALL READ EMAILS ---
+                             # Save valid IDs to 'lectura_mail' to prevent re-reading
+                             if emails and 'license_key' in st.session_state:
+                                  all_read_ids = [str(x['id']) for x in emails if x.get('id')]
+                                  if all_read_ids:
+                                      auth.update_user_processed_ids(st.session_state.license_key, {'mail': all_read_ids})
+                             # -------------------------------------
+                             
                              # 3. Update Quota Consumption
                              if 'license_key' in st.session_state:
                                   auth.check_and_update_daily_quota(st.session_state.license_key, requested_amount=len(emails))
