@@ -131,12 +131,24 @@ def render_context_widget():
     with st.container():
         c1, c2 = st.columns([3, 1])
         with c1:
-            st.markdown(f"### 🌦️ {st.session_state.user_location}")
             weather = get_weather_boostr(st.session_state.user_location)
+            
+            # Icon Logic
+            icon = "🌦️" # Default
             if weather:
-                # { "temperature": "18", "condition": "Cubierto", "humidity": "77" }
+                cond = weather.get('condition', '').lower()
+                if "despejado" in cond or "soleado" in cond: icon = "☀️"
+                elif "parcial" in cond or "escasa" in cond or "dispersa" in cond: icon = "⛅"
+                elif "nublado" in cond or "cubierto" in cond: icon = "☁️"
+                elif "lluvia" in cond or "chubasco" in cond or "llovizna" in cond: icon = "🌧️"
+                elif "tormenta" in cond: icon = "⛈️"
+                elif "nieve" in cond: icon = "❄️"
+                elif "niebla" in cond or "neblina" in cond: icon = "🌫️"
+
+                st.markdown(f"### {icon} {st.session_state.user_location}")
                 st.write(f"**{weather.get('temperature')}°C** | {weather.get('condition')} | 💧 {weather.get('humidity')}%")
             else:
+                st.markdown(f"### 🌦️ {st.session_state.user_location}")
                 st.caption("No hay datos del clima disponibles.")
                 
         with c2:
