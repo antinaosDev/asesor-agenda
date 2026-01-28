@@ -885,19 +885,27 @@ def view_create():
                     st.warning("⚠️ Por favor escribe algo o sube un documento.")
                 else:
                     with st.spinner("🧠 Analizando patrones y extrayendo datos..."):
-                        if all_images:
-                            # Use Vision
-                            st.info(f"👁️ Usando IA Visual ({len(all_images)} imágenes detectadas)")
-                            # Optimization: Limit images to max 3 to save Vision tokens/Time
-                            events = analyze_document_vision(full_text[:60000], all_images[:3])
-                        else:
-                            # Use Text Optimized
-                            if len(full_text) > 80000: 
-                                st.info("ℹ️ Texto muy largo, se analizarán los primeros segmentos.")
-                                full_text = full_text[:80000]
-                            events = parse_events_ai(full_text)
+                        try:
+                            if all_images:
+                                # Use Vision
+                                st.info(f"👁️ Usando IA Visual ({len(all_images)} imágenes detectadas)")
+                                # Removed limit as per user request, relying on model efficiency
+                                events = analyze_document_vision(full_text[:50000], all_images)
+                            else:
+                                # Use Text Optimized
+                                if len(full_text) > 80000: 
+                                    st.info("ℹ️ Texto muy largo, se analizarán los primeros segmentos.")
+                                    full_text = full_text[:80000]
+                                events = parse_events_ai(full_text)
+                                
+                            st.session_state.draft_events = events
                             
-                        st.session_state.draft_events = events
+                            if not events:
+                                st.warning("La IA analizó el contenido pero no encontró eventos claros.")
+                                
+                        except Exception as e:
+                            st.error(f"Error en análisis IA: {e}")
+                            st.error("Por favor intenta nuevamente o extrae el texto manualmente.")
 
     with col_viz:
         st.markdown("### 🧠 Procesador Semántico")
@@ -2655,11 +2663,14 @@ def main_app():
         col_f1, col_f2, col_f3, col_f4 = st.columns([3, 1, 5, 1])
 
         with col_f2:
-            # LOGO EMPRESA (LOGO_ALAIN)
-            if APP_CONFIG['imagenes'].get('LOGO_ALAIN'):
-                st.image(APP_CONFIG['imagenes']['LOGO_ALAIN'], width=150)
-            else:
-                st.info("Logo Dev")
+            # LOGO EMPRESA
+            try:
+                logo_p = "logo_agent.png"
+                if os.path.exists(logo_p):
+                    st.image(logo_p, width=150)
+                else:
+                    st.caption("Agent AI")
+            except: pass
 
         with col_f3:
             st.markdown("""
@@ -2680,6 +2691,10 @@ if __name__ == "__main__":
 
     # Debug Bypass
     # st.session_state.authenticated = True
+    
+    # Restore license_key from username if missing but authenticated (e.g. after reload)
+    if st.session_state.get('authenticated') and not st.session_state.get('license_key') and st.session_state.get('username'):
+        st.session_state.license_key = st.session_state.username
 
     if not st.session_state.authenticated:
         render_login_page()
