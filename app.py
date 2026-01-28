@@ -1369,12 +1369,7 @@ def view_planner():
 
 
 def view_inbox():
-    # --- CONTEXT WIDGET (Top of Dashboard) ---
-    import modules.context_services as ctx
-    with st.container(border=True):
-        st.caption("Panel Personal")
-        ctx.render_context_widget()
-    # -----------------------------------------
+
 
     # Modern header with glassmorphism
     st.markdown("""
@@ -2223,6 +2218,11 @@ def main_app():
         st.image("logo_agent.png", width=100)  # Slightly larger for better sidebar presence
         st.markdown("<p style='color: #0dd7f2; font-size: 0.75rem; margin-top: 5px;'>Asistente IA</p>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # --- PERSONAL PANEL ---
+        import modules.context_services as ctx
+        ctx.render_context_widget()
+        # ----------------------
 
         st.markdown("<br>", unsafe_allow_html=True)
 
