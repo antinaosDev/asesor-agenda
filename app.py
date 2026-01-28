@@ -296,7 +296,20 @@ def render_login_page():
 # --- MAIN VIEWS ---
 
 def view_dashboard():
-    render_header("Panel Ejecutivo", "Resumen Matutino y Estado Diario")
+    # --- WEATHER & CONTEXT ---
+    import modules.weather_service as ws
+    import modules.ui_components as ui
+    
+    weather_ctx = ws.get_dashboard_weather_context()
+    
+    # Get User Name (First Name)
+    user_name = "Ejecutivo"
+    if 'user_data_full' in st.session_state:
+        full_n = st.session_state.user_data_full.get('nombre_completo', 'Ejecutivo')
+        user_name = full_n.split(' ')[0]
+        
+    st.markdown(ui.render_smart_header(user_name, "Resumen Matutino y Estado Diario", weather_ctx), unsafe_allow_html=True)
+
     
     # --- CONTEXT WIDGET ---
     import modules.context_services as ctx
