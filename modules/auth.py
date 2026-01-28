@@ -210,7 +210,10 @@ def get_user_history(user_data):
     keys_map = {
         'lectura_mail': 'mail',
         'lectura_tareas': 'tasks',
-        'lectura_etiquetas': 'labels'
+        'lectura_mail': 'mail',
+        'lectura_tareas': 'tasks',
+        'lectura_etiquetas': 'labels',
+        'registro_opti': 'opt_events'
     }
     
     for db_key, internal_key in keys_map.items():
@@ -254,7 +257,12 @@ def update_user_history(username, new_items_dict):
         df = conn.read(spreadsheet=sheet_url, ttl=0)
         df.columns = df.columns.str.lower().str.strip()
         
-        db_map = {'mail': 'lectura_mail', 'tasks': 'lectura_tareas', 'labels': 'lectura_etiquetas'}
+        db_map = {
+            'mail': 'lectura_mail', 
+            'tasks': 'lectura_tareas', 
+            'labels': 'lectura_etiquetas',
+            'opt_events': 'registro_opti'
+        }
         
         # Ensure columns
         for col in db_map.values():

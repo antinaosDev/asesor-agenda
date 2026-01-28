@@ -1535,33 +1535,118 @@ def view_inbox():
                     with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
                         emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
 
-                    # --- GLOBAL HISTORY DISPLAY (ALWAYS SHOW) ---
+                    # --- HISTORIAL GLOBAL INTERACTIVO ---
                     all_ids = set()
                     if 'user_data_full' in st.session_state:
                         history = auth.get_user_history(st.session_state.user_data_full)
 
                         # Extract IDs for filtering later
-                        processed_mail = {x['id'] for x in history['mail']}
-                        processed_tasks = {x['id'] for x in history['tasks']} 
-                        processed_labels = {x['id'] for x in history['labels']}
+                        processed_mail = {x['id'] for x in history['mail'] if x.get('id')}
+                        processed_tasks = {x['id'] for x in history['tasks'] if x.get('id')} 
+                        processed_labels = {x['id'] for x in history['labels'] if x.get('id')}
                         all_ids = processed_mail | processed_tasks | processed_labels
 
                         # Display Global History
-                        total_hist = len(history['mail'])
+                        total_hist = len(history['mail']) + len(history['tasks'])
+                        
                         if total_hist > 0:
-                            with st.expander(f"📜 Historial Global ({total_hist} correos procesados)", expanded=False):
-                                hist_df = pd.DataFrame(history['mail'])
-                                if not hist_df.empty:
-                                    # Safe display of columns
-                                    cols_to_show = ['s', 'd']
-                                    # Ensure columns exist in DF (robustness)
-                                    for c in cols_to_show:
-                                        if c not in hist_df.columns: hist_df[c] = "-"
+                            with st.expander(f"📜 Historial Interactivo ({total_hist} ítems)", expanded=False):
+                                st.info("Aquí puedes ver elementos capturados anteriormente y procesarlos si olvidaste hacerlo.")
+                                
+                                tab_hm, tab_ht = st.tabs(["📧 Correos Leídos", "📝 Tareas Guardadas"])
+                                
+                                with tab_hm:
+                                    # List Mails (Potential Events)
+                                    # Show latest first
+                                    try:
+                                        mail_items = sorted(history['mail'], key=lambda x: x.get('d', ''), reverse=True)
+                                    except:
+                                        mail_items = history['mail']
+                                        
+                                    for idx, h_item in enumerate(mail_items[:50]): # Limit to 50 for performance
+                                        c_h1, c_h2 = st.columns([3, 1])
+                                        with c_h1:
+                                            st.markdown(f"**{h_item.get('d','?')}** - {h_item.get('s','Unknown')}")
+                                            if h_item.get('id'):
+                                                # Attempt to link if using Gmail ID
+                                                t_id = h_item.get('id')
+                                                # Clean ID if it has prefixes like 'msg-' (legacy)
+                                                clean_id = t_id.replace('msg-', '')
+                                                u_email = st.session_state.get('connected_email', '0')
+                                                lnk = f"https://mail.google.com/mail/u/?authuser={u_email}#inbox/{clean_id}"
+                                                st.caption(f"[Ver Correo]({lnk})")
+                                        
+                                        with c_h2:
+                                            # Action: Schedule Manually
+                                            if st.button("📅 Agendar", key=f"hist_btn_ev_{idx}"):
+                                                # Prefill Calendar Widget Logic? 
+                                                # Or simpler: Just open a form directly here?
+                                                # Let's open a quick form dialog
+                                                st.session_state[f"show_hist_cal_{idx}"] = True
+                                        
+                                        if st.session_state.get(f"show_hist_cal_{idx}", False):
+                                            with st.form(f"hist_form_cal_{idx}"):
+                                                st.write("Agendar Evento desde Historial")
+                                                new_sum = st.text_input("Título", value=h_item.get('s', 'Evento'))
+                                                d_val = datetime.date.today()
+                                                try: d_val = datetime.datetime.strptime(h_item.get('d'), '%Y-%m-%d').date()
+                                                except: pass
+                                                
+                                                new_date = st.date_input("Fecha", value=d_val)
+                                                new_time = st.time_input("Hora", value=datetime.time(9,0))
+                                                
+                                                if st.form_submit_button("Confirmar Agendar"):
+                                                    svc_cal = get_calendar_service()
+                                                    cid = st.session_state.get('connected_email', 'primary')
+                                                    if svc_cal:
+                                                        start_dt = datetime.datetime.combine(new_date, new_time)
+                                                        end_dt = start_dt + datetime.timedelta(hours=1)
+                                                        
+                                                        body = {
+                                                            'summary': new_sum,
+                                                            'description': f"Recuperado del historial. ID Original: {h_item.get('id')}",
+                                                            'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'America/Santiago'},
+                                                            'end': {'dateTime': end_dt.isoformat(), 'timeZone': 'America/Santiago'},
+                                                        }
+                                                        try:
+                                                            svc_cal.events().insert(calendarId=cid, body=body).execute()
+                                                            st.success("Evento creado exitosamente.")
+                                                            st.session_state[f"show_hist_cal_{idx}"] = False
+                                                            st.rerun()
+                                                        except Exception as e:
+                                                            st.error(f"Error: {e}")
 
-                                    st.dataframe(hist_df[cols_to_show], column_config={
-                                        "s": "Asunto Histórico",
-                                        "d": "Fecha"
-                                    }, width=800)
+                                with tab_ht:
+                                    # List Tasks
+                                    try:
+                                        task_items = sorted(history['tasks'], key=lambda x: x.get('d', ''), reverse=True)
+                                    except: task_items = history['tasks']
+                                    
+                                    for idx, t_item in enumerate(task_items[:50]):
+                                        c_t1, c_t2 = st.columns([3, 1])
+                                        with c_t1:
+                                            st.markdown(f"**{t_item.get('d','?')}** - {t_item.get('s','Unknown')}")
+                                        with c_t2:
+                                            if st.button("📝 Tarea", key=f"hist_btn_tk_{idx}"):
+                                                st.session_state[f"show_hist_tk_{idx}"] = True
+                                                
+                                        if st.session_state.get(f"show_hist_tk_{idx}", False):
+                                            with st.form(f"hist_form_tk_{idx}"):
+                                                st.write("Crear Tarea desde Historial")
+                                                tk_title = st.text_input("Título", value=t_item.get('s', 'Tarea'))
+                                                tk_due = st.date_input("Vencimiento", value=datetime.date.today())
+                                                
+                                                if st.form_submit_button("Guardar Tarea"):
+                                                    svc_tk = get_tasks_service()
+                                                    if svc_tk:
+                                                        due_dt = datetime.datetime.combine(tk_due, datetime.time(12,0))
+                                                        res = add_task_to_google(svc_tk, "@default", tk_title, "Recuperado de historial", due_date=due_dt)
+                                                        if res:
+                                                            st.success("Tarea creada.")
+                                                            st.session_state[f"show_hist_tk_{idx}"] = False
+                                                            st.rerun()
+                                                        else:
+                                                            st.error("Error creando tarea.")
                     # --------------------------------------------
 
                     if not emails:
@@ -1856,6 +1941,11 @@ def view_optimize():
         st.warning("⚠️  Configura tu ID de Calendario en la barra lateral.")
         return
 
+    # --- HISTORIAL INTERACTIVO DE OPTIMIZACIONES ---
+    if 'user_data_full' in st.session_state:
+        history = auth.get_user_history(st.session_state.user_data_full)
+        opt_ids = {x.get('id') for x in history.get('opt_events', [])}
+        
     col_opt_1, col_opt_2 = st.columns(2)
     with col_opt_1:
         today = datetime.date.today()
@@ -1923,16 +2013,38 @@ def view_optimize():
         if task_svc:
             tasks = get_existing_tasks_simple(task_svc)
 
-        st.write(f"📅 Se leyeron {len(events)} eventos y {len(tasks)} tareas activas.")
+        # --- PERSISTENCE FILTER ---
+        if 'user_data_full' in st.session_state:
+            # Re-fetch history to be safe
+            history_now = auth.get_user_history(st.session_state.user_data_full)
+            already_optimized_ids = {x.get('id') for x in history_now.get('opt_events', []) if x.get('id')}
+            
+            # Filter
+            events_to_optimize = [e for e in events if e['id'] not in already_optimized_ids]
+            skipped_count = len(events) - len(events_to_optimize)
+            
+            st.write(f"📅 Total Eventos: {len(events)} | ⚡ Pendientes de Optimizar: {len(events_to_optimize)}")
+            if skipped_count > 0:
+                st.caption(f"ℹ️ Se han omitido **{skipped_count} eventos** que ya fueron optimizados previamente.")
+        else:
+            events_to_optimize = events
+            st.write(f"📅 Se leyeron {len(events)} eventos y {len(tasks)} tareas activas.")
+
 
         if st.button("🧠 AI: Analizar Agenda Completa (Eventos + Tareas)"):
-            with st.spinner("Analizando patrones y optimizando agenda..."):
-                result = analyze_agenda_ai(events, tasks)
-                if isinstance(result, dict):
-                    st.session_state.opt_plan = result.get('optimization_plan', {})
-                    st.session_state.advisor_note = result.get('advisor_note', "Sin comentarios.")
-                else:
-                    st.warning("⚠️ Respuesta inesperada de la IA.")
+             if not events_to_optimize and not tasks:
+                 st.warning("No hay elementos nuevos para optimizar.")
+             else:
+                with st.spinner("Analizando patrones y optimizando agenda..."):
+                    # Only send new stuff + tasks
+                    # (Tasks usually change state often so strict persistence might be overkill, 
+                    # but we can improve later. For now, we optim tasks every time.)
+                    result = analyze_agenda_ai(events_to_optimize, tasks)
+                    if isinstance(result, dict):
+                        st.session_state.opt_plan = result.get('optimization_plan', {})
+                        st.session_state.advisor_note = result.get('advisor_note', "Sin comentarios.")
+                    else:
+                        st.warning("⚠️ Respuesta inesperada de la IA.")
 
         if 'opt_plan' in st.session_state:
             st.markdown("### 💡 Informe Estratégico:")
@@ -1983,6 +2095,9 @@ def view_optimize():
                 if st.form_submit_button("✨ Ejecutar Transformación"):
                     service_cal = get_calendar_service()
                     service_task = get_tasks_service()
+                    
+                    # Store IDs of successfully optimized items
+                    successful_ids = []
 
                     if service_cal:
                         bar = st.progress(0)
@@ -1995,7 +2110,9 @@ def view_optimize():
 
                             try:
                                 if item_type == 'event':
-                                    optimize_event(service_cal, calendar_id, item_id, proposal.get('new_summary'), proposal.get('colorId'))
+                                    ok = optimize_event(service_cal, calendar_id, item_id, proposal.get('new_summary'), proposal.get('colorId'))
+                                    if ok: successful_ids.append(item_id)
+                                    
                                 elif item_type == 'task' and service_task:
                                     # Parse due date if present
                                     due_dt = None
@@ -2013,12 +2130,25 @@ def view_optimize():
                                         title=proposal.get('new_title'),
                                         due=due_dt
                                     )
+                                    # Tasks don't have global unique IDs in the same way across all lists easily unless we track list_id too.
+                                    # For now, we skip task persistence tracking or add it if needed later.
+                                    
                                 done += 1
                             except Exception as ex:
                                 print(f"Error optimizing {item_id}: {ex}")
 
                             idx += 1
                             bar.progress(idx / total if total > 0 else 1.0)
+                        
+                        # --- SAVE OPTIMIZED IDS TO SHEET ---
+                        if successful_ids and 'license_key' in st.session_state:
+                            rich_opts = []
+                            today_str = datetime.date.today().strftime('%Y-%m-%d')
+                            for mid in successful_ids:
+                                rich_opts.append({'id': mid, 's': 'Optimizado AI', 'd': today_str})
+                            
+                            auth.update_user_history(st.session_state.license_key, {'opt_events': rich_opts})
+                        # -----------------------------------
 
                         st.success(f"¡Agenda Transformada! {done} elementos optimizados.")
 
