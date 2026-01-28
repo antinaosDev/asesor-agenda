@@ -30,13 +30,7 @@ os.environ['LANG'] = 'es_ES.UTF-8'
 os.environ['LC_ALL'] = 'es_ES.UTF-8'
 # ============================================
 
-# --- FORCE RELOAD MODULES (Cloud Cache Fix) ---
-try:
-    for mods in ['modules.auth', 'modules.notifications', 'modules.google_services', 'modules.ai_core']:
-        if mods in sys.modules:
-            del sys.modules[mods]
-except:
-    pass
+# --- MODULE IMPORTS ---
 
 # --- MODULE IMPORTS ---
 import modules.auth as auth

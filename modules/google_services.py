@@ -703,7 +703,15 @@ def update_event_calendar(service, calendar_id, event_id, summary=None, descript
         
         if summary: event['summary'] = summary
         if description: event['description'] = description
-        if color_id: event['colorId'] = color_id
+        
+        # Color ID Validation (1-11 are valid standard colors)
+        img_valid_colors = [str(i) for i in range(1, 12)]
+        if color_id:
+             if str(color_id) in img_valid_colors:
+                 event['colorId'] = str(color_id)
+             else:
+                 print(f"Warning: Invalid colorId '{color_id}' ignored.")
+        
         
         if start_time and end_time:
             # Handle both datetime objects and ISO strings

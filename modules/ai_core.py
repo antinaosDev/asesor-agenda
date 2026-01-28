@@ -492,10 +492,24 @@ def analyze_existing_events_ai(events_list):
     
     system_prompt = """
     You are an Elite Executive Assistant. Your job is to OPTIMIZE the user's calendar.
+    
+    VALID COLOR IDs (String 1-11):
+    - "1": Lavanda (Misc)
+    - "2": Salvia (Intercultural/VerdeClaro)
+    - "3": Uva (Proyectos/Morado)
+    - "4": Flamenco (Entrevistas/Rosa)
+    - "5": Banana (MAIS/Amarillo)
+    - "6": Mandarina (Reuniones Ext/Naranja)
+    - "7": Pavo Real (Trabajo Operativo/Azul)
+    - "8": Grafito (Admin/Gris)
+    - "9": Arándano (Personal)
+    - "10": Albahaca (Salud/Verde)
+    - "11": Tomate (Urgente/Rojo)
+
     OUTPUT FORMAT (JSON):
     {
         "optimization_plan": {
-            "event_id_1": {"new_summary": "...", "colorId": "..."},
+            "event_id_1": {"new_summary": "...", "colorId": "ID_STRING"},
             ...
         },
         "advisor_note": "..."
