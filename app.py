@@ -1668,23 +1668,28 @@ def view_inbox():
                                  email_link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
                                  st.markdown(f"🔗 [Ver Correo Original]({email_link})")
                              
-                             # Action: Save as Task for TODAY (Catch-all)
-                             if st.button("Guardar como Tarea (Para Hoy)", key=f"btn_tk_{i}"):
-                                 svc_tasks = get_tasks_service()
-                                 if svc_tasks:
-                                     # Append Link to Notes
-                                     final_notes = t.get('description', '')
-                                     if email_link:
-                                         final_notes += f"\n\n🔗 Correo: {email_link}"
-                                     
-                                     # Current date for due date
-                                     due_today = datetime.datetime.now(datetime.timezone.utc)
-                                     res = add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_today)
-                                     
-                                     if res:
-                                         st.success("✅ Guardada en Google Tasks para hoy.")
-                                     else:
-                                         st.error("❌ Error al guardar tarea (Revisa los logs/conexión).")
+                            # Action: Save as Task with Date Selection
+                            c_task1, c_task2 = st.columns([2, 1])
+                            selected_date = c_task1.date_input("Fecha vencimiento", value=datetime.date.today(), key=f"date_tk_{i}")
+                            
+                            if c_task2.button("💾 Guardar Tarea", key=f"btn_tk_{i}"):
+                                svc_tasks = get_tasks_service()
+                                if svc_tasks:
+                                    # Append Link to Notes
+                                    final_notes = t.get('description', '')
+                                    if email_link:
+                                        final_notes += f"\n\n🔗 Correo: {email_link}"
+                                    
+                                    # Use selected date
+                                    # Convert date to datetime at noon UTC to ensure correct day representation in global tasks
+                                    due_dt = datetime.datetime.combine(selected_date, datetime.time(12, 0))
+                                    
+                                    res = add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_dt)
+                                    
+                                    if res:
+                                        st.success(f"✅ Guardada para el {selected_date.strftime('%d/%m')}")
+                                    else:
+                                        st.error("❌ Error al guardar tarea.")
          
          elif 'fetched_emails' in st.session_state:
               st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")

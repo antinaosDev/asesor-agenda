@@ -548,11 +548,27 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
         description = event_data.get('description', '')
         color_id = event_data.get('colorId')
 
-        if not start_time or not end_time:
-            return False, "Faltan fechas de inicio o fin."
+        if not start_time:
+             return False, "Faltan fechas de inicio."
 
         # Ensure strings
         if not isinstance(start_time, str): start_time = start_time.isoformat()
+        
+        # Auto-calculate end_time if missing (Default: 1 hour)
+        if not end_time:
+             try:
+                 import datetime as dt
+                 # Parse start_time to add delta
+                 if 'T' in start_time:
+                     s_dt = dt.datetime.fromisoformat(start_time)
+                     e_dt = s_dt + dt.timedelta(hours=1)
+                     end_time = e_dt.isoformat()
+                 else:
+                     # Fallback for date-only strings (though less common for specific times)
+                     end_time = start_time 
+             except:
+                 return False, "Error calculando fecha fin automática."
+        
         if not isinstance(end_time, str): end_time = end_time.isoformat()
 
         event_body = {
