@@ -1685,8 +1685,12 @@ def view_inbox():
                                      
                                      # Current date for due date
                                      due_today = datetime.datetime.now(datetime.timezone.utc)
-                                     add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_today)
-                                     st.success("✅ Guardada en Google Tasks para hoy.")
+                                     res = add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_today)
+                                     
+                                     if res:
+                                         st.success("✅ Guardada en Google Tasks para hoy.")
+                                     else:
+                                         st.error("❌ Error al guardar tarea (Revisa los logs/conexión).")
          
          elif 'fetched_emails' in st.session_state:
               st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")

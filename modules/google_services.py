@@ -454,8 +454,25 @@ def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, p
         if parent:
             task['parent'] = parent
             
-        result = service.tasks().insert(tasklist=tasklist_id, body=task).execute()
-        return result
+        # Retry Logic
+        retries = 3
+        for attempt in range(retries):
+            try:
+                result = service.tasks().insert(tasklist=tasklist_id, body=task).execute()
+                return result
+            except Exception as e:
+                # Check for transient errors
+                err_str = str(e).lower()
+                if "broken pipe" in err_str or "ssl" in err_str or "connection" in err_str or "500" in err_str or "503" in err_str:
+                    if attempt < retries - 1:
+                        time.sleep(2 ** attempt) # 1s, 2s, 4s
+                        continue
+                
+                # If not retryable or out of retries
+                if attempt == retries - 1:
+                     st.error(f"Error adding task after {retries} attempts: {e}")
+                     return None
+        return None
     except Exception as e:
         st.error(f"Error adding task: {e}")
         return None
