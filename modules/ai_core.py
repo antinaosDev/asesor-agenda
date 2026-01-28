@@ -115,51 +115,45 @@ Output JSON Format:
 # --- HELPERS ---
 def _clean_json_output(content):
     """
-    Ultra-Robust Strategy: Stack-based bracket counting.
-    Extracts all top-level [...] AND {...} blocks.
-    SAFE: Ignores text outside blocks. Returns [] if nothing found.
+    Revised Robust Strategy: Stream Decoder.
+    Uses json.JSONDecoder to extract valid objects/lists sequentially.
+    Handles truncated output by saving whatever was successfully parsed before the error.
     """
+    decoder = json.JSONDecoder()
     content = content.strip()
     results = []
+    pos = 0
     
-    # Scan for top-level brackets/braces
-    i = 0
-    depth_array = 0
-    depth_object = 0
-    start_idx = -1
-    
-    # We treat it as one continuous stream, capturing ANY valid top-level block
-    while i < len(content):
-        char = content[i]
+    while pos < len(content):
+        # Find next potential start of JSON (Object or Array)
+        match = re.search(r'[\{\[]', content[pos:])
+        if not match:
+            break
+            
+        start_idx = pos + match.start()
         
-        # Start of a block (if at depth 0)
-        if char == '[':
-            if depth_array == 0 and depth_object == 0:
-                start_idx = i
-            depth_array += 1
-        elif char == '{':
-            if depth_array == 0 and depth_object == 0:
-                start_idx = i
-            depth_object += 1
+        try:
+            # raw_decode returns (object, end_index)
+            obj, end_idx = decoder.raw_decode(content, idx=start_idx)
             
-        # End of a block
-        elif char == ']':
-            if depth_array > 0:
-                depth_array -= 1
-                # If we closed the last array and are not in an object
-                if depth_array == 0 and depth_object == 0:
-                    _try_parse_block(content[start_idx : i+1], results)
-
-        elif char == '}':
-            if depth_object > 0:
-                depth_object -= 1
-                if depth_array == 0 and depth_object == 0:
-                     _try_parse_block(content[start_idx : i+1], results)
+            if isinstance(obj, list):
+                results.extend(obj)
+            elif isinstance(obj, dict):
+                results.append(obj)
             
-        i += 1
-
+            # Move position to end of parsed object
+            pos = end_idx
+            
+        except json.JSONDecodeError:
+            # If parsing fails (e.g. truncated or invalid), skip this char and try next
+            # But usually if it fails at top level, it might be the cut-off at the end.
+            # We just increment to continue searching or eventually exit
+            pos = start_idx + 1
+            
     return json.dumps(results)
 
+# Backup: Keep _try_parse_block just in case imports rely on it, 
+# but it's not used by the new function.
 def _try_parse_block(block, results_list):
     try:
         parsed = json.loads(block)
