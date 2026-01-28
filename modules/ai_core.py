@@ -349,16 +349,20 @@ def generate_daily_briefing(events, tasks, unread_count):
     3. 📬 BANDEJA: {unread_count} correos sin leer.
 
     INSTRUCCIONES DE ESTILO (CRÍTICO PARA TTS):
-    - **TONO**: Conversacional, cálido, profesional pero cercano. NADA ROBÓTICO.
+    - **TONO**: Conversacional, cálido, profesional pero cercano. Como un Asesor Ejecutivo Senior que se preocupa por el bienestar del usuario.
     - **ESTRUCTURA**:
-        - Saludo breve y enérgico (Ej: "¡Muy buenos días! Vamos a revisar tu día.").
-        - Resumen fluido de la agenda (No digas "Número uno...", di "Primero, tienes...").
-        - Menciones breves de tareas ("En cuanto a pendientes, recuerda...").
-        - Cierre motivador ("¡A darle con todo hoy!").
+        1. Saludo breve y enérgico.
+        2. Resumen fluido de la agenda y pendientes (Conversado, no lista).
+        3. **ASESORÍA DE VALOR (NUEVO)**: Analiza la carga del día y da un consejo personalizado:
+            - ¿Día muy lleno? sugiere pausas tácticas, hidratación o respiración entre reuniones.
+            - ¿Día ligero? sugiere enfoque estratégico (Deep Work) o adelantar proyectos clave.
+            - ¿Tarde libre? sugiere desconexión temprana o formación.
+            - Incluye SIEMPRE un tip breve de bienestar físico/mental (postura, vista, luz).
+        4. Cierre motivador y profesional.
     - **EDICIÓN**:
         - Convierte horas "14:00" a "las dos de la tarde".
         - No leas IDs ni códigos raros.
-        - Usa conectores: "Por cierto", "Además", "Finalmente".
+        - Usa conectores naturales.
     """
 
     try:
