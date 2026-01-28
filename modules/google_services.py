@@ -549,7 +549,12 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
         color_id = event_data.get('colorId')
 
         if not start_time:
-             return False, "Faltan fechas de inicio."
+             # AUTO-FIX: Default to Tomorrow 9:00 AM if missing
+             import datetime as dt
+             tomorrow = dt.date.today() + dt.timedelta(days=1)
+             start_time = f"{tomorrow.isoformat()}T09:00:00"
+             description = f"[FECHA AUTOMÁTICA] La IA no detectó fecha exacta.\n\n{description}"
+             st.toast(f"⚠️ Fecha faltante corregida a {start_time}")
 
         # Ensure strings
         if not isinstance(start_time, str): start_time = start_time.isoformat()
