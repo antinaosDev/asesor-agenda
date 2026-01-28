@@ -1382,6 +1382,11 @@ def view_inbox():
     </div>
     """, unsafe_allow_html=True)
 
+    # --- NEW CONTEXT WIDGET: WEATHER & HOLIDAYS ---
+    import modules.context_services as ctx
+    ctx.render_context_widget() 
+    # ---------------------------------------------
+
     col_g1, col_g2 = st.columns([1, 2])
 
     with col_g1:
