@@ -1512,6 +1512,114 @@ def view_inbox():
             else:
                 st.session_state.trigger_mail_analysis = True
 
+        # --- HISTORIAL GLOBAL INTERACTIVO (Moved Outside Conditional) ---
+        all_ids = set()
+        if 'user_data_full' in st.session_state:
+            history = auth.get_user_history(st.session_state.user_data_full)
+
+            # Extract IDs for filtering later
+            processed_mail = {x['id'] for x in history['mail'] if x.get('id')}
+            processed_tasks = {x['id'] for x in history['tasks'] if x.get('id')} 
+            processed_labels = {x['id'] for x in history['labels'] if x.get('id')}
+            all_ids = processed_mail | processed_tasks | processed_labels
+
+            # Display Global History
+            total_hist = len(history['mail']) + len(history['tasks'])
+            
+            if total_hist > 0:
+                with st.expander(f"📜 Historial Interactivo ({total_hist} ítems)", expanded=False):
+                    st.info("Aquí puedes ver elementos capturados anteriormente y procesarlos si olvidaste hacerlo.")
+                    
+                    tab_hm, tab_ht = st.tabs(["📧 Correos Leídos", "📝 Tareas Guardadas"])
+                    
+                    with tab_hm:
+                        try:
+                            # Re-fetch users might be needed if state is weird, but using session_state is best
+                            mail_items = sorted(history['mail'], key=lambda x: x.get('d', ''), reverse=True)
+                        except:
+                            mail_items = history['mail']
+                            
+                        for idx, h_item in enumerate(mail_items[:50]):
+                            c_h1, c_h2 = st.columns([3, 1])
+                            with c_h1:
+                                st.markdown(f"**{h_item.get('d','?')}** - {h_item.get('s','Unknown')}")
+                                if h_item.get('id'):
+                                    t_id = h_item.get('id')
+                                    clean_id = t_id.replace('msg-', '')
+                                    u_email = st.session_state.get('connected_email', '0')
+                                    lnk = f"https://mail.google.com/mail/u/?authuser={u_email}#inbox/{clean_id}"
+                                    st.caption(f"[Ver Correo]({lnk})")
+                            
+                            with c_h2:
+                                if st.button("📅 Agendar", key=f"hist_btn_ev_{idx}"):
+                                    st.session_state[f"show_hist_cal_{idx}"] = True
+                            
+                            if st.session_state.get(f"show_hist_cal_{idx}", False):
+                                with st.form(f"hist_form_cal_{idx}"):
+                                    st.write("Agendar Evento")
+                                    new_sum = st.text_input("Título", value=h_item.get('s', 'Evento'))
+                                    d_val = datetime.date.today()
+                                    try: d_val = datetime.datetime.strptime(h_item.get('d'), '%Y-%m-%d').date()
+                                    except: pass
+                                    
+                                    new_date = st.date_input("Fecha", value=d_val)
+                                    new_time = st.time_input("Hora", value=datetime.time(9,0))
+                                    
+                                    if st.form_submit_button("Confirmar Agendar"):
+                                        svc_cal = get_calendar_service()
+                                        cid = st.session_state.get('connected_email', 'primary')
+                                        if svc_cal:
+                                            start_dt = datetime.datetime.combine(new_date, new_time)
+                                            end_dt = start_dt + datetime.timedelta(hours=1)
+                                            body = {
+                                                'summary': new_sum,
+                                                'description': f"Recuperado del historial. ID: {h_item.get('id')}",
+                                                'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'America/Santiago'},
+                                                'end': {'dateTime': end_dt.isoformat(), 'timeZone': 'America/Santiago'},
+                                            }
+                                            try:
+                                                svc_cal.events().insert(calendarId=cid, body=body).execute()
+                                                st.toast("✅ Evento creado exitosamente.")
+                                                st.session_state[f"show_hist_cal_{idx}"] = False
+                                                # Optional: Don't rerun immediately if not needed, or rerun to close form
+                                                time.sleep(1)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Error: {e}")
+
+                    with tab_ht:
+                        try:
+                            task_items = sorted(history['tasks'], key=lambda x: x.get('d', ''), reverse=True)
+                        except: task_items = history['tasks']
+                        
+                        for idx, t_item in enumerate(task_items[:50]):
+                            c_t1, c_t2 = st.columns([3, 1])
+                            with c_t1:
+                                st.markdown(f"**{t_item.get('d','?')}** - {t_item.get('s','Unknown')}")
+                            with c_t2:
+                                if st.button("📝 Tarea", key=f"hist_btn_tk_{idx}"):
+                                    st.session_state[f"show_hist_tk_{idx}"] = True
+                                    
+                            if st.session_state.get(f"show_hist_tk_{idx}", False):
+                                with st.form(f"hist_form_tk_{idx}"):
+                                    st.write("Crear Tarea")
+                                    tk_title = st.text_input("Título", value=t_item.get('s', 'Tarea'))
+                                    tk_due = st.date_input("Vencimiento", value=datetime.date.today())
+                                    
+                                    if st.form_submit_button("Guardar Tarea"):
+                                        svc_tk = get_tasks_service()
+                                        if svc_tk:
+                                            due_dt = datetime.datetime.combine(tk_due, datetime.time(12,0))
+                                            res = add_task_to_google(svc_tk, "@default", tk_title, "Recuperado de historial", due_date=due_dt)
+                                            if res:
+                                                st.toast("✅ Tarea creada.")
+                                                st.session_state[f"show_hist_tk_{idx}"] = False
+                                                time.sleep(1)
+                                                st.rerun()
+                                            else:
+                                                st.error("Error creando tarea.")
+        # ------------------------------------------------------------
+
         # Execute if triggered
         if st.session_state.trigger_mail_analysis:
             from googleapiclient.discovery import build
@@ -1535,119 +1643,7 @@ def view_inbox():
                     with st.spinner(f"📩 Leyendo desde {start_date} hasta {end_date} (Max {max_fetch})..."):
                         emails = fetch_emails_batch(service_gmail, start_date=start_date, end_date=end_date, max_results=max_fetch)
 
-                    # --- HISTORIAL GLOBAL INTERACTIVO ---
-                    all_ids = set()
-                    if 'user_data_full' in st.session_state:
-                        history = auth.get_user_history(st.session_state.user_data_full)
 
-                        # Extract IDs for filtering later
-                        processed_mail = {x['id'] for x in history['mail'] if x.get('id')}
-                        processed_tasks = {x['id'] for x in history['tasks'] if x.get('id')} 
-                        processed_labels = {x['id'] for x in history['labels'] if x.get('id')}
-                        all_ids = processed_mail | processed_tasks | processed_labels
-
-                        # Display Global History
-                        total_hist = len(history['mail']) + len(history['tasks'])
-                        
-                        if total_hist > 0:
-                            with st.expander(f"📜 Historial Interactivo ({total_hist} ítems)", expanded=False):
-                                st.info("Aquí puedes ver elementos capturados anteriormente y procesarlos si olvidaste hacerlo.")
-                                
-                                tab_hm, tab_ht = st.tabs(["📧 Correos Leídos", "📝 Tareas Guardadas"])
-                                
-                                with tab_hm:
-                                    # List Mails (Potential Events)
-                                    # Show latest first
-                                    try:
-                                        mail_items = sorted(history['mail'], key=lambda x: x.get('d', ''), reverse=True)
-                                    except:
-                                        mail_items = history['mail']
-                                        
-                                    for idx, h_item in enumerate(mail_items[:50]): # Limit to 50 for performance
-                                        c_h1, c_h2 = st.columns([3, 1])
-                                        with c_h1:
-                                            st.markdown(f"**{h_item.get('d','?')}** - {h_item.get('s','Unknown')}")
-                                            if h_item.get('id'):
-                                                # Attempt to link if using Gmail ID
-                                                t_id = h_item.get('id')
-                                                # Clean ID if it has prefixes like 'msg-' (legacy)
-                                                clean_id = t_id.replace('msg-', '')
-                                                u_email = st.session_state.get('connected_email', '0')
-                                                lnk = f"https://mail.google.com/mail/u/?authuser={u_email}#inbox/{clean_id}"
-                                                st.caption(f"[Ver Correo]({lnk})")
-                                        
-                                        with c_h2:
-                                            # Action: Schedule Manually
-                                            if st.button("📅 Agendar", key=f"hist_btn_ev_{idx}"):
-                                                # Prefill Calendar Widget Logic? 
-                                                # Or simpler: Just open a form directly here?
-                                                # Let's open a quick form dialog
-                                                st.session_state[f"show_hist_cal_{idx}"] = True
-                                        
-                                        if st.session_state.get(f"show_hist_cal_{idx}", False):
-                                            with st.form(f"hist_form_cal_{idx}"):
-                                                st.write("Agendar Evento desde Historial")
-                                                new_sum = st.text_input("Título", value=h_item.get('s', 'Evento'))
-                                                d_val = datetime.date.today()
-                                                try: d_val = datetime.datetime.strptime(h_item.get('d'), '%Y-%m-%d').date()
-                                                except: pass
-                                                
-                                                new_date = st.date_input("Fecha", value=d_val)
-                                                new_time = st.time_input("Hora", value=datetime.time(9,0))
-                                                
-                                                if st.form_submit_button("Confirmar Agendar"):
-                                                    svc_cal = get_calendar_service()
-                                                    cid = st.session_state.get('connected_email', 'primary')
-                                                    if svc_cal:
-                                                        start_dt = datetime.datetime.combine(new_date, new_time)
-                                                        end_dt = start_dt + datetime.timedelta(hours=1)
-                                                        
-                                                        body = {
-                                                            'summary': new_sum,
-                                                            'description': f"Recuperado del historial. ID Original: {h_item.get('id')}",
-                                                            'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'America/Santiago'},
-                                                            'end': {'dateTime': end_dt.isoformat(), 'timeZone': 'America/Santiago'},
-                                                        }
-                                                        try:
-                                                            svc_cal.events().insert(calendarId=cid, body=body).execute()
-                                                            st.success("Evento creado exitosamente.")
-                                                            st.session_state[f"show_hist_cal_{idx}"] = False
-                                                            st.rerun()
-                                                        except Exception as e:
-                                                            st.error(f"Error: {e}")
-
-                                with tab_ht:
-                                    # List Tasks
-                                    try:
-                                        task_items = sorted(history['tasks'], key=lambda x: x.get('d', ''), reverse=True)
-                                    except: task_items = history['tasks']
-                                    
-                                    for idx, t_item in enumerate(task_items[:50]):
-                                        c_t1, c_t2 = st.columns([3, 1])
-                                        with c_t1:
-                                            st.markdown(f"**{t_item.get('d','?')}** - {t_item.get('s','Unknown')}")
-                                        with c_t2:
-                                            if st.button("📝 Tarea", key=f"hist_btn_tk_{idx}"):
-                                                st.session_state[f"show_hist_tk_{idx}"] = True
-                                                
-                                        if st.session_state.get(f"show_hist_tk_{idx}", False):
-                                            with st.form(f"hist_form_tk_{idx}"):
-                                                st.write("Crear Tarea desde Historial")
-                                                tk_title = st.text_input("Título", value=t_item.get('s', 'Tarea'))
-                                                tk_due = st.date_input("Vencimiento", value=datetime.date.today())
-                                                
-                                                if st.form_submit_button("Guardar Tarea"):
-                                                    svc_tk = get_tasks_service()
-                                                    if svc_tk:
-                                                        due_dt = datetime.datetime.combine(tk_due, datetime.time(12,0))
-                                                        res = add_task_to_google(svc_tk, "@default", tk_title, "Recuperado de historial", due_date=due_dt)
-                                                        if res:
-                                                            st.success("Tarea creada.")
-                                                            st.session_state[f"show_hist_tk_{idx}"] = False
-                                                            st.rerun()
-                                                        else:
-                                                            st.error("Error creando tarea.")
-                    # --------------------------------------------
 
                     if not emails:
                         st.warning("No se encontraron correos nuevos relevantes en el período.")
