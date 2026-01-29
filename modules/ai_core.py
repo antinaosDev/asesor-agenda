@@ -15,41 +15,28 @@ def _get_groq_client():
 # --- SYSTEM PROMPTS (CONSTANTS) ---
 
 PROMPT_EMAIL_ANALYSIS = """
-Eres un Asistente Ejecutivo ("Agente A2").
-Tu misión es EXTRAER, CLASIFICAR y CALIFICAR eventos y tareas de los correos.
+Eres un asistente que extrae eventos y tareas de correos.
 
-REGLAS ABSOLUTAS:
-1. NUNCA devuelvas vacío. Si hay correo, hay tarea/evento.
-2. Si tiene HORA o "Reunión"/"Llamada" -> ES UN EVENTO.
-3. Todo lo demás -> ES UNA TAREA.
-4. Output EXCLUSIVAMENTE en formato JSON.
+REGLAS:
+1. Si el asunto contiene "Reunión", "Jornada", "Curso", "Consejo", "Comité" o tiene hora (10:00, 3pm) -> type="event"
+2. Todo lo demás -> type="task"
+3. NUNCA devuelvas lista vacía. Cada correo genera un objeto.
+4. Si no hay fecha, usa {current_date} con hora 09:00
 
-Fecha actual: {current_date}
-
-EXTRACCIÓN:
-- Incluye teléfonos, links, nombres y direcciones en "description".
-- Calcula "confidence_score" (0.1 a 1.0):
-  - +0.4 si hay fecha explícita.
-  - +0.3 si hay hora.
-  - +0.2 si hay verbo de acción.
-  - -0.3 si es Re/Fwd.
-
-JSON FORMAT (Lista de Objetos):
+OUTPUT (JSON válido):
 [
   {{
     "id": "email_id",
-    "type": "event" | "task",
-    "summary": "Título breve",
-    "description": "Detalle completo con contactos y links.",
-    "start_time": "YYYY-MM-DDTHH:MM:SS" (Si falta hora: 09:00:00),
-    "end_time": "YYYY-MM-DDTHH:MM:SS" (Si falta hora: 10:00:00),
-    "category": "Reunión" | "Solicitud" | "Información",
-    "confidence_score": 0.5,
-    "confidence_reason": "Motivo",
-    "action_clarity": "alta|media|baja",
-    "likely_noise": "sí|no"
+    "type": "event",
+    "summary": "Título del correo",
+    "description": "Resumen del asunto y cuerpo",
+    "start_time": "YYYY-MM-DDTHH:MM:SS",
+    "end_time": "YYYY-MM-DDTHH:MM:SS",
+    "category": "Reunión"
   }}
 ]
+
+IMPORTANTE: Devuelve SOLO el JSON. Sin texto adicional ni markdown.
 """
 
 
@@ -345,9 +332,8 @@ def analyze_emails_ai(emails, custom_model=None):
     
     # Configuration
     BATCH_SIZE = 5 # Process 5 emails at a time to prevent token truncation
-    # Cost Optimization: consistent 8b model for speed/reliability
-    # UPDATE: Using 70b-versatile for "Hunter Lite" Prompt which requires reasoning
-    default_primary = "llama-3.3-70b-versatile" 
+    # EMERGENCY: Reverting to 8b-instant with ultra-simple prompt for reliability
+    default_primary = "llama-3.1-8b-instant" 
     fallback_model = "llama-3.1-8b-instant"
     
     # Model Selection
@@ -425,9 +411,17 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
                 max_tokens=4096 # Increased from 2048
             )
             raw_content = completion.choices[0].message.content.strip()
-            # Visualize Raw Output for Debugging
-            if 'debug_ai_raw' not in st.session_state: st.session_state.debug_ai_raw = []
-            st.session_state.debug_ai_raw.append(f"BATCH {i}:\n{raw_content}")
+            # FORCE Debug Output (ALWAYS create)
+            if 'debug_ai_raw' not in st.session_state: 
+                st.session_state.debug_ai_raw = []
+            st.session_state.debug_ai_raw.append(f"=== BATCH {i} (Model: {model_id}) ===\n{raw_content}\n")
+            
+            # Also log to console
+            print(f"\n{'='*60}")
+            print(f"BATCH {i} | MODEL: {model_id}")
+            print(f"INPUT: {len(batch_text)} chars, {len(batch)} emails")
+            print(f"OUTPUT:\n{raw_content}")
+            print(f"{'='*60}\n")
             
             print(f"--- DEBUG AI BATCH {i} ---")
             print(f"INPUT LEN: {len(batch_text)}")

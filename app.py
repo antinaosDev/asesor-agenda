@@ -1993,11 +1993,13 @@ def view_inbox():
             else:
                 pass
                 
-        # --- DEBUG AI OUTPUT ---
-        if 'debug_ai_raw' in st.session_state and st.session_state.debug_ai_raw:
-            with st.expander("🕵️ Output Crudo de IA (Debug)", expanded=False):
+        # --- DEBUG AI OUTPUT (ALWAYS VISIBLE) ---
+        with st.expander("🕵️ Output Crudo de IA (Debug)", expanded=False):
+            if 'debug_ai_raw' in st.session_state and st.session_state.debug_ai_raw:
                 for d in st.session_state.debug_ai_raw:
-                    st.text(d)
+                    st.code(d, language='json')
+            else:
+                st.info("No hay output de IA todavía. Ejecuta un análisis primero.")
         # -----------------------
 
     with col_g2:
