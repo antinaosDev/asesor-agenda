@@ -1929,9 +1929,6 @@ def view_inbox():
                     if not emails:
                         st.warning("No se encontraron correos nuevos relevantes en el período.")
                     else:
-                    if not emails:
-                        st.warning("No se encontraron correos nuevos relevantes en el período.")
-                    else:
                         # --- FILTER (Check Force Flag) ---
                         force_re = st.session_state.get('chk_force_reanalysis', False)
                         
