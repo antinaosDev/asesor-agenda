@@ -255,3 +255,20 @@ def render_smart_header(title, subtitle, weather_context=None):
     
     return f'<div class="glass-panel" style="background: linear-gradient(135deg, rgba(24, 40, 42, 0.9) 0%, rgba(16, 32, 34, 0.95) 100%); border-left: 4px solid var(--primary); display: flex; justify-content: space-between; align-items: center; padding: 2rem; margin-bottom: 2rem; position: relative; overflow: hidden;"><div style="position: absolute; right: -20px; top: -50px; font-size: 10rem; opacity: 0.05; color: var(--primary); font-family: \'Material Symbols Outlined\'; pointer-events: none;">water_drop</div><div style="z-index: 2;"><p style="color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; margin: 0 0 0.5rem 0;">{date_str}</p><h1 style="margin: 0; font-size: 2.5rem; color: white; font-weight: 700;">{greeting}, {title.split(" ")[0]}</h1><p style="color: #9cb6ba; font-size: 1rem; margin: 0.5rem 0 0 0;">{subtitle}</p></div><div style="z-index: 2; display: flex; align-items: center; gap: 1.5rem;">{w_html}</div></div>'
 
+def render_guide_card_html(description, pro_tip):
+    """Generates HTML for a UX Guide Card."""
+    return f"""
+    <div style="background: rgba(13, 215, 242, 0.05); border-left: 3px solid #0dd7f2; padding: 15px; border-radius: 0 8px 8px 0; margin-bottom: 15px;">
+        <div style="display: flex; gap: 10px; align-items: start;">
+            <span class="material-symbols-outlined" style="color: #0dd7f2; font-size: 24px;">lightbulb</span>
+            <div>
+                <p style="color: #e0e6ed; margin: 0 0 8px 0; font-size: 0.95rem; line-height: 1.4;">{description}</p>
+                <div style="background: rgba(0, 0, 0, 0.2); padding: 8px 12px; border-radius: 4px; display: flex; gap: 8px; align-items: center;">
+                    <span style="color: #0dd7f2; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.5px; text-transform: uppercase;">PRO TIP</span>
+                    <span style="color: #adb5bd; font-size: 0.85rem;">{pro_tip}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+

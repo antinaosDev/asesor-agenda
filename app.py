@@ -326,6 +326,13 @@ def view_dashboard():
         
     st.markdown(ui.render_smart_header(user_name, "Resumen Matutino y Estado Diario", weather_ctx), unsafe_allow_html=True)
 
+    # --- UX GUIDE: DASHBOARD ---
+    with st.expander("📚 Guía Rápida: Tu Panel de Control", expanded=False):
+        st.markdown(ui.render_guide_card_html(
+            "Este es tu centro de mando. Revisa tu carga laboral, métricas de productividad y el estado de tu agenda en tiempo real.",
+            "Visualiza la 'Línea de Tiempo' para detectar huecos libres y optimizar tu día."
+        ), unsafe_allow_html=True)
+
     # --- VISUAL COLOR LEGEND ---
     with st.expander("🎨 Leyenda de Colores (Guía Visual)", expanded=False):
         # Hex mapping for Google Calendar Colors
@@ -837,6 +844,13 @@ def view_create():
 
     with col_input:
         st.markdown("### 🗣️ Entrada de Lenguaje Natural")
+        
+        # --- UX GUIDE: CREATE ---
+        with st.expander("📚 Guía Rápida: Agendamiento IA", expanded=False):
+            st.markdown(ui.render_guide_card_html(
+                "Simplemente escribe o dicta lo que necesitas hacer. La IA detectará fechas, horas, participantes y contextos automáticamente.",
+                "Para eventos repetitivos complejos (ej. 'Todos los martes'), usa el 'Asistente de Bloques' abajo."
+            ), unsafe_allow_html=True)
 
         # --- RECURRENCE ASSISTANT ---
         with st.expander("⏱️ Asistente de Horarios y Bloques (Beta)", expanded=False):
@@ -1004,6 +1018,13 @@ def view_planner():
     """, unsafe_allow_html=True)
 
     mode = st.radio("Modo de Planificación", ["Semana Estándar (Manual + Calendario)", "Desglosar Proyecto (Eventos Largos)"], horizontal=True)
+
+    # --- UX GUIDE: PLANNER ---
+    with st.expander("📚 Guía Rápida: Planificador Estratégico", expanded=False):
+         st.markdown(ui.render_guide_card_html(
+             "Convierte tus grandes metas en una agenda accionable. Genera un plan semanal estructurado basado en tus tareas y disponibilidad real.",
+             "Usa el modo 'Desglosar Proyecto' para que la IA divida objetivos grandes en subtareas manejables automáticamente."
+         ), unsafe_allow_html=True)
 
     calendar_context_str = ""
     calendar_id = st.session_state.get('connected_email', '')
@@ -1599,6 +1620,13 @@ def view_inbox():
         if effective_limit < 5: effective_limit = 5 # Minimum sanity check
 
         st.caption(f"Límite de lectura asignado: **{effective_limit} emails**")
+
+        # --- UX GUIDE: INBOX ---
+        with st.expander("📚 Guía Rápida: Análisis de Buzón", expanded=False):
+             st.markdown(ui.render_guide_card_html(
+                 "No dejes que los compromisos se pierdan en tu correo. La IA escanea tu bandeja de entrada, extrae fechas clave y sugiere acciones.",
+                 "Usa el botón 'Bloquear Tiempo' en las tareas detectadas para asegurar tu espacio de trabajo antes de que se llene la agenda."
+             ), unsafe_allow_html=True)
 
         # Display Quota Info
         if 'license_key' in st.session_state:
