@@ -59,6 +59,7 @@ from modules.ai_core import (
     generate_work_plan_ai, generate_project_breakdown_ai, analyze_document_vision
 )
 from modules.auth import check_and_update_doc_analysis_quota
+import modules.ui_components as ui # Global import for UI helpers
 
 # Load environment variables
 load_dotenv()
