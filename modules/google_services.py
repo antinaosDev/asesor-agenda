@@ -21,16 +21,16 @@ SCOPES = [
 # Google Calendar Color IDs
 COLOR_MAP = {
     "1": "Lavanda (General/Otros)",
-    "2": "Salvia (Intercultural)",
+    "2": "Salvia (Planificación/Estrategia)",
     "3": "Uva (Proyectos Esp)",
-    "4": "Flamenco (Entrevistas)",
-    "5": "Banana (MAIS)",
-    "6": "Mandarina (Reuniones Ext)",
+    "4": "Flamenco (Reuniones Int)",
+    "5": "Banana (Brainstorming/Ideas)",
+    "6": "Mandarina (Reuniones Ext/Clientes)",
     "7": "Pavo Real (Trabajo Operativo)",
     "8": "Grafito (Admin/Logística)",
     "9": "Arándano (Deporte/Personal)",
-    "10": "Albahaca (Salud)",
-    "11": "Tomate (URGENTE)"
+    "10": "Albahaca (Balance/Salud)",
+    "11": "Tomate (URGENTE/Crítico)"
 }
 
 # --- SERVICE ACCOUNT HELPER ---

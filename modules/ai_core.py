@@ -101,15 +101,18 @@ Context:
 - Current Date: {current_date}
 - Default Year: {current_year}
 
-COLOR RULES (Google Calendar IDs):
-- "5" (Yellow): MAIS
-- "2" (Light Green): Intercultural
-- "11" (Red): Urgent/Deadlines
-- "7" (Peacock): Work/Task
-- "6" (Orange): External
-- "3" (Purple): Special Projects
-- "8" (Grey): Admin
-- "1": Misc
+COLOR_RULES (Google Calendar IDs) - Smart Executive Mapping:
+- "11" (Red): HIGH PRIORITY / Critical / Deadlines.
+- "10" (Green): Bio / Health / Medical / Balance.
+- "9" (Blueberry): Personal / Sports / Family.
+- "8" (Graphite): Admin / Logistics / Commute.
+- "7" (Peacock): Deep Work / Focus / Operations.
+- "6" (Orange): External Meeting / Client / Sales.
+- "5" (Yellow): Brainstorming / Ideas / Strategy.
+- "4" (Flamingo): Internal Meeting / Team / HR.
+- "3" (Purple): Special Projects / Innovation.
+- "2" (Sage): Planning / Review / QBR.
+- "1": General / Misc / Other.
 
 JSON Structure:
 - "type": "event" or "task" (LOWERCASE).
