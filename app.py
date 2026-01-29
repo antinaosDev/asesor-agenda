@@ -2074,8 +2074,14 @@ def view_inbox():
                                             
                                             color = color_map.get(item.get('category'), 'DEFAULT')
                                             
-                                            if create_keep_note(keep_svc, note_title, note_content, color=color):
-                                                saved_count += 1
+                                            try:
+                                                result = create_keep_note(keep_svc, note_title, note_content, color=color)
+                                                if result:
+                                                    saved_count += 1
+                                                else:
+                                                    st.warning(f"⚠️ Fallo al guardar: {note_title[:50]}...")
+                                            except Exception as note_err:
+                                                st.error(f"❌ Error en nota '{note_title[:30]}...': {note_err}")
                                         
                                         st.success(f"✅ {saved_count}/{len(items)} notas guardadas en Google Keep!")
                                     else:
