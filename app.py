@@ -837,15 +837,34 @@ def view_create():
 
     with col_input:
         st.markdown("### 🗣️ Entrada de Lenguaje Natural")
+
+        # --- RECURRENCE ASSISTANT ---
+        with st.expander("⏱️ Asistente de Horarios y Bloques (Beta)", expanded=False):
+            st.info("Genera frases precisas para bloques repetitivos o atención de público.")
+            
+            c_gen1, c_gen2 = st.columns(2)
+            with c_gen1:
+                r_title = st.text_input("Título del Bloque", "Atención de Apoderados")
+                r_days = st.multiselect("Días", ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"], ["Lunes"])
+            with c_gen2:
+                r_start = st.time_input("Inicio", datetime.time(15, 0))
+                r_end = st.time_input("Fin", datetime.time(17, 0))
+            
+            if st.button("✨ Generar Frase"):
+                days_str = " y ".join(r_days) if len(r_days) < 2 else (", ".join(r_days[:-1]) + " y " + r_days[-1])
+                # Construct Natural Language phrase
+                phrase = f"{r_title} todos los {days_str} de {r_start.strftime('%H:%M')} a {r_end.strftime('%H:%M')}"
+                st.session_state.create_prompt = phrase
+                st.rerun()
+        # ----------------------------
+
         with st.form("create_event"):
+            # Use 'create_prompt' key to bind with the generator above
             prompt = st.text_area("¿Qué deseas agendar?", height=150, 
+                                key="create_prompt",
                                 placeholder="Ejemplo: Reunión el próximo martes a las 14:00 sobre el presupuesto Q3...")
             
-            st.markdown("""
-            <div style="font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 10px;">
-                <i>💡 Tip: Para horarios de atención, intenta: "Atención de público todos los lunes de 3pm a 5pm"</i>
-            </div>
-            """, unsafe_allow_html=True)
+             # Removed subtle tip since we have the full assistant now
 
             c_btn1, c_btn2 = st.columns([1, 4])
             with c_btn1:
