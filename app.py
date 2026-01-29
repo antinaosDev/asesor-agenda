@@ -2034,66 +2034,6 @@ def view_inbox():
                 st.info("🤷‍♂️ La IA analizó los correos pero no detectó eventos ni tareas importantes.")
             else:
                 st.success(f"✅ ¡Procesado! {len(items)} elementos detectados.")
-                
-                # --- GOOGLE KEEP BACKUP ---
-                col_keep1, col_keep2 = st.columns([2, 1])
-                with col_keep1:
-                    if st.button("📒 💾 Guardar TODO en Google Keep", use_container_width=True, help="Crea notas en Keep para todos los eventos/tareas detectados"):
-                        with st.spinner("Guardando en Google Keep..."):
-                            try:
-                                from modules.google_services_keep import get_keep_service, create_keep_note
-                                from modules.google_services import get_gmail_credentials
-                                
-                                keep_creds = get_gmail_credentials()
-                                if keep_creds:
-                                    keep_svc = get_keep_service(keep_creds)
-                                    if keep_svc:
-                                        saved_count = 0
-                                        color_map = {
-                                            'Reunión': 'BLUE',
-                                            'Capacitación': 'GREEN',
-                                            'Pagos': 'RED',
-                                            'Información': 'YELLOW',
-                                            'Proyectos': 'PURPLE',
-                                            'Administrativo': 'GRAY'
-                                        }
-                                        
-                                        for item in items:
-                                            note_title = f"[{item.get('category', 'General')}] {item.get('summary', 'Sin título')}"
-                                            note_content = f"""📧 Desde: {item.get('sender', 'Desconocido')}
-📅 Fecha: {item.get('start_time', 'N/A')}
-🏷️ Categoría: {item.get('category', 'N/A')}
-⚡ Urgencia: {item.get('urgency', 'Media')}
-
-{item.get('description', '')}
-
----
-🔗 ID Correo: {item.get('id', 'N/A')}
-💯 Confianza IA: {item.get('confidence_score', 0):.0%}
-"""
-                                            
-                                            color = color_map.get(item.get('category'), 'DEFAULT')
-                                            
-                                            try:
-                                                result = create_keep_note(keep_svc, note_title, note_content, color=color)
-                                                if result:
-                                                    saved_count += 1
-                                                else:
-                                                    st.warning(f"⚠️ Fallo al guardar: {note_title[:50]}...")
-                                            except Exception as note_err:
-                                                st.error(f"❌ Error en nota '{note_title[:30]}...': {note_err}")
-                                        
-                                        st.success(f"✅ {saved_count}/{len(items)} notas guardadas en Google Keep!")
-                                    else:
-                                        st.error("❌ No se pudo conectar a Google Keep. Verifica que la API esté habilitada.")
-                                else:
-                                    st.error("❌ Error obteniendo credenciales.")
-                            except Exception as keep_err:
-                                st.error(f"❌ Error al guardar en Keep: {keep_err}")
-                                import traceback
-                                st.code(traceback.format_exc())
-                
-                st.markdown("---")
 
                 # Tabs for Events vs Tasks vs Labeling
                 tab_ev, tab_info, tab_labels = st.tabs(["📅 Eventos", "📝 Tareas / Info", "🏷️ Revisión Etiquetas"])

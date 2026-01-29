@@ -13,10 +13,9 @@ import time
 # --- CONSTANTS ---
 SCOPES = [
     'https://www.googleapis.com/auth/calendar',
-    'https://www.googleapis.com/auth/gmail.modify',  # Changed from .readonly to allow label creation
+    'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/tasks',
-    'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/keep'  # NUEVO: Google Keep API
+    'https://www.googleapis.com/auth/spreadsheets'
 ]
 
 # Google Calendar Color IDs
