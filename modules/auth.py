@@ -757,10 +757,13 @@ def update_history_and_quota(username, new_history_items, quota_amount):
         limit = int(limit_val) if pd.notnull(limit_val) else 20
         
         # Reset if new day
-        if last_date != today_str:
-            usage = 0
             df.at[idx, c_date] = today_str
             
+        # FORCE CAST HISTORY COLUMNS TO OBJECT (String) to avoid FutureWarning/Incompatible Dtype
+        for h_key in hist_map.values():
+            if h_key in df.columns:
+                df[h_key] = df[h_key].astype('object')
+
         # Check Limit
         if usage + quota_amount > limit:
             # Fail early if quota exceeded? 
