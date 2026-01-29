@@ -376,6 +376,42 @@ def clear_license():
     if os.path.exists(LICENSE_FILE):
         os.remove(LICENSE_FILE)
 
+def refresh_user_data(username):
+    """
+    Refreshes user data from Google Sheets without password check.
+    Used for hot-reloading quotas and history mid-session.
+    """
+    if not username: return None
+    
+    try:
+        if "private_sheet_url" in st.secrets:
+             sheet_url = st.secrets["private_sheet_url"]
+        else:
+             sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        df.columns = df.columns.str.lower().str.strip()
+        
+        # User Col
+        user_col = None
+        for c in df.columns:
+            if c.lower().strip() == 'user': user_col = c; break
+            
+        if not user_col: return None
+        
+        # Find User
+        row = df[df[user_col].astype(str).str.strip() == username.strip()]
+        
+        if not row.empty:
+            return row.iloc[0].to_dict()
+        else:
+            return None
+            
+    except Exception as e:
+        print(f"Error refreshing user data: {e}")
+        return None
+
 def update_user_token(username, token_json):
     """
     Guarda el token OAuth actualizado en la columna 'COD_VAL' del Google Sheet.

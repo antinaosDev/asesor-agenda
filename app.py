@@ -1899,6 +1899,13 @@ def view_inbox():
             creds = get_gmail_credentials() # This might stop/rerun
 
             if creds:
+                # REFRESH USER DATA (Hot Reload for Quota/History)
+                if 'license_key' in st.session_state:
+                    fresh_data = auth.refresh_user_data(st.session_state.license_key)
+                    if fresh_data:
+                        st.session_state.user_data_full = fresh_data
+                        # st.toast("🔄 Datos de usuario actualizados.") 
+
                 # Only proceed if we have valid creds (auth flow done)
                 try:
                     # 2. Check Quota (Double Check before burning API)
