@@ -669,13 +669,25 @@ def create_task_list(service, title):
                 return None
     return None
 
-def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, parent=None):
-    """Adds a task to the specified list."""
+def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, start_date=None, parent=None):
+    """Adds a task to the specified list with optional start and due dates."""
     try:
         task = {
             'title': title,
             'notes': notes
         }
+        
+        # Add START date if provided (Google Tasks API supports 'start' field)
+        if start_date:
+            # Use same RFC 3339 format as due_date
+            if hasattr(start_date, 'date'):
+                s_str = start_date.date().isoformat()
+            else:
+                s_str = str(start_date)[:10] # Ensure YYYY-MM-DD
+            
+            task['start'] = f"{s_str}T12:00:00.000Z"
+        
+        # Add DUE date if provided
         if due_date:
             # Google Tasks 'due' field is strict RFC 3339 timestamp.
             # To avoid timezone shifts (e.g. 00:00 UTC -> previous day in Chile),
@@ -1162,5 +1174,231 @@ def deduplicate_tasks(service):
                     
         return deleted_count
     except Exception as e:
-        st.error(f"Error deduplicating tasks: {e}")
+       st.error(f"Error deduplicating tasks: {e}")
         return 0
+
+
+# --- CALENDAR API: QUICK ADD & FREE/BUSY ---
+
+def quick_add_event(service, text, calendar_id='primary'):
+    """
+    Creates an event from a simple text string using Calendar API quickAdd.
+    Examples: "Reunión mañana 3pm", "Almuerzo viernes 1pm con Juan"
+    
+    Args:
+        service: Google Calendar service instance
+        text: Natural language text describing the event
+        calendar_id: Calendar ID (default: 'primary')
+    
+    Returns:
+        dict: Created event object or None if error
+    """
+    try:
+        event = service.events().quickAdd(
+            calendarId=calendar_id,
+            text=text
+        ).execute()
+        
+        return event
+    except Exception as e:
+        st.error(f"Error en quickAdd: {e}")
+        return None
+
+
+def get_free_busy(service, calendars, time_min, time_max):
+    """
+    Queries free/busy information for specified calendars.
+    
+    Args:
+        service: Google Calendar service instance
+        calendars: List of calendar IDs to query (e.g., ['primary', 'other@gmail.com'])
+        time_min: Start time (ISO format string or datetime object)
+        time_max: End time (ISO format string or datetime object)
+    
+    Returns:
+        dict: Free/busy data with 'calendars' key containing busy blocks
+    """
+    try:
+        # Convert datetime objects to ISO strings if needed
+        if hasattr(time_min, 'isoformat'):
+            time_min = time_min.isoformat() + 'Z'
+        if hasattr(time_max, 'isoformat'):
+            time_max = time_max.isoformat() + 'Z'
+        
+        body = {
+            "timeMin": time_min,
+            "timeMax": time_max,
+            "items": [{"id": cal_id} for cal_id in calendars]
+        }
+        
+        result = service.freebusy().query(body=body).execute()
+        return result
+    except Exception as e:
+        st.error(f"Error consultando disponibilidad: {e}")
+        return None
+
+
+def get_calendar_colors(service):
+    """
+    Retrieves the color definitions for calendars and events.
+    
+    Returns:
+        dict: Color definitions with 'event' and 'calendar' keys
+    """
+    try:
+        colors = service.colors().get().execute()
+        return colors
+    except Exception as e:
+        st.error(f"Error obteniendo colores: {e}")
+        return None
+
+
+# --- GMAIL API: LABELS & DRAFTS ---
+
+def create_gmail_label(service, label_name, user_id='me'):
+    """
+    Creates a new Gmail label.
+    
+    Args:
+        service: Gmail API service instance
+        label_name: Name of the label to create
+        user_id: User ID (default: 'me')
+    
+    Returns:
+        dict: Created label object with 'id' and 'name'
+    """
+    try:
+        label = {
+            'name': label_name,
+            'labelListVisibility': 'labelShow',
+            'messageListVisibility': 'show'
+        }
+        
+        result = service.users().labels().create(
+            userId=user_id,
+            body=label
+        ).execute()
+        
+        return result
+    except Exception as e:
+        # Check if label already exists
+        if '409' in str(e) or 'already exists' in str(e).lower():
+            # Try to get existing label
+            try:
+                labels_result = service.users().labels().list(userId=user_id).execute()
+                labels = labels_result.get('labels', [])
+                for lbl in labels:
+                    if lbl['name'] == label_name:
+                        return lbl
+            except:
+                pass
+        
+        st.error(f"Error creando etiqueta: {e}")
+        return None
+
+
+def apply_gmail_label(service, message_id, label_id, user_id='me'):
+    """
+    Applies a label to a Gmail message.
+    
+    Args:
+        service: Gmail API service instance
+        message_id: ID of the message
+        label_id: ID of the label to apply
+        user_id: User ID (default: 'me')
+    
+    Returns:
+        dict: Modified message object
+    """
+    try:
+        result = service.users().messages().modify(
+            userId=user_id,
+            id=message_id,
+            body={'addLabelIds': [label_id]}
+        ).execute()
+        
+        return result
+    except Exception as e:
+        st.error(f"Error aplicando etiqueta: {e}")
+        return None
+
+
+def setup_ai_labels(service, user_id='me'):
+    """
+    Creates AI-related labels if they don't exist.
+    Returns dict mapping label names to IDs.
+    
+    Labels:
+        - 🤖 IA/Procesado: Emails processed by AI
+        - ⏰ IA/Agenda: Emails converted to calendar events
+        - ✅ IA/Tarea: Emails converted to tasks
+    """
+    ai_labels = {
+        '🤖 IA/Procesado': None,
+        '⏰ IA/Agenda': None,
+        '✅ IA/Tarea': None
+    }
+    
+    try:
+        # Get existing labels
+        labels_result = service.users().labels().list(userId=user_id).execute()
+        labels = labels_result.get('labels', [])
+        
+        for label_name in ai_labels.keys():
+            # Check if label exists
+            found = False
+            for lbl in labels:
+                if lbl['name'] == label_name:
+                    ai_labels[label_name] = lbl['id']
+                    found = True
+                    break
+            
+            # Create if missing
+            if not found:
+                new_label = create_gmail_label(service, label_name, user_id)
+                if new_label:
+                    ai_labels[label_name] = new_label['id']
+        
+        return ai_labels
+    except Exception as e:
+        st.error(f"Error configurando etiquetas IA: {e}")
+        return ai_labels
+
+
+def save_draft_from_ai(service, email_data, intent="Confirmar recepción", user_id='me'):
+    """
+    Generates a draft reply using AI and saves it to Gmail.
+    
+    Args:
+        service: Gmail API service instance
+        email_data: Dict with 'body', 'subject', 'sender', etc.
+        intent: Reply intent (e.g., "Confirmar", "Reagendar", "Negociar")
+        user_id: User ID (default: 'me')
+    
+    Returns:
+        dict: Created draft object with 'id' field
+    """
+    from modules.ai_core import generate_reply_email
+    
+    try:
+        # Generate draft content with AI
+        email_body = email_data.get('body', '')
+        draft_body = generate_reply_email(email_body, intent)
+        
+        # Extract subject (add Re: if not present)
+        original_subject = email_data.get('subject', '(Sin asunto)')
+        if not original_subject.lower().startswith('re:'):
+            subject = f"Re: {original_subject}"
+        else:
+            subject = original_subject
+        
+        # Get recipient (reply to sender)
+        to_email = email_data.get('sender', '')
+        
+        # Create draft
+        draft = create_draft(service, user_id, draft_body, to_email, subject)
+        
+        return draft
+    except Exception as e:
+        st.error(f"Error generando borrador con IA: {e}")
+        return None

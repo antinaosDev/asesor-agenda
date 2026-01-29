@@ -942,6 +942,36 @@ Quedo atento a tu confirmación.
 Saludos."""
                 st.code(text_block, language="text")
 
+        # --- QUICK ADD: Create events from simple text ---
+        with st.expander("⚡ Crear Evento Rápido (QuickAdd)", expanded=False):
+            st.markdown("""
+            Crea eventos al instante con texto simple. Ejemplos:
+            - `Reunión mañana 3pm`
+            - `Almuerzo viernes 1pm con Juan`
+            - `Call lunes 9am`
+            """)
+            
+            with st.form("quick_add_form"):
+                quick_text = st.text_input("Descripción del evento:", placeholder="Reunión mañana 3pm")
+                quick_submit = st.form_submit_button("⚡ Crear", type="primary")
+            
+            if quick_submit and quick_text:
+                cal_svc = get_calendar_service()
+                if not cal_svc:
+                    st.error("Conecta tu calendario primero.")
+                else:
+                    from modules.google_services import quick_add_event
+                    with st.spinner("Creando evento rápido..."):
+                        event = quick_add_event(cal_svc, quick_text)
+                        if event:
+                            st.success(f"✅ Evento creado: **{event.get('summary', 'Evento')}**")
+                            st.caption(f"📅 {event.get('start', {}).get('dateTime', 'Fecha no disponible')}")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("No se pudo crear el evento. Verifica el texto.")
+
+        # --- MAIN AI PROCESSING FORM ---
         with st.form("create_event"):
             # Use 'create_prompt' key to bind with the generator above
             prompt = st.text_area("¿Qué deseas agendar?", height=150, 
@@ -952,7 +982,7 @@ Saludos."""
 
             c_btn1, c_btn2 = st.columns([1, 4])
             with c_btn1:
-                submitted = st.form_submit_button("Procesar", type="primary", width="stretch")
+                submitted = st.form_submit_button("Procesar", type="primary", use_container_width=True)
 
         if submitted and prompt:
             with st.spinner("🧠 Analizando patrones y extrayendo datos..."):
@@ -1015,7 +1045,7 @@ Saludos."""
             """, unsafe_allow_html=True)
 
             c_act1, c_act2 = st.columns([1, 4])
-            with c_act2:
+             with c_act2:
                 if item_type == 'task':
                      c_t1, c_t2 = st.columns([1, 1])
                      
@@ -1024,13 +1054,22 @@ Saludos."""
                             svc_task = get_tasks_service()
                             if not svc_task: st.error("Conecta Google Tasks primero.")
                             else:
-                                 # Parse Due Date
+                                 # Parse Start and Due Dates from AI-detected task
+                                 start_dt = None
                                  due_dt = None
+                                 
                                  if ev.get('start_time'):
-                                     try: due_dt = datetime.datetime.fromisoformat(ev['start_time'])
+                                     try: 
+                                         start_dt = datetime.datetime.fromisoformat(ev['start_time'])
                                      except: pass
                                  
-                                 res = add_task_to_google(svc_task, "@default", summary, desc, due_date=due_dt)
+                                 if ev.get('end_time'):
+                                     try: 
+                                         due_dt = datetime.datetime.fromisoformat(ev['end_time'])
+                                     except: pass
+                                 
+                                 res = add_task_to_google(svc_task, "@default", summary, desc, 
+                                                         due_date=due_dt, start_date=start_dt)
                                  if res: st.success("¡Tarea Guardada!"); time.sleep(1); st.rerun()
                                  else: st.error("Error al guardar tarea.")
                      
