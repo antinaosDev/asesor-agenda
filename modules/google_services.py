@@ -415,6 +415,129 @@ def fetch_emails_batch(service, start_date=None, end_date=None, max_results=15):
         st.error(f"Error Gmail: {e}")
         return []
 
+def create_draft(service, user_id, message_body):
+    """Creates a draft email."""
+    try:
+        message = {'message': message_body}
+        draft = service.users().drafts().create(userId=user_id, body=message).execute()
+        return draft
+    except Exception as e:
+        print(f"Error creating draft: {e}")
+        return None
+
+def modify_message_labels(service, user_id, msg_id, add_ids=[], remove_ids=[]):
+    """Modifies labels of a message (e.g., Archive = remove INBOX)."""
+    try:
+        body = {'addLabelIds': add_ids, 'removeLabelIds': remove_ids}
+        message = service.users().messages().modify(userId=user_id, id=msg_id, body=body).execute()
+        return message
+    except Exception as e:
+        print(f"Error modifying labels: {e}")
+        return None
+
+def archive_message(service, user_id, msg_id):
+    """Archives a message by removing the INBOX label."""
+    return modify_message_labels(service, user_id, msg_id, remove_ids=['INBOX'])
+
+def get_or_create_label(service, user_id, label_name):
+    """Gets label ID by name or creates it if missing."""
+    try:
+        # List labels
+        results = service.users().labels().list(userId=user_id).execute()
+        labels = results.get('labels', [])
+        
+        for label in labels:
+            if label['name'].lower() == label_name.lower():
+                return label['id']
+        
+        # Create if not found
+        label_object = {
+            'name': label_name,
+            'labelListVisibility': 'labelShow',
+            'messageListVisibility': 'show'
+        }
+        created_label = service.users().labels().create(userId=user_id, body=label_object).execute()
+        return created_label['id']
+    except Exception as e:
+        print(f"Error managing label {label_name}: {e}")
+        return None
+
+def archive_old_emails(service, hours_old=720):
+    """Archives 'Promotions' older than X hours (default 30 days)."""
+    try:
+        # Calculate date
+        cutoff = datetime.datetime.now() - datetime.timedelta(hours=hours_old)
+        date_str = cutoff.strftime('%Y/%m/%d')
+        
+        # Query: category:promotions AND before:YYYY/MM/DD AND in:inbox
+        query = f"category:promotions before:{date_str} in:inbox"
+        
+        # List messages (up to 500 at a time)
+        results = service.users().messages().list(userId='me', q=query, maxResults=500).execute()
+        messages = results.get('messages', [])
+        
+        if not messages:
+            return 0
+            
+        # Batch Modify
+        msg_ids = [m['id'] for m in messages]
+        body = {'removeLabelIds': ['INBOX']}
+        service.users().messages().batchModify(userId='me', body={'ids': msg_ids, 'removeLabelIds': ['INBOX']}).execute()
+        
+        return len(msg_ids)
+    except Exception as e:
+        print(f"Error bulk archiving: {e}")
+        return -1
+
+def setup_gtd_labels(service, user_id='me'):
+    """Ensures GTD label hierarchy exists."""
+    labels = ["@GTD/1-Acción", "@GTD/2-Espera", "@GTD/3-Leer", "@GTD/4-Fiscal"]
+    ids = {}
+    for lbl in labels:
+        lid = get_or_create_label(service, user_id, lbl)
+        if lid: ids[lbl] = lid
+    return ids
+
+def auto_tag_gtd(service, email_results, user_id='me'):
+    """Applies GTD labels based on AI analysis."""
+    try:
+        label_map = setup_gtd_labels(service, user_id)
+        
+        # Mapping AI Category -> GTD Label
+        # AI Categories (from prompt): Solicitud, Información, Pagos, Reunión, Otro
+        cat_map = {
+            "Solicitud": "@GTD/1-Acción",
+            "Reunión": "@GTD/1-Acción", # Meetings require action (scheduling)
+            "Pagos": "@GTD/4-Fiscal",
+            "Información": "@GTD/3-Leer",
+            "Otro": "@GTD/3-Leer"
+        }
+        
+        # Also check Urgency
+        
+        count = 0
+        for ev in email_results:
+            cat = ev.get('category', 'Otro')
+            urg = ev.get('urgency', 'Baja')
+            
+            target_label_name = cat_map.get(cat, "@GTD/3-Leer")
+            
+            # Override for High Urgency
+            if urg == 'Alta':
+                target_label_name = "@GTD/1-Acción"
+                
+            label_id = label_map.get(target_label_name)
+            
+            if label_id and ev.get('id'):
+                # Apply Label
+                modify_message_labels(service, user_id, ev['id'], add_ids=[label_id])
+                count += 1
+        
+        return count
+    except Exception as e:
+        print(f"Error Auto-Tagging: {e}")
+        return 0
+
 def get_task_lists(service):
     """Returns a list of task lists."""
     retries = 3
@@ -642,6 +765,12 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
         
         if color_id:
             event_body['colorId'] = color_id
+            
+        # Transparency (Availability Control)
+        # 'opaque' = Busy (Default), 'transparent' = Free/Available
+        transparency = event_data.get('transparency')
+        if transparency:
+            event_body['transparency'] = transparency
             
         # Recurrence Support
         recurrence = event_data.get('recurrence')

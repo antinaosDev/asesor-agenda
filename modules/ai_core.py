@@ -347,7 +347,41 @@ def analyze_emails_ai(emails, custom_model=None):
     fallback_model = "llama-3.1-8b-instant"
     
     # Model Selection
-    model_id = custom_model
+    model_id = custom_model if custom_model else default_primary
+    
+    # ... (Rest of analyze_emails_ai code)
+
+# --- NEW: SMART REPLY ---
+PROMPT_EMAIL_REPLY = """
+Eres un Asistente Ejecutivo. Tu tarea es redactar una RESPUESTA DE BORRADOR para el siguiente correo.
+Correo Recibido:
+"{email_body}"
+
+Intención de Respuesta: {intent} (Ej: Confirmar, Reagendar, Negociar)
+
+Instrucciones:
+- Idioma: Español Profesional (Neutro).
+- Tono: Cortés, directo y eficiente.
+- Formato: Solo el cuerpo del correo. No incluyas "Asunto:" ni saludos placeholders como "[Tu Nombre]" (usa 'Atte.' simple).
+
+Borrador:
+"""
+
+@st.cache_data(show_spinner=False)
+def generate_reply_email(email_body, intent="Confirmar recepción"):
+    client = _get_groq_client()
+    try:
+        completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": PROMPT_EMAIL_REPLY.format(email_body=email_body[:2000], intent=intent)}
+            ],
+            model="llama-3.1-8b-instant",
+            temperature=0.3,
+            max_tokens=256
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Error generando borrador: {e}"
     if not model_id:
          if 'user_data_full' in st.session_state and 'modelo_ia' in st.session_state.user_data_full:
              pref = str(st.session_state.user_data_full['modelo_ia']).strip()
@@ -421,7 +455,12 @@ def analyze_emails_ai(emails, custom_model=None):
     for res in all_results:
         # Validate ID match
         if 'id' in res and res['id'] in email_map:
-            res['threadId'] = email_map[res['id']].get('threadId')
+            original = email_map[res['id']]
+            res['threadId'] = original.get('threadId')
+            # Enrichment for Smart Reply
+            res['body'] = original.get('body', '') 
+            res['sender'] = original.get('sender', '')
+            res['subject_original'] = original.get('subject', '')
             final_clean.append(res)
             
     return final_clean

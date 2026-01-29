@@ -873,6 +873,72 @@ def view_create():
                 st.rerun()
         # ----------------------------
 
+        # --- AVAILABILITY MANAGER (Approved Feature) ---
+        with st.expander("📅 Gestor de Disponibilidad & Citas", expanded=False):
+            st.info("Define tus bloques 'Disponibles'. Esto crea eventos transparentes (no ocupan espacio) y genera textos para correos.")
+            
+            c_av1, c_av2 = st.columns(2)
+            with c_av1:
+                av_days = st.multiselect("Días Disponibles", ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"], ["Martes", "Jueves"])
+                av_start = st.time_input("Desde", datetime.time(10, 0), key="av_start")
+            with c_av2:
+                av_title = st.text_input("Etiqueta", "🟢 Disponible")
+                av_end = st.time_input("Hasta", datetime.time(12, 0), key="av_end")
+
+            c_act1, c_act2 = st.columns(2)
+            
+            # Action 1: Create in Calendar
+            if c_act1.button("📅 Crear en Calendario"):
+                if not av_days:
+                    st.error("Selecciona al menos un día.")
+                else:
+                    try:
+                        service = get_calendar_service()
+                        if service:
+                            # Create RRULE
+                            # Map days to RRULE format (MO, TU, WE, TH, FR)
+                            day_map = {"Lunes": "MO", "Martes": "TU", "Miércoles": "WE", "Jueves": "TH", "Viernes": "FR"}
+                            rrule_days = ",".join([day_map[d] for d in av_days])
+                            
+                            # Calculate Start DT (Next occurrence of first day?) 
+                            # Simplification: Today + Time, let google handle recurrence start or specific logic
+                            # Better: Start 'Tomorrow' to avoid past issues, or 'Today' if time hasn't passed.
+                            today = datetime.date.today()
+                            start_dt = datetime.datetime.combine(today, av_start)
+                            end_dt = datetime.datetime.combine(today, av_end)
+                             
+                            event_data = {
+                                "summary": av_title,
+                                "start_time": start_dt.isoformat(),
+                                "end_time": end_dt.isoformat(),
+                                "description": "Bloque de disponibilidad generado por Asistente IA.",
+                                "colorId": "2", # Sage (Green/Planning)
+                                "transparency": "transparent", # KEY FEATURE
+                                "recurrence": [f"RRULE:FREQ=WEEKLY;BYDAY={rrule_days}"]
+                            }
+                            
+                            success, msg = add_event_to_calendar(service, event_data)
+                            if success:
+                                st.success(f"✅ Disponibilidad creada: {msg}")
+                                time.sleep(2)
+                                st.rerun()
+                            else:
+                                st.error(f"Error: {msg}")
+                    except Exception as e:
+                        st.error(f"Error conectando: {e}")
+
+            # Action 2: Copy Text
+            if c_act2.button("📋 Copiar Texto Email"):
+                days_txt = ", ".join(av_days)
+                text_block = f"""Hola,
+                
+Para nuestra reunión, mis horarios disponibles son:
+📅 {days_txt} de {av_start.strftime('%H:%M')} a {av_end.strftime('%H:%M')} hrs.
+
+Quedo atento a tu confirmación.
+Saludos."""
+                st.code(text_block, language="text")
+
         with st.form("create_event"):
             # Use 'create_prompt' key to bind with the generator above
             prompt = st.text_area("¿Qué deseas agendar?", height=150, 
@@ -1653,8 +1719,29 @@ def view_inbox():
                 st.info("🕒 Podrás analizar más correos mañana.")
 
         if quota_allowed:
-            if st.button("🔄 Conectar y Analizar Buzón"):
-                st.session_state.trigger_mail_analysis = True
+            c_act_a, c_act_b = st.columns([2, 1])
+            with c_act_a:
+                if st.button("🔄 Conectar y Analizar Buzón", use_container_width=True):
+                    st.session_state.trigger_mail_analysis = True
+            with c_act_b:
+                if st.button("☢️ Limpieza (Promociones > 30d)", help="Opción Nuclear: Archiva promociones antiguas.", use_container_width=True):
+                    with st.spinner("Ejecutando limpieza masiva..."):
+                        from modules.google_services import archive_old_emails, get_gmail_credentials
+                        from googleapiclient.discovery import build
+                        # Ensure creds
+                        creds = get_gmail_credentials()
+                        if creds:
+                            svc = build('gmail', 'v1', credentials=creds)
+                            count = archive_old_emails(svc, hours_old=720) # 30 days
+                            if count >= 0:
+                                st.success(f"✅ Se archivaron {count} correos antiguos.")
+                                time.sleep(2)
+                                st.rerun()
+                            else:
+                                st.error("Error en limpieza.")
+                        else:
+                            st.error("No conectado.")
+
         else:
             # Ensure analysis doesn't run if quota exceeded even if triggered somehow
             st.session_state.trigger_mail_analysis = False
@@ -1811,6 +1898,14 @@ def view_inbox():
                             with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
                                 analyzed_items = analyze_emails_ai(emails)
                             st.session_state.ai_gmail_events = analyzed_items 
+                            
+                            # --- GTD AUTO-TAG (New Feature) ---
+                            with st.spinner("🏷️ Aplicando etiquetas GTD..."):
+                                from modules.google_services import auto_tag_gtd
+                                tagged_count = auto_tag_gtd(service_gmail, analyzed_items, user_id='me')
+                                if tagged_count > 0:
+                                    st.toast(f"✅ {tagged_count} etiquetas GTD aplicadas.")
+                            # ---------------------------------- 
 
                             # --- ATOMIC SAVE: HISTORY + QUOTA ---
                             if 'license_key' in st.session_state:
@@ -2027,6 +2122,37 @@ def view_inbox():
                                 user_email = st.session_state.get('connected_email', '0')
                                 email_link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
                                 st.markdown(f"🔗 [Ver Correo Original]({email_link})")
+
+                            # --- SMART REPLY UI ---
+                            st.divider()
+                            st.caption("🤖 Asistente de Respuesta")
+                            c_sr1, c_sr2 = st.columns([2, 1])
+                            with c_sr1:
+                                intent_opts = ["Confirmar recepción", "Solicitar reunión", "Agradecer", "Pedir más detalles", "Rechazar amablemente", "Delegar"]
+                                intent = st.selectbox("Intención", intent_opts, key=f"sr_int_{i}", label_visibility="collapsed")
+                            with c_sr2:
+                                if st.button("✍️ Redactar", key=f"sr_gen_{i}", use_container_width=True):
+                                    with st.spinner("Redactando..."):
+                                        from modules.ai_core import generate_reply_email
+                                        draft_text = generate_reply_email(t.get('body', ''), intent)
+                                        st.session_state[f"draft_body_{i}"] = draft_text
+
+                            if st.session_state.get(f"draft_body_{i}"):
+                                d_body = st.text_area("Borrador", st.session_state[f"draft_body_{i}"], key=f"dr_txt_{i}", height=150)
+                                if st.button("📤 Guardar en Borradores Gmail", key=f"dr_save_{i}"):
+                                    from modules.google_services import create_draft, get_gmail_credentials
+                                    creds = get_gmail_credentials()
+                                    if creds:
+                                        from googleapiclient.discovery import build
+                                        svc = build('gmail', 'v1', credentials=creds)
+                                        if create_draft(svc, 'me', d_body):
+                                            st.success("✅ Borrador guardado en Gmail.")
+                                            time.sleep(1)
+                                            # Optional: Clear state
+                                            del st.session_state[f"draft_body_{i}"]
+                                            st.rerun()
+                                        else: st.error("Error guardando.")
+                            # ----------------------
 
                             # Action: Save as Task OR Time Block
                             c_task1, c_task2 = st.columns([1, 1.2]) # Adjusted ratio
