@@ -325,7 +325,8 @@ def analyze_document_vision(text_content, images_base64=[]):
         st.error(f"Vision Analysis Error: {e}")
         return []
 
-@st.cache_data(ttl=7200, show_spinner=False)
+# TEMPORARILY DISABLED FOR DEBUGGING - Re-enable after AI is working
+# @st.cache_data(ttl=7200, show_spinner=False)
 def analyze_emails_ai(emails, custom_model=None):
     """
     Analiza correos usando IA para categorizar/etiquetar.
