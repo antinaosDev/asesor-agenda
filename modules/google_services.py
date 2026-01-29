@@ -538,6 +538,74 @@ def auto_tag_gtd(service, email_results, user_id='me'):
         print(f"Error Auto-Tagging: {e}")
         return 0
 
+
+def delete_events_bulk(service, calendar_id, start_date, end_date):
+    """Deletes events within a range."""
+    try:
+        # ISO format with timezone (Z for UTC or just straight ISO)
+        t_min = datetime.datetime.combine(start_date, datetime.time.min).isoformat() + 'Z'
+        t_max = datetime.datetime.combine(end_date, datetime.time.max).isoformat() + 'Z'
+        
+        # List events
+        events_result = service.events().list(
+            calendarId=calendar_id, 
+            timeMin=t_min, 
+            timeMax=t_max, 
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        events = events_result.get('items', [])
+        
+        count = 0
+        for event in events:
+            try:
+                service.events().delete(calendarId=calendar_id, eventId=event['id']).execute()
+                count += 1
+                # Rate limit safety
+                if count % 10 == 0: time.sleep(0.5)
+            except: pass
+            
+        return count
+    except Exception as e:
+        return f"Error: {e}"
+
+def delete_tasks_bulk(service, tasklist_id, start_date=None, end_date=None, delete_all=False):
+    """Deletes tasks. Optionally filtered by due date."""
+    try:
+        # List all tasks
+        results = service.tasks().list(tasklist=tasklist_id, showHidden=True).execute()
+        tasks = results.get('items', [])
+        
+        count = 0
+        deleted = 0
+        
+        for t in tasks:
+            should_delete = False
+            if delete_all:
+                should_delete = True
+            elif start_date and end_date:
+                # Check Due Date
+                due_str = t.get('due')
+                if due_str:
+                    # Parse ISO
+                    try:
+                        # Handle '2023-10-25T12:00:00.000Z'
+                        due_dt = datetime.datetime.fromisoformat(due_str.replace('Z', '+00:00')).date()
+                        if start_date <= due_dt <= end_date:
+                            should_delete = True
+                    except: pass
+            
+            if should_delete:
+                try:
+                    service.tasks().delete(tasklist=tasklist_id, task=t['id']).execute()
+                    deleted += 1
+                    if deleted % 10 == 0: time.sleep(0.5)
+                except: pass
+                
+        return deleted
+    except Exception as e:
+        return f"Error: {e}"
+
 def get_task_lists(service):
     """Returns a list of task lists."""
     retries = 3

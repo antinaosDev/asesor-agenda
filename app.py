@@ -1601,6 +1601,7 @@ def view_planner():
 
 
 def view_inbox():
+    from modules.google_services import get_gmail_credentials, archive_old_emails, get_calendar_service, add_event_to_calendar, get_tasks_service, add_task_to_google
 
 
     # Modern header with glassmorphism
@@ -2217,6 +2218,8 @@ def view_inbox():
             st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")
 
 def view_optimize():
+    from modules.google_services import get_calendar_service, get_tasks_service, add_task_to_google, delete_events_bulk, delete_tasks_bulk, deduplicate_calendar_events, deduplicate_tasks
+    
     # Modern header with glassmorphism
     st.markdown("""
     <div style='background: linear-gradient(135deg, rgba(13,215,242,0.1) 0%, rgba(9,168,196,0.05) 100%); 
@@ -2296,6 +2299,70 @@ def view_optimize():
                 st.rerun()
             else:
                 st.success("✨ No se encontraron duplicados. Tu agenda está limpia.")
+
+    # --- BULK MANAGEMENT (DELETE) ---
+    with st.expander("🗑️ Gestión Masiva (Eliminación)", expanded=False):
+        st.warning("⚠️ ZONA DE PELIGRO: Las acciones aquí no se pueden deshacer.")
+        
+        tab_del_ev, tab_del_tk = st.tabs(["📅 Eliminar Eventos", "📝 Eliminar Tareas"])
+        
+        # TAB 1: EVENTS
+        with tab_del_ev:
+            c_de1, c_de2 = st.columns(2)
+            with c_de1:
+                de_start = st.date_input("Desde", datetime.date.today().replace(day=1), key="de_start")
+            with c_de2:
+                de_end = st.date_input("Hasta", datetime.date.today().replace(day=28) + datetime.timedelta(days=4), key="de_end")
+            
+            st.info(f"Se eliminarán TODOS los eventos entre {de_start} y {de_end} del calendario seleccionado ({calendar_id}).")
+            
+            confirm_ev = st.checkbox("Entiendo que esto es irreversible", key="chk_del_ev")
+            if st.button("🗑️ Eliminar Eventos en Rango", disabled=not confirm_ev, type="primary"):
+                with st.spinner("Eliminando eventos..."):
+                    from modules.google_services import delete_events_bulk, get_calendar_service
+                    svc = get_calendar_service()
+                    if svc:
+                        count = delete_events_bulk(svc, calendar_id, de_start, de_end)
+                        if isinstance(count, int):
+                            st.success(f"✅ Se eliminaron {count} eventos.")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(f"Error: {count}")
+
+        # TAB 2: TASKS
+        with tab_del_tk:
+            st.write("Selecciona Lista:")
+            task_svc = get_tasks_service()
+            if task_svc:
+                lists = get_task_lists(task_svc)
+                list_opts = {l['title']: l['id'] for l in lists}
+                sel_list_name = st.selectbox("Lista de Tareas", list(list_opts.keys()))
+                sel_list_id = list_opts.get(sel_list_name)
+                
+                del_mode = st.radio("Modo de Eliminación", ["Por Fecha de Vencimiento", "TODO (Vaciar Lista)"], key="radio_del_tk")
+                
+                dt_start, dt_end = None, None
+                if "Fecha" in del_mode:
+                    c_dt1, c_dt2 = st.columns(2)
+                    with c_dt1: dt_start = st.date_input("Vencimiento Desde", datetime.date.today(), key="tk_start")
+                    with c_dt2: dt_end = st.date_input("Vencimiento Hasta", datetime.date.today(), key="tk_end")
+                
+                confirm_tk = st.checkbox("Confirmar eliminación permanente de tareas", key="chk_del_tk")
+                
+                if st.button("🗑️ Eliminar Tareas", disabled=not confirm_tk, type="primary"):
+                    with st.spinner("Eliminando tareas..."):
+                        from modules.google_services import delete_tasks_bulk
+                        delete_all = "TODO" in del_mode
+                        count = delete_tasks_bulk(task_svc, sel_list_id, dt_start, dt_end, delete_all=delete_all)
+                         
+                        if isinstance(count, int):
+                            st.success(f"✅ Se eliminaron {count} tareas.")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(f"Error: {count}")
+    # --------------------------------
 
 
     if 'opt_events' in st.session_state and st.session_state.opt_events:
