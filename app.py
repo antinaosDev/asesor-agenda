@@ -1760,6 +1760,7 @@ def view_inbox():
         if quota_allowed:
             c_act_a, c_act_b = st.columns([2, 1])
             with c_act_a:
+                st.checkbox("Forzar Re-análisis (Ignorar Historial)", key="chk_force_reanalysis", help="Vuelve a leer correos aunque ya estén marcados como leídos.")
                 if st.button("🔄 Conectar y Analizar Buzón", use_container_width=True):
                     st.session_state.trigger_mail_analysis = True
             with c_act_b:
@@ -1928,13 +1929,20 @@ def view_inbox():
                     if not emails:
                         st.warning("No se encontraron correos nuevos relevantes en el período.")
                     else:
-                        # --- FILTER ---
+                    if not emails:
+                        st.warning("No se encontraron correos nuevos relevantes en el período.")
+                    else:
+                        # --- FILTER (Check Force Flag) ---
+                        force_re = st.session_state.get('chk_force_reanalysis', False)
+                        
                         initial_count = len(emails)
-                        emails = [e for e in emails if e['id'] not in all_ids]
-                        skipped_count = initial_count - len(emails)
-
-                        if skipped_count > 0:
-                            st.info(f"⏩ Se omitieron **{skipped_count} correos** ya presentes en tu Historial Global.")
+                        if not force_re:
+                            emails = [e for e in emails if e['id'] not in all_ids]
+                            skipped_count = initial_count - len(emails)
+                            if skipped_count > 0:
+                                st.info(f"⏩ Se omitieron **{skipped_count} correos** ya presentes en tu Historial Global.")
+                        else:
+                            st.warning("⚠️ Modo Re-análisis activado: Ignorando historial.")
                         # --------------
 
                         if not emails:
@@ -1987,6 +1995,13 @@ def view_inbox():
                     st.session_state.trigger_mail_analysis = False
             else:
                 pass
+                
+        # --- DEBUG AI OUTPUT ---
+        if 'debug_ai_raw' in st.session_state and st.session_state.debug_ai_raw:
+            with st.expander("🕵️ Output Crudo de IA (Debug)", expanded=False):
+                for d in st.session_state.debug_ai_raw:
+                    st.text(d)
+        # -----------------------
 
     with col_g2:
         # Check if analysis has run (ignoring if empty)

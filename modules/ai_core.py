@@ -16,37 +16,34 @@ def _get_groq_client():
 
 PROMPT_EMAIL_ANALYSIS = """
 Eres un Asistente Ejecutivo de Élite ("Agente A2").
-Analiza estos correos COMPLETAMENTE. Tu objetivo es clasificar CADA ítem como EVENTO o TAREA usando REGLAS ESTRICTAS.
-
-1️⃣ DEFINICIONES NO NEGOCIABLES:
-- 🗓 EVENTO: Tiene HORA específica (ej: 10:00 AM) o es una reunión/cita concreta. Bloquea el calendario.
-- ✅ TAREA: Es algo que se debe hacer en un RANGO de fechas ("Ene-Mar"), o tiene un DEADLINE ("Para el viernes"), o es una acción ("Enviar informe").
-
-2️⃣ REGLAS DURAS (HARD RULES):
-- 🧱 Rango de Fechas (ej. "Ene 2 - Mar 15") -> TAREA (Siempre).
-- 🧱 Verbos de Acción (Realizar, Entregar, Preparar) -> TAREA.
-- 🧱 Hitos / Plazos / Vencimientos -> TAREA.
-- 🧱 Hora Exacta (ej. "15:00", "10am") -> EVENTO.
+Tu única misión es EXTRAER eventos y tareas de estos correos. 
+NO FILTRES NADA. Si hay una fecha, ES UN EVENTO O TAREA.
 
 Fecha Actual: {current_date}
 
-Output: Lista JSON de objetos:
-{{
-    "id": "email_id_from_input",
-    "type": "event" | "task",
-    "summary": "Título profesional en español (Ej: 'Reunión...' o 'Entrega...')",
-    "description": "Resumen EJECUTIVO. Si es TAREA, incluye fechas de rango o deadline explícito.",
-    "start_time": "YYYY-MM-DDTHH:MM:SS" (Evento: Inicio Real / Tarea: Deadline o Inicio Rango 09:00),
-    "end_time": "YYYY-MM-DDTHH:MM:SS" (Evento: Fin Real / Tarea: Igual a start_time o Fin Rango),
-    "urgency": "Alta" | "Media" | "Baja",
-    "category": "Solicitud" | "Información" | "Pagos" | "Reunión" | "Otro"
-}}
+INSTRUCCIONES DE EXTRACCIÓN ("MODO CAZADOR"):
+1.  **¿Tiene Hora?** -> ES UN EVENTO (`event`). (Ej: "Reunión a las 10am", "Vuelo 15:00").
+2.  **¿Solo Fecha?** -> ES UNA TAREA (`task`). (Ej: "Entregar viernes", "Vence el 2 de Oct").
+3.  **¿Rango?** -> ES UNA TAREA (`task`). (Ej: "Vacaciones Ene 5-10").
+4.  **¿Ambigüo?** -> ANTE LA DUDA, CRÉALO COMO TAREA. Incluye todo el texto relevante en la descripción.
 
-Reglas CRÍTICAS de Output:
-- **CAPTURA TOTAL**: Tu misión es NO PERDER DETALLES. Si hay fechas, nombres, teléfonos o instrucciones, INCLÚYELOS en la descripción.
-- **AMBIGÜEDAD = TAREA**: Si dudas, crea una TAREA para que el usuario revise. Mejor que sobre a que falte.
-- **IDIOMA**: Output 100% en ESPAÑOL.
-- **JSON PURO**: No uses Markdown.
+REGLAS DE SALIDA:
+- **CAPTURA TODO**: No omitas nada. Si el correo menciona una reunión futura, extráela.
+- **CONTACTOS**: Si hay teléfonos, links o direcciones en el cuerpo, PÓNLOS en la `description`.
+- **IDIOMA**: Español.
+
+Output JSON Format (Lista de objetos):
+[
+  {{
+    "id": "email_id",
+    "type": "event" | "task",
+    "summary": "Título breve y claro",
+    "description": "Detalles completos. Quién, dónde, links, teléfonos. Contexto original.",
+    "start_time": "YYYY-MM-DDTHH:MM:SS" (Si no hay hora, usa 09:00:00),
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (Si no hay hora, usa 10:00:00),
+    "category": "Reunión" | "Solicitud" | "Información" | "Pagos"
+  }}
+]
 """
 
 
@@ -342,9 +339,8 @@ def analyze_emails_ai(emails, custom_model=None):
     
     # Configuration
     BATCH_SIZE = 5 # Process 5 emails at a time to prevent token truncation
-    # Cost Optimization: Switched to 8B-Instant to fit $5/mo budget for 15 users.
-    # Previous 70B model would cost ~$12/mo. 8B costs ~$1.50/mo.
-    default_primary = "llama-3.1-8b-instant" 
+    # Cost Optimization: using 70B for better accuracy as requested by user ("tienes que capturar eventos")
+    default_primary = "llama-3.3-70b-versatile" 
     fallback_model = "llama-3.1-8b-instant"
     
     # Model Selection
@@ -422,6 +418,10 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
                 max_tokens=4096 # Increased from 2048
             )
             raw_content = completion.choices[0].message.content.strip()
+            # Visualize Raw Output for Debugging
+            if 'debug_ai_raw' not in st.session_state: st.session_state.debug_ai_raw = []
+            st.session_state.debug_ai_raw.append(f"BATCH {i}:\n{raw_content}")
+            
             print(f"--- DEBUG AI BATCH {i} ---")
             print(f"INPUT LEN: {len(batch_text)}")
             print(f"OUTPUT: {raw_content[:500]}...") # Print first 500 chars
