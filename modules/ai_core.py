@@ -91,6 +91,12 @@ If date indicates: "deadline", "until", "before", "max by".
 If it lasts: "several days", "weeks", "months".
 ➡️ TASK.
 
+🧱 Rule 6 – Multiple Items = SPLIT
+If input contains multiple distinct sections, dates, or milestones (e.g. a schedule list):
+➡️ SPLIT into a JSON LIST of multiple objects. Do NOT combine them.
+Example Input: "Jan 5: Meeting. Feb 10: Report due."
+Output: [{"summary": "Meeting"...}, {"summary": "Report due"...}]
+
 Context:
 - Current Date: {current_date}
 - Default Year: {current_year}
