@@ -1760,7 +1760,6 @@ def view_inbox():
         if quota_allowed:
             c_act_a, c_act_b = st.columns([2, 1])
             with c_act_a:
-                st.checkbox("Forzar Re-análisis (Ignorar Historial)", key="chk_force_reanalysis", help="Vuelve a leer correos aunque ya estén marcados como leídos.")
                 if st.button("🔄 Conectar y Analizar Buzón", use_container_width=True):
                     st.session_state.trigger_mail_analysis = True
             with c_act_b:
@@ -1929,17 +1928,14 @@ def view_inbox():
                     if not emails:
                         st.warning("No se encontraron correos nuevos relevantes en el período.")
                     else:
-                        # --- FILTER (Check Force Flag) ---
-                        force_re = st.session_state.get('chk_force_reanalysis', False)
+                        # --- FILTER (Always Skip Already Processed) ---
+                        force_re = False  # Re-analysis removed, always respect history
                         
                         initial_count = len(emails)
-                        if not force_re:
-                            emails = [e for e in emails if e['id'] not in all_ids]
-                            skipped_count = initial_count - len(emails)
-                            if skipped_count > 0:
-                                st.info(f"⏩ Se omitieron **{skipped_count} correos** ya presentes en tu Historial Global.")
-                        else:
-                            st.warning("⚠️ Modo Re-análisis activado: Ignorando historial.")
+                        emails = [e for e in emails if e['id'] not in all_ids]
+                        skipped_count = initial_count - len(emails)
+                        if skipped_count > 0:
+                            st.info(f"⏩ Se omitieron **{skipped_count} correos** ya presentes en tu Historial Global.")
                         # --------------
 
                         if not emails:
@@ -2233,13 +2229,19 @@ def view_inbox():
                                     if creds:
                                         from googleapiclient.discovery import build
                                         svc = build('gmail', 'v1', credentials=creds)
-                                        if create_draft(svc, 'me', d_body):
+                                        # Get original subject if available
+                                        original_subject = task.get('subject_original', task.get('summary', 'Re: (Sin asunto)'))
+                                        if not original_subject.startswith('Re:'):
+                                            original_subject = f"Re: {original_subject}"
+                                        
+                                        if create_draft(svc, 'me', d_body, subject=original_subject):
                                             st.success("✅ Borrador guardado en Gmail.")
                                             time.sleep(1)
                                             # Optional: Clear state
                                             del st.session_state[f"draft_body_{i}"]
                                             st.rerun()
-                                        else: st.error("Error guardando.")
+                                        else: 
+                                            st.error("Error guardando.")
                             # ----------------------
 
                             # Action: Save as Task OR Time Block
