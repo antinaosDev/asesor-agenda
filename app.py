@@ -1045,7 +1045,7 @@ Saludos."""
             """, unsafe_allow_html=True)
 
             c_act1, c_act2 = st.columns([1, 4])
-             with c_act2:
+            with c_act2:
                 if item_type == 'task':
                      c_t1, c_t2 = st.columns([1, 1])
                      
