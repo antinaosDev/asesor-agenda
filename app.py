@@ -859,7 +859,7 @@ def view_create():
             
             c_gen1, c_gen2 = st.columns(2)
             with c_gen1:
-                r_title = st.text_input("Título del Bloque", "Atención de Apoderados")
+                r_title = st.text_input("Título del Bloque", "Atención de usuarios")
                 r_days = st.multiselect("Días", ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"], ["Lunes"])
             with c_gen2:
                 r_start = st.time_input("Inicio", datetime.time(15, 0))
