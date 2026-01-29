@@ -2284,7 +2284,7 @@ def view_inbox():
                                         from googleapiclient.discovery import build
                                         svc = build('gmail', 'v1', credentials=creds)
                                         # Get original subject if available
-                                        original_subject = task.get('subject_original', task.get('summary', 'Re: (Sin asunto)'))
+                                        original_subject = t.get('subject_original', t.get('summary', 'Re: (Sin asunto)'))
                                         if not original_subject.startswith('Re:'):
                                             original_subject = f"Re: {original_subject}"
                                         
