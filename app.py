@@ -1946,8 +1946,28 @@ def view_inbox():
                             st.warning("Todos los correos recientes ya fueron procesados. ¡Estás al día!")
                         else:
                             st.session_state.fetched_emails = emails
-                            with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
-                                analyzed_items = analyze_emails_ai(emails)
+                            
+                            # === EMERGENCY LOGGING ===
+                            st.info(f"📊 DEBUG: Procesando {len(emails)} correos...")
+                            
+                            analyzed_items = []
+                            try:
+                                with st.spinner(f"🧠 La IA está analizando y categorizando {len(emails)} correos..."):
+                                    analyzed_items = analyze_emails_ai(emails)
+                                
+                                # FORCE debug output check
+                                if 'debug_ai_raw' not in st.session_state or not st.session_state.debug_ai_raw:
+                                    st.error("⚠️ CRITICAL: analyze_emails_ai NO capturó debug output. Posible fallo silencioso.")
+                                else:
+                                    st.success(f"✅ Debug capturado: {len(st.session_state.debug_ai_raw)} batches")
+                                    
+                            except Exception as ai_err:
+                                st.error(f"❌ ERROR EN ANÁLISIS DE IA: {ai_err}")
+                                st.error(f"Tipo: {type(ai_err).__name__}")
+                                import traceback
+                                st.code(traceback.format_exc())
+                                analyzed_items = []
+                            
                             st.session_state.ai_gmail_events = analyzed_items 
                             
                             # --- GTD AUTO-TAG (New Feature) ---
@@ -1987,19 +2007,26 @@ def view_inbox():
                                 st.warning('La IA leyó los correos pero no encontró nada accionable.')
                 except Exception as e:
                     st.error(f"Error procesando correos: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
                 finally:
                     # Reset trigger so it doesn't loop forever
                     st.session_state.trigger_mail_analysis = False
             else:
                 pass
                 
-        # --- DEBUG AI OUTPUT (ALWAYS VISIBLE) ---
-        with st.expander("🕵️ Output Crudo de IA (Debug)", expanded=False):
-            if 'debug_ai_raw' in st.session_state and st.session_state.debug_ai_raw:
-                for d in st.session_state.debug_ai_raw:
-                    st.code(d, language='json')
-            else:
-                st.info("No hay output de IA todavía. Ejecuta un análisis primero.")
+        # --- DEBUG AI OUTPUT (ADMIN ONLY) ---
+        user_role = st.session_state.get('user_data_full', {}).get('rol', '').strip().upper()
+        if user_role == 'ADMIN':
+            with st.expander("🕵️ Output Crudo de IA (Debug - ADMIN ONLY)", expanded=False):
+                if 'debug_ai_raw' in st.session_state and st.session_state.debug_ai_raw:
+                    st.info(f"Total batches capturados: {len(st.session_state.debug_ai_raw)}")
+                    for idx, d in enumerate(st.session_state.debug_ai_raw):
+                        st.text(f"--- Batch {idx+1} ---")
+                        st.code(d, language='json')
+                else:
+                    st.warning("⚠️ No hay output de IA todavía. Ejecuta un análisis primero.")
+                    st.info("Si acabas de ejecutar y ves esto, significa que analyze_emails_ai falló silenciosamente.")
         # -----------------------
 
     with col_g2:
