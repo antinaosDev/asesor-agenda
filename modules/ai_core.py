@@ -49,11 +49,16 @@ Reglas CRÍTICAS:
 
 
 PROMPT_EVENT_PARSING = """
-You are an intelligent assistant that extracts calendar events from text and categorizes them with colors.
+You are an intelligent assistant that extracts and categorizes actionable items from text.
+Your goal is to distinguish between Calendar Events (meetings, strict time) and Todo Tasks (deliverables, deadlines).
 
 Context:
 - Current Date: {current_date}
 - Default Year: {current_year}
+
+ITEM TYPES:
+1. "event": Meetings, Calls, time-bound commitments, ALL-DAY specific blocking events.
+2. "task": Deliverables, Deadlines, "Milestones" that are goals not meetings, multi-day periods/phases (usually a deadline or reminder task).
 
 COLOR RULES (Google Calendar IDs):
 - "5" (Yellow): MAIS (Programa, Gestión MAIS).
@@ -73,11 +78,13 @@ CRITICAL RULES:
 3. **Smart Year**: Dates before today ({current_date}) should be next year ({current_year} + 1).
 4. **NO Timezones/UTC**: Return local time `YYYY-MM-DDTHH:MM:SS`.
 5. **LANGUAGE**: ALL OUTPUT MUST BE IN SPANISH.
+6. **Task vs Event**: If it's a "Hito", "Entrega", "Carga en plataforma", or "Formalización" without a specific meeting time 09:00 etc., classify as "task" (Task with Due Date).
 
 JSON Structure:
+- "type": "event" or "task".
 - "summary": Professional, Executive Title IN SPANISH.
 - "description": Comprehensive, FORMAL/EXECUTIVE description IN SPANISH. Use professional phrasing. MUST include ALL technical details.
-- "start_time": ISO 8601 (No Z).
+- "start_time": ISO 8601 (No Z). For Tasks, this is the DUE DATE (at 12:00:00).
 - "end_time": ISO 8601 (No Z).
 - "colorId": String ID.
 

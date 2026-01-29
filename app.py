@@ -862,39 +862,59 @@ def view_create():
             start_iso = ev.get('start_time', '2025-01-01')
             badge_html = render_date_badge(start_iso)
 
+            # Determine Type
+            item_type = ev.get('type', 'event')
+            
             st.markdown(f"""
             <div class="glass-panel" style="border-left: 4px solid #0dd7f2;">
                 <div style="display: flex; gap: 15px; align-items: start;">
                     {badge_html}
                     <div style="flex-grow: 1;">
-                        <h3 style="margin: 0; color: white;">{summary}</h3>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                             <span style="background: {'#1aa' if item_type=='task' else '#0dd'}; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; color: black; font-weight: bold;">{item_type.upper()}</span>
+                             <h3 style="margin: 0; color: white;">{summary}</h3>
+                        </div>
                         <p style="color: #9cb6ba; font-size: 0.9rem; margin-top: 5px;">{desc}</p>
                     </div>
                     <div>
-                         <span class="material-symbols-outlined" style="color: #0dd7f2;">event</span>
+                         <span class="material-symbols-outlined" style="color: #0dd7f2;">{'check_circle' if item_type=='task' else 'event'}</span>
                     </div>
-                </div>
-                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-top: 10px;">
-                    <p style="color: #ccc; font-size: 0.9rem;">{desc}</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            if st.button(f"Confirmar y Agendar '{summary}'", key=f"btn_add_{i}"):
-                cal_id = st.session_state.get('connected_email')
-                if not cal_id: st.error("Por favor conecta tu email primero.")
+            c_act1, c_act2 = st.columns([1, 4])
+            with c_act2:
+                if item_type == 'task':
+                     if st.button(f"✅ Guardar Tarea '{summary}'", key=f"btn_add_{i}"):
+                        svc_task = get_tasks_service()
+                        if not svc_task: st.error("Conecta Google Tasks primero.")
+                        else:
+                             # Parse Due Date
+                             due_dt = None
+                             if ev.get('start_time'):
+                                 try: due_dt = datetime.datetime.fromisoformat(ev['start_time'])
+                                 except: pass
+                             
+                             res = add_task_to_google(svc_task, "@default", summary, desc, due_date=due_dt)
+                             if res: st.success("¡Tarea Guardada!"); time.sleep(1); st.rerun()
+                             else: st.error("Error al guardar tarea.")
                 else:
-                    svc = get_calendar_service()
+                    if st.button(f"📅 Confirmar y Agendar '{summary}'", key=f"btn_add_{i}"):
+                        cal_id = st.session_state.get('connected_email')
+                        if not cal_id: st.error("Por favor conecta tu email primero.")
+                        else:
+                            svc = get_calendar_service()
 
-                    # Check for duplicates BEFORE creating
-                    from modules.google_services import check_event_exists
-                    if check_event_exists(svc, cal_id, ev):
-                        st.warning(f"✅ Ya agendado: '{summary}'")
-                        st.info("Este evento ya existe en tu calendario con datos similares.")
-                    else:
-                        ok, msg = add_event_to_calendar(svc, ev, cal_id)
-                        if ok: st.success("¡Evento Creado!")
-                        else: st.error(msg)
+                            # Check for duplicates BEFORE creating
+                            from modules.google_services import check_event_exists
+                            if check_event_exists(svc, cal_id, ev):
+                                st.warning(f"✅ Ya agendado: '{summary}'")
+                                st.info("Este evento ya existe en tu calendario con datos similares.")
+                            else:
+                                ok, msg = add_event_to_calendar(svc, ev, cal_id)
+                                if ok: st.success("¡Evento Creado!")
+                                else: st.error(msg)
 
 
 def view_planner():
