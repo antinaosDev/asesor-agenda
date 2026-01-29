@@ -1174,7 +1174,7 @@ def deduplicate_tasks(service):
                     
         return deleted_count
     except Exception as e:
-       st.error(f"Error deduplicating tasks: {e}")
+        st.error(f"Error deduplicating tasks: {e}")
         return 0
 
 
