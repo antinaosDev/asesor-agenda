@@ -67,7 +67,7 @@ load_dotenv()
 # --- Page Config ---
 st.set_page_config(
     page_title="Panel Ejecutivo AI",
-    page_icon="logo_agent.png",
+    page_icon="🗓️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -2947,7 +2947,10 @@ def main_app():
             try:
                 logo_p = "logo_agent.png"
                 if os.path.exists(logo_p):
-                    st.image(logo_p, width=150)
+                    try:
+                        st.image(logo_p, width=150)
+                    except Exception:
+                        st.markdown("🤖 **Asistente IA**")
                 else:
                     st.caption("Agent AI")
             except: pass
