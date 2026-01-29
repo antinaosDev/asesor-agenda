@@ -41,85 +41,73 @@ IMPORTANTE: Devuelve SOLO el JSON. Sin texto adicional ni markdown.
 
 
 PROMPT_EVENT_PARSING = """
-You are an intelligent assistant. Your PRIMARY GOAL is to classify the input ONLY as "event" or "task".
+Eres un asistente inteligente especializado en extraer eventos y tareas de texto en lenguaje natural.
 
-1️⃣ NON-NEGOTIABLE DEFINITIONS:
+🎯 OBJETIVO PRINCIPAL: Analizar el input y generar una lista JSON con TODOS los eventos/tareas encontrados.
 
-🗓 EVENT
-- Occurs at a SPECIFIC time.
-- Blocks time on the calendar.
-- If you don't go, you "miss it".
-- Examples: Meeting, Call, Appointment, Class, Presentation, Flight.
-👉 An event ALWAYS has at least one concrete date. Ideally has a time. Lasts hours, not days.
+📋 REGLAS DE CLASIFICACIÓN:
 
-✅ TASK
-- Can be done at any time within a range.
-- Does NOT block fixed time.
-- Has progress.
-- Can be completed before the deadline.
-- Examples: Submit report, Prepare presentation, Complete evaluation, Formalize budget.
-👉 A task might have a deadline, but it is NOT an event.
+1️⃣ EVENTO (type="event"):
+- Reuniones, juntas, llamadas con hora específica
+- Tiene hora exacta (10:00, 14:30, "a las 3pm")
+- Ejemplos: "Reunión coordinación", "Consejo técnico", "Jornada de capacitación"
 
-2️⃣ HARD RULES (NO EXCEPTIONS):
+2️⃣ TAREA (type="task"):  
+- Actividades con período extendido o fecha límite
+- Rangos de fechas ("2 enero - 15 marzo", "enero-febrero")
+- Palabras como: "realizar", "completar", "entregar", "formalizar", "validar"
+- Hitos, procesos, evaluaciones
+- Ejemplos: "Autoevaluación MAIS", "Presupuesto 2026", "Plan de Acción"
 
-🧱 Rule 1 – Date Range = TASK
-If text contains: "from X to Y", "Jan - Mar", "during the month", "throughout".
-➡️ TASK, ALWAYS. (Never event).
+🔍 REGLAS ESPECIALES:
 
-🧱 Rule 2 – Action Verbs = TASK
-If it starts with: "perform", "complete", "prepare", "submit", "deliver", "review", "formalize".
-➡️ TASK. (Even if it has a date).
+📌 Rule 1 - MÚLTIPLES ITEMS
+Si el input contiene VARIOS eventos/tareas separados (por títulos, emojis, secciones):
+➡️ Genera un objeto JSON por cada uno
+➡️ Detecta separadores como: emojis de fecha 📅, saltos de línea, títulos diferentes
 
-🧱 Rule 3 – Exact Time = EVENT
-If it says: "10:00", "15:30", "at 9", "from 14:00 to 15:00".
-➡️ EVENT. (Even if text sounds like a task).
+📌 Rule 2 - PERÍODOS = TAREA CON DEADLINE
+"2 enero - 15 marzo" → start_time="2026-01-02T09:00:00", end_time="2026-03-15T18:00:00"
+"Enero - febrero" → start_time="2026-01-01T09:00:00", end_time="2026-02-28T18:00:00"
 
-🧱 Rule 4 – "Deadline" ≠ Event
-If date indicates: "deadline", "until", "before", "max by".
-➡️ TASK with deadline.
+📌 Rule 3 - IGNORAR DECORACIÓN
+Ignora emojis, bullets (-, *, •), líneas en blanco
+Extrae solo la información útil
 
-🧱 Rule 5 – Full Days/Weeks = TASK
-If it lasts: "several days", "weeks", "months".
-➡️ TASK.
+📌 Rule 4 - ESPAÑOL
+Todos los textos deben estar en español profesional
 
-🧱 Rule 6 – Multiple Items = SPLIT
-If input contains multiple distinct sections, dates, or milestones (e.g. a schedule list):
-➡️ SPLIT into a JSON LIST of multiple objects. Do NOT combine them.
-Example Input: "Jan 5: Meeting. Feb 10: Report due."
-Output: [{{"summary": "Meeting"...}}, {{"summary": "Report due"...}}]
+📅 CONTEXTO:
+- Fecha Actual: {current_date}
+- Año por Defecto: {current_year}
 
-Context:
-- Current Date: {current_date}
-- Default Year: {current_year}
+🎨 COLORES (Google Calendar IDs):
+- "11" (Rojo): URGENTE / Alta Prioridad / Deadlines Críticos
+- "10" (Verde): Salud / Bienestar / Médico
+- "7" (Azul Peacock): Trabajo Profundo / Proyectos / Operaciones  
+- "6" (Naranja): Reuniones Externas / Clientes
+- "4" (Rosado): Reuniones Internas / Equipo
+- "2" (Verde Salvia): Planificación / Revisión / QBR
+- "1" (Lavanda): General / Otros
 
-COLOR_RULES (Google Calendar IDs) - Smart Executive Mapping:
-- "11" (Red): HIGH PRIORITY / Critical / Deadlines.
-- "10" (Green): Bio / Health / Medical / Balance.
-- "9" (Blueberry): Personal / Sports / Family.
-- "8" (Graphite): Admin / Logistics / Commute.
-- "7" (Peacock): Deep Work / Focus / Operations.
-- "6" (Orange): External Meeting / Client / Sales.
-- "5" (Yellow): Brainstorming / Ideas / Strategy.
-- "4" (Flamingo): Internal Meeting / Team / HR.
-- "3" (Purple): Special Projects / Innovation.
-- "2" (Sage): Planning / Review / QBR.
-- "1": General / Misc / Other.
+📝 ESTRUCTURA JSON DE SALIDA:
+[
+  {{
+    "type": "task",
+    "summary": "Título Profesional en Español",
+    "description": "Descripción completa incluyendo responsables, hitos y detalles",
+    "start_time": "YYYY-MM-DDTHH:MM:SS",
+    "end_time": "YYYY-MM-DDTHH:MM:SS",
+    "colorId": "11"
+  }}
+]
 
-JSON Structure:
-- "type": "event" or "task" (LOWERCASE).
-- "summary": Professional Title in Spanish.
-- "description": Complete description in Spanish.
-- "start_time": ISO 8601 (YYYY-MM-DDTHH:MM:SS).
-- "end_time": ISO 8601 (YYYY-MM-DDTHH:MM:SS).
-- "recurrence": [OPTIONAL] List of RRULE strings for Google Calendar. 
-    - Examples: ["RRULE:FREQ=WEEKLY;BYDAY=MO"], ["RRULE:FREQ=DAILY;COUNT=5"], ["RRULE:FREQ=MONTHLY;BYMONTHDAY=15"].
-    - Use ONLY if text says "every Monday", "each week", "monthly", etc.
-- "colorId": String ID.
-
-IMPORTANT: 
-- DO NOT interpret user intention. If in doubt -> CLASSIFY AS TASK.
-- OUTPUT MUST BE VALID JSON.
-- LANGUAGE: SPANISH.
+⚠️ CRÍTICO:
+- SIEMPRE devuelve al menos un objeto si hay información
+- Si detectas MÚLTIPLES items, devuelve un array con varios objetos
+- NO devuelvas array vacío [] a menos que el input esté completamente vacío
+- Formato JSON válido, sin texto adicional
+- Extrae TODA la información útil (responsables, hitos, períodos)
 """
 
 PROMPT_PLANNING = """
@@ -204,7 +192,7 @@ def _try_parse_block(block, results_list):
 
 # --- CORE FUNCTIONS ---
 
-@st.cache_data(ttl=3600, show_spinner=False)
+# @st.cache_data(ttl=3600, show_spinner=False) # TEMPORARILY DISABLED FOR TESTING
 def parse_events_ai(text_input):
     client = _get_groq_client()
     now = datetime.datetime.now()
