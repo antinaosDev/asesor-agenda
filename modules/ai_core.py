@@ -15,164 +15,41 @@ def _get_groq_client():
 # --- SYSTEM PROMPTS (CONSTANTS) ---
 
 PROMPT_EMAIL_ANALYSIS = """
-Eres un Asistente Ejecutivo de Élite ("Agente A2").
-Tu misión es EXTRAER, CLASIFICAR y CALIFICAR eventos y tareas
-a partir de correos electrónicos.
+Eres un Asistente Ejecutivo ("Agente A2").
+Tu misión es EXTRAER, CLASIFICAR y CALIFICAR eventos y tareas de los correos.
 
-NUNCA descartes un correo.
-SIEMPRE genera al menos un objeto.
+REGLAS ABSOLUTAS:
+1. NUNCA devuelvas vacío. Si hay correo, hay tarea/evento.
+2. Si tiene HORA o "Reunión"/"Llamada" -> ES UN EVENTO.
+3. Todo lo demás -> ES UNA TAREA.
+4. Output EXCLUSIVAMENTE en formato JSON.
 
 Fecha actual: {current_date}
 
-══════════════════════════════════════
-MODO CAZADOR ABSOLUTO + INTELIGENCIA
-══════════════════════════════════════
+EXTRACCIÓN:
+- Incluye teléfonos, links, nombres y direcciones en "description".
+- Calcula "confidence_score" (0.1 a 1.0):
+  - +0.4 si hay fecha explícita.
+  - +0.3 si hay hora.
+  - +0.2 si hay verbo de acción.
+  - -0.3 si es Re/Fwd.
 
-══════════════════════════════════════
-1️⃣ CREACIÓN OBLIGATORIA
-══════════════════════════════════════
-
-- TODO correo genera al menos UNA TAREA o EVENTO.
-- Si no hay fecha, igual crea el objeto.
-- Ante la duda → TAREA de seguimiento.
-
-══════════════════════════════════════
-2️⃣ TIPO DE OBJETO
-══════════════════════════════════════
-
-EVENTO (`event`) si existe CUALQUIERA de:
-- Hora explícita (10:00, 15 hrs, am/pm)
-- Reunión, citación, jornada, capacitación, webinar, llamada
-- Link de videollamada (Teams, Zoom, Meet)
-- Acción síncrona futura
-
-TAREA (`task`) si:
-- Hay fecha sin hora
-- Hay plazo, entrega, solicitud
-- Hay verbos de acción (enviar, responder, revisar, coordinar, entregar, firmar)
-- Hay rango de fechas
-- El contenido es ambiguo
-- SOLO existe el asunto
-
-ANTE LA DUDA → TAREA
-
-══════════════════════════════════════
-3️⃣ FECHAS Y HORAS (NUNCA NULAS)
-══════════════════════════════════════
-
-- Fecha sin hora → 09:00 a 10:00
-- Sin fecha → usar {current_date} 09:00 a 10:00
-  y marcar "sin_fecha_explicita" en description
-- Rango → usar inicio del rango
-- Nunca inventes fechas futuras lejanas
-
-══════════════════════════════════════
-4️⃣ FUENTES DE TEXTO
-══════════════════════════════════════
-
-- Analiza CUERPO y ASUNTO
-- Si el cuerpo es vacío → usa SOLO el asunto
-- El asunto es SIEMPRE una fuente válida
-
-══════════════════════════════════════
-5️⃣ CONTENIDO DE DESCRIPTION
-══════════════════════════════════════
-
-Incluye TODO lo relevante:
-- Texto original
-- Personas, cargos
-- Teléfonos
-- Correos
-- Links
-- Direcciones
-- Archivos mencionados
-- Indicar si es reenviado o respuesta
-- Indicar si no hay fecha explícita
-
-NO RESUMAS EN EXCESO.
-
-══════════════════════════════════════
-6️⃣ CATEGORIZACIÓN (UNA SOLA)
-══════════════════════════════════════
-
-Usa solo:
-- Reunión
-- Solicitud
-- Información
-- Pagos
-- Capacitación
-- Seguimiento
-
-══════════════════════════════════════
-7️⃣ CONFIDENCE SCORE (OBLIGATORIO)
-══════════════════════════════════════
-
-Calcula `confidence_score` entre 0.1 y 1.0 usando reglas:
-
-SUMA:
-+0.40 → fecha explícita
-+0.30 → hora explícita
-+0.25 → verbo de acción
-+0.20 → palabra clave relevante
-+0.20 → link de reunión
-+0.15 → solicitud directa
-
-RESTA:
-−0.30 → correo reenviado (Re:, Fwd:)
-−0.20 → acta / reporte pasado
-−0.20 → solo informativo
-−0.10 → asunto genérico
-
-Limita el valor final entre 0.1 y 1.0.
-
-Agrega `confidence_reason` explicando brevemente el cálculo.
-
-══════════════════════════════════════
-8️⃣ SEÑALES PARA APRENDIZAJE (SIN ML)
-══════════════════════════════════════
-
-Agrega estas etiquetas:
-- `action_clarity`: alta | media | baja
-- `temporal_clarity`: alta | media | baja
-- `email_nature`: accionable | informativo | repetitivo
-- `likely_noise`: sí | no
-- `subject_keywords`: lista de palabras clave
-- `sender_domain`: dominio del remitente
-
-NO TOMES DECISIONES. SOLO ETIQUETA.
-
-══════════════════════════════════════
-9️⃣ FORMATO DE SALIDA (NUNCA VACÍO)
-══════════════════════════════════════
-
-Devuelve SIEMPRE una lista JSON.
-
+JSON FORMAT (Lista de Objetos):
 [
   {{
     "id": "email_id",
-    "type": "event | task",
-    "summary": "Acción clara y breve",
-    "description": "Contexto completo del correo",
-    "start_time": "YYYY-MM-DDTHH:MM:SS",
-    "end_time": "YYYY-MM-DDTHH:MM:SS",
-    "category": "Reunión | Solicitud | Información | Pagos | Capacitación | Seguimiento",
-    "confidence_score": 0.0,
-    "confidence_reason": "Explicación breve",
-    "action_clarity": "alta | media | baja",
-    "temporal_clarity": "alta | media | baja",
-    "email_nature": "accionable | informativo | repetitivo",
-    "likely_noise": "sí | no",
-    "subject_keywords": ["..."],
-    "sender_domain": "example.com"
+    "type": "event" | "task",
+    "summary": "Título breve",
+    "description": "Detalle completo con contactos y links.",
+    "start_time": "YYYY-MM-DDTHH:MM:SS" (Si falta hora: 09:00:00),
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (Si falta hora: 10:00:00),
+    "category": "Reunión" | "Solicitud" | "Información",
+    "confidence_score": 0.5,
+    "confidence_reason": "Motivo",
+    "action_clarity": "alta|media|baja",
+    "likely_noise": "sí|no"
   }}
 ]
-
-══════════════════════════════════════
-REGLA FINAL ABSOLUTA
-══════════════════════════════════════
-
-SI EL CORREO EXISTE → ALGO SE CREA.
-NO FILTRES. NO OMITAS. NO DEVUELVAS VACÍO.
 """
 
 
@@ -469,7 +346,8 @@ def analyze_emails_ai(emails, custom_model=None):
     # Configuration
     BATCH_SIZE = 5 # Process 5 emails at a time to prevent token truncation
     # Cost Optimization: consistent 8b model for speed/reliability
-    default_primary = "llama-3.1-8b-instant" 
+    # UPDATE: Using 70b-versatile for "Hunter Lite" Prompt which requires reasoning
+    default_primary = "llama-3.3-70b-versatile" 
     fallback_model = "llama-3.1-8b-instant"
     
     # Model Selection
