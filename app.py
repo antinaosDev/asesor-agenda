@@ -2087,9 +2087,6 @@ def view_inbox():
                                 import traceback
                                 st.code(traceback.format_exc())
                 
-                with col_keep2:
-                    st.metric("📒 Keep Ready", "✓" if 'keep' in str(get_gmail_credentials()) else "⚠️")
-                
                 st.markdown("---")
 
                 # Tabs for Events vs Tasks vs Labeling
