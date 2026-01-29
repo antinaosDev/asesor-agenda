@@ -13,3 +13,6 @@ notificationapi-python-server-sdk
 pypdf
 edge-tts
 python-docx
+duckduckgo-search
+lxml
+openpyxl
