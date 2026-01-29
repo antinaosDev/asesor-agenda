@@ -1979,7 +1979,8 @@ def view_inbox():
                             # ---------------------------------- 
 
                             # --- ATOMIC SAVE: HISTORY + QUOTA ---
-                            if 'license_key' in st.session_state:
+                            # CRITICAL FIX: Only save if NOT in re-analysis mode
+                            if not force_re and 'license_key' in st.session_state:
                                 rich_items = []
                                 if emails:
                                     for e in emails:
@@ -1992,13 +1993,13 @@ def view_inbox():
                                             })
 
                                 # Call ATOMIC function
-                                # Even if rich_items is empty (unlikely if len(emails)>0), we update quota.
-                                # If emails is empty, len is 0.
                                 auth.update_history_and_quota(
                                     st.session_state.license_key, 
                                     {'mail': rich_items}, 
                                     quota_amount=len(emails)
                                 )
+                            elif force_re:
+                                st.warning("⚠️ Modo Re-análisis: NO se guardará historial ni se consumirá cuota.")
                             # -------------------------------------
 
                             # Auto-labeling REMOVED. Now handled manually in UI.
