@@ -278,6 +278,9 @@ def update_user_history(username, new_items_dict):
             new_items = new_items_dict.get(internal_key, [])
             if not new_items: continue
             
+            # Cast to object to avoid FutureWarning
+            df[db_col] = df[db_col].astype('object')
+            
             # Read Existing
             current_raw = str(df.at[idx, db_col])
             current_list = []
