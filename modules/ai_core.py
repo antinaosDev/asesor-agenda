@@ -43,7 +43,8 @@ Output: Lista JSON de objetos:
 }}
 
 Reglas CRÍTICAS de Output:
-- **EVITAR FALSOS POSITIVOS**: Newsletters genéricos -> `is_event: false` (o ignora si no es accionable).
+- **CAPTURA TOTAL**: Tu misión es NO PERDER DETALLES. Si hay fechas, nombres, teléfonos o instrucciones, INCLÚYELOS en la descripción.
+- **AMBIGÜEDAD = TAREA**: Si dudas, crea una TAREA para que el usuario revise. Mejor que sobre a que falte.
 - **IDIOMA**: Output 100% en ESPAÑOL.
 - **JSON PURO**: No uses Markdown.
 """
@@ -398,8 +399,14 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
         # Prepare Prompt for this Batch
         batch_text = "ANALIZA ESTOS CORREOS:\n"
         for e in batch:
-            body_clean = (e.get('body', '') or '')[:1500]
-            batch_text += f"ID: {e['id']} | DE: {e['sender']} | ASUNTO: {e['subject']} | CUERPO: {body_clean}\n---\n"
+            raw_body = e.get('body', '') or ''
+            # Optimize Tokens: Collapse whitespace
+            import re
+            body_clean = re.sub(r'\s+', ' ', raw_body).strip()
+            # Max Recall: Limit increased to 4000
+            body_final = body_clean[:4000]
+            
+            batch_text += f"ID: {e['id']} | DE: {e['sender']} | ASUNTO: {e['subject']} | CUERPO: {body_final}\n---\n"
             
         prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
         
@@ -414,19 +421,25 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
                 temperature=0.1,
                 max_tokens=4096 # Increased from 2048
             )
-            content = _clean_json_output(completion.choices[0].message.content.strip())
+            raw_content = completion.choices[0].message.content.strip()
+            print(f"--- DEBUG AI BATCH {i} ---")
+            print(f"INPUT LEN: {len(batch_text)}")
+            print(f"OUTPUT: {raw_content[:500]}...") # Print first 500 chars
+            
+            content = _clean_json_output(raw_content)
             results = json.loads(content)
             if isinstance(results, dict): results = [results]
             
             # Verify results exist
             if not results:
-                 # Only warn if it's a real failure
-                 pass 
+                 print(f"WARNING: Batch {i} returned empty JSON results.")
+                 st.toast(f"⚠️ Batch {i}: IA no encontró datos (Posible formato inválido o vacío).", icon="⚠️")
                  
             all_results.extend(results)
             
         except Exception as e:
             err_msg = str(e)
+            print(f"ERROR BATCH {i}: {err_msg}")
             # Automatic Fallback for 429 Rate Limits
             if ("429" in err_msg or "rate limit" in err_msg.lower()) and not custom_model:
                 st.warning(f"⚠️ Limit (Batch {i//BATCH_SIZE + 1}): Swapping to {fallback_model}...")
