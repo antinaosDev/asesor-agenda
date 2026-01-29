@@ -282,7 +282,10 @@ def render_login_page():
         # Centered logo with optimized size
         c_img1, c_img2, c_img3 = st.columns([1, 1, 1])
         with c_img2:
-            st.image("logo_agent.png", width=150)  # Increased for better visibility
+            try:
+                st.image("logo_agent.png", width=150)
+            except:
+                st.markdown("<h1 style='text-align: center;'>🗓️</h1>", unsafe_allow_html=True)
 
         st.markdown("""
         <div class="login-box" style="text-align: center;">
