@@ -415,14 +415,37 @@ def fetch_emails_batch(service, start_date=None, end_date=None, max_results=15):
         st.error(f"Error Gmail: {e}")
         return []
 
-def create_draft(service, user_id, message_body):
-    """Creates a draft email."""
+def create_draft(service, user_id, message_body, to_email=None, subject="(Sin asunto)"):
+    """
+    Creates a draft email with proper RFC 2822 formatting.
+    Args:
+        service: Gmail API service instance
+        user_id: User ID ('me' for authenticated user)
+        message_body: Plain text body of the email
+        to_email: Recipient email (optional, can be empty for draft)
+        subject: Email subject line
+    """
     try:
-        message = {'message': message_body}
-        draft = service.users().drafts().create(userId=user_id, body=message).execute()
+        from email.mime.text import MIMEText
+        import base64
+        
+        # Create a MIMEText object
+        message = MIMEText(message_body, 'plain', 'utf-8')
+        message['subject'] = subject
+        if to_email:
+            message['to'] = to_email
+        
+        # Encode the message in base64
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+        
+        # Create draft
+        draft_body = {'message': {'raw': raw_message}}
+        draft = service.users().drafts().create(userId=user_id, body=draft_body).execute()
         return draft
     except Exception as e:
         print(f"Error creating draft: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def modify_message_labels(service, user_id, msg_id, add_ids=[], remove_ids=[]):
