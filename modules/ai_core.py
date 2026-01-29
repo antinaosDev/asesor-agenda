@@ -16,79 +16,110 @@ def _get_groq_client():
 
 PROMPT_EMAIL_ANALYSIS = """
 Eres un Asistente Ejecutivo de Élite ("Agente A2").
-Analiza estos correos COMPLETAMENTE. Tu objetivo es:
-1. Detectar Eventos de Calendario (reuniones, plazos, citas).
-2. Detectar INFO/TAREAS importantes sin fecha.
-3. Clasificar CADA email por Urgencia y Categoría.
-4. **EXTRAER TODOS LOS DETALLES** del cuerpo del correo.
+Analiza estos correos COMPLETAMENTE. Tu objetivo es clasificar CADA ítem como EVENTO o TAREA usando REGLAS ESTRICTAS.
+
+1️⃣ DEFINICIONES NO NEGOCIABLES:
+- 🗓 EVENTO: Tiene HORA específica (ej: 10:00 AM) o es una reunión/cita concreta. Bloquea el calendario.
+- ✅ TAREA: Es algo que se debe hacer en un RANGO de fechas ("Ene-Mar"), o tiene un DEADLINE ("Para el viernes"), o es una acción ("Enviar informe").
+
+2️⃣ REGLAS DURAS (HARD RULES):
+- 🧱 Rango de Fechas (ej. "Ene 2 - Mar 15") -> TAREA (Siempre).
+- 🧱 Verbos de Acción (Realizar, Entregar, Preparar) -> TAREA.
+- 🧱 Hitos / Plazos / Vencimientos -> TAREA.
+- 🧱 Hora Exacta (ej. "15:00", "10am") -> EVENTO.
 
 Fecha Actual: {current_date}
 
 Output: Lista JSON de objetos:
 {{
     "id": "email_id_from_input",
-    "is_event": boolean, 
-    "summary": "Título profesional en español (Ej: 'Reunión con Cliente X', 'Pago de Factura')",
-    "description": "Resumen EJECUTIVO Y COMPLETO. Incluye: Nombres, Contactos, Fechas, Montos, Enlaces, Contexto previo. Si es un hilo, resume la conclusión final.",
-    "start_time": "YYYY-MM-DDTHH:MM:SS" (o null),
-    "end_time": "YYYY-MM-DDTHH:MM:SS" (o null),
+    "type": "event" | "task",
+    "summary": "Título profesional en español (Ej: 'Reunión...' o 'Entrega...')",
+    "description": "Resumen EJECUTIVO. Si es TAREA, incluye fechas de rango o deadline explícito.",
+    "start_time": "YYYY-MM-DDTHH:MM:SS" (Evento: Inicio Real / Tarea: Deadline o Inicio Rango 09:00),
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (Evento: Fin Real / Tarea: Igual a start_time o Fin Rango),
     "urgency": "Alta" | "Media" | "Baja",
     "category": "Solicitud" | "Información" | "Pagos" | "Reunión" | "Otro"
 }}
 
-Reglas CRÍTICAS:
-- **EVITAR FALSOS POSITIVOS**: Newsletters, promociones de webinars genéricos, alertas de sistema sin acción requerida -> `is_event: false`.
-- **FECHAS**: Si dice "mañana", calcula la fecha real basada en {current_date}.
-- **URGENCIA**: 
-    - "Alta": Requiere acción HOY o involucra dinero/riesgos.
-    - "Media": Solicitudes estándar de trabajo.
-    - "Baja": FYI, Confirmaciones automáticas, Newsletters.
+Reglas CRÍTICAS de Output:
+- **EVITAR FALSOS POSITIVOS**: Newsletters genéricos -> `is_event: false` (o ignora si no es accionable).
 - **IDIOMA**: Output 100% en ESPAÑOL.
-- **JSON PURO**: No uses Markdown ni bloques de código.
+- **JSON PURO**: No uses Markdown.
 """
 
 
 PROMPT_EVENT_PARSING = """
-You are an intelligent assistant that extracts and categorizes actionable items from text.
-Your goal is to distinguish between Calendar Events (meetings, strict time) and Todo Tasks (deliverables, deadlines).
+You are an intelligent assistant. Your PRIMARY GOAL is to classify the input ONLY as "event" or "task".
+
+1️⃣ NON-NEGOTIABLE DEFINITIONS:
+
+🗓 EVENT
+- Occurs at a SPECIFIC time.
+- Blocks time on the calendar.
+- If you don't go, you "miss it".
+- Examples: Meeting, Call, Appointment, Class, Presentation, Flight.
+👉 An event ALWAYS has at least one concrete date. Ideally has a time. Lasts hours, not days.
+
+✅ TASK
+- Can be done at any time within a range.
+- Does NOT block fixed time.
+- Has progress.
+- Can be completed before the deadline.
+- Examples: Submit report, Prepare presentation, Complete evaluation, Formalize budget.
+👉 A task might have a deadline, but it is NOT an event.
+
+2️⃣ HARD RULES (NO EXCEPTIONS):
+
+🧱 Rule 1 – Date Range = TASK
+If text contains: "from X to Y", "Jan - Mar", "during the month", "throughout".
+➡️ TASK, ALWAYS. (Never event).
+
+🧱 Rule 2 – Action Verbs = TASK
+If it starts with: "perform", "complete", "prepare", "submit", "deliver", "review", "formalize".
+➡️ TASK. (Even if it has a date).
+
+🧱 Rule 3 – Exact Time = EVENT
+If it says: "10:00", "15:30", "at 9", "from 14:00 to 15:00".
+➡️ EVENT. (Even if text sounds like a task).
+
+🧱 Rule 4 – "Deadline" ≠ Event
+If date indicates: "deadline", "until", "before", "max by".
+➡️ TASK with deadline.
+
+🧱 Rule 5 – Full Days/Weeks = TASK
+If it lasts: "several days", "weeks", "months".
+➡️ TASK.
 
 Context:
 - Current Date: {current_date}
 - Default Year: {current_year}
 
-ITEM TYPES:
-1. "event": Meetings, Calls, time-bound commitments, ALL-DAY specific blocking events.
-2. "task": Deliverables, Deadlines, "Milestones" that are goals not meetings, multi-day periods/phases (usually a deadline or reminder task).
-
 COLOR RULES (Google Calendar IDs):
-- "5" (Yellow): MAIS (Programa, Gestión MAIS).
-- "2" (Light Green): Intercultural (Temas interculturales, facilitación).
-- "11" (Red): Urgent, Deadlines.
-- "7" (Peacock): General Work, standard tasks.
-- "6" (Orange): External Meetings.
-- "3" (Purple): Special Projects.
-- "8" (Grey): Admin, Logistics.
-- "9" (Blueberry): Personal, Sports.
-- "10" (Green): Health.
-- "1": Misc/Other.
-
-CRITICAL RULES:
-1. **Lists of Dates**: If text lists dates + a general time, apply that time to all.
-2. **Contextual Time**: Use intro time for subsequent events if unspecified.
-3. **Smart Year**: Dates before today ({current_date}) should be next year ({current_year} + 1).
-4. **NO Timezones/UTC**: Return local time `YYYY-MM-DDTHH:MM:SS`.
-5. **LANGUAGE**: ALL OUTPUT MUST BE IN SPANISH.
-6. **Task vs Event**: If it's a "Hito", "Entrega", "Carga en plataforma", or "Formalización" without a specific meeting time 09:00 etc., classify as "task" (Task with Due Date).
+- "5" (Yellow): MAIS
+- "2" (Light Green): Intercultural
+- "11" (Red): Urgent/Deadlines
+- "7" (Peacock): Work/Task
+- "6" (Orange): External
+- "3" (Purple): Special Projects
+- "8" (Grey): Admin
+- "1": Misc
 
 JSON Structure:
-- "type": "event" or "task".
-- "summary": Professional, Executive Title IN SPANISH.
-- "description": Comprehensive, FORMAL/EXECUTIVE description IN SPANISH. Use professional phrasing. MUST include ALL technical details.
-- "start_time": ISO 8601 (No Z). For Tasks, this is the DUE DATE (at 12:00:00).
-- "end_time": ISO 8601 (No Z).
+- "type": "event" or "task" (LOWERCASE).
+- "summary": Professional Title in Spanish.
+- "description": Complete description in Spanish.
+- "start_time": ISO 8601 (YYYY-MM-DDTHH:MM:SS).
+- "end_time": ISO 8601 (YYYY-MM-DDTHH:MM:SS).
+- "recurrence": [OPTIONAL] List of RRULE strings for Google Calendar. 
+    - Examples: ["RRULE:FREQ=WEEKLY;BYDAY=MO"], ["RRULE:FREQ=DAILY;COUNT=5"], ["RRULE:FREQ=MONTHLY;BYMONTHDAY=15"].
+    - Use ONLY if text says "every Monday", "each week", "monthly", etc.
 - "colorId": String ID.
 
-IMPORTANT: OUTPUT MUST BE VALID JSON. Escape all newlines in strings as \\n.
+IMPORTANT: 
+- DO NOT interpret user intention. If in doubt -> CLASSIFY AS TASK.
+- OUTPUT MUST BE VALID JSON.
+- LANGUAGE: SPANISH.
 """
 
 PROMPT_PLANNING = """

@@ -326,6 +326,28 @@ def view_dashboard():
         
     st.markdown(ui.render_smart_header(user_name, "Resumen Matutino y Estado Diario", weather_ctx), unsafe_allow_html=True)
 
+    # --- VISUAL COLOR LEGEND ---
+    with st.expander("🎨 Leyenda de Colores (Guía Visual)", expanded=False):
+        # Hex mapping for Google Calendar Colors
+        HEX_MAP = {
+            "1": "#7986CB", "2": "#33B679", "3": "#8E24AA", "4": "#E67C73", 
+            "5": "#F09300", "6": "#F4511E", "7": "#039BE5", "8": "#616161",
+            "9": "#3F51B5", "10": "#0B8043", "11": "#D50000"
+        }
+        
+        cols = st.columns(4)
+        for i, (cid, name) in enumerate(COLOR_MAP.items()):
+            c_hex = HEX_MAP.get(cid, "#9E9E9E")
+            label = name.split('(')[1].replace(')', '') if '(' in name else name
+            
+            with cols[i % 4]:
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px;">
+                    <div style="width: 12px; height: 12px; background-color: {c_hex}; border-radius: 50%; box-shadow: 0 0 5px {c_hex};"></div>
+                    <span style="font-size: 0.8rem; color: #eee; font-weight: 500;">{label}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
     
     # --- CONTEXT WIDGET ---
     import modules.context_services as ctx
@@ -818,6 +840,12 @@ def view_create():
         with st.form("create_event"):
             prompt = st.text_area("¿Qué deseas agendar?", height=150, 
                                 placeholder="Ejemplo: Reunión el próximo martes a las 14:00 sobre el presupuesto Q3...")
+            
+            st.markdown("""
+            <div style="font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 10px;">
+                <i>💡 Tip: Para horarios de atención, intenta: "Atención de público todos los lunes de 3pm a 5pm"</i>
+            </div>
+            """, unsafe_allow_html=True)
 
             c_btn1, c_btn2 = st.columns([1, 4])
             with c_btn1:
@@ -886,19 +914,44 @@ def view_create():
             c_act1, c_act2 = st.columns([1, 4])
             with c_act2:
                 if item_type == 'task':
-                     if st.button(f"✅ Guardar Tarea '{summary}'", key=f"btn_add_{i}"):
-                        svc_task = get_tasks_service()
-                        if not svc_task: st.error("Conecta Google Tasks primero.")
-                        else:
-                             # Parse Due Date
-                             due_dt = None
-                             if ev.get('start_time'):
-                                 try: due_dt = datetime.datetime.fromisoformat(ev['start_time'])
-                                 except: pass
-                             
-                             res = add_task_to_google(svc_task, "@default", summary, desc, due_date=due_dt)
-                             if res: st.success("¡Tarea Guardada!"); time.sleep(1); st.rerun()
-                             else: st.error("Error al guardar tarea.")
+                     c_t1, c_t2 = st.columns([1, 1])
+                     
+                     with c_t1:
+                         if st.button(f"✅ Guardar Tarea '{summary}'", key=f"btn_add_{i}", use_container_width=True):
+                            svc_task = get_tasks_service()
+                            if not svc_task: st.error("Conecta Google Tasks primero.")
+                            else:
+                                 # Parse Due Date
+                                 due_dt = None
+                                 if ev.get('start_time'):
+                                     try: due_dt = datetime.datetime.fromisoformat(ev['start_time'])
+                                     except: pass
+                                 
+                                 res = add_task_to_google(svc_task, "@default", summary, desc, due_date=due_dt)
+                                 if res: st.success("¡Tarea Guardada!"); time.sleep(1); st.rerun()
+                                 else: st.error("Error al guardar tarea.")
+                     
+                     with c_t2:
+                         if st.button(f"⏱️ Bloquear Tiempo (Focus)", key=f"btn_block_{i}", use_container_width=True):
+                             cal_id = st.session_state.get('connected_email')
+                             if not cal_id: st.error("Conecta tu email.")
+                             else:
+                                 # Create Event Wrapper
+                                 blk_ev = ev.copy()
+                                 blk_ev['summary'] = f"Focus: {ev.get('summary')}"
+                                 blk_ev['colorId'] = "7" # Peacock (Work)
+                                 
+                                 # Ensure we have a start time for the block. 
+                                 # If task start_time is a date (YYYY-MM-DD), add convenient time
+                                 s_raw = blk_ev.get('start_time')
+                                 if s_raw and 'T' not in s_raw:
+                                      blk_ev['start_time'] = f"{s_raw}T10:00:00"
+                                 
+                                 svc = get_calendar_service()
+                                 ok, msg = add_event_to_calendar(svc, blk_ev, cal_id)
+                                 if ok: st.success("¡Tiempo Bloqueado!")
+                                 else: st.error(msg)
+
                 else:
                     if st.button(f"📅 Confirmar y Agendar '{summary}'", key=f"btn_add_{i}"):
                         cal_id = st.session_state.get('connected_email')
@@ -1346,19 +1399,30 @@ def view_planner():
             # with st.spinner("Cargando tareas..."):
             all_tasks = get_existing_tasks_simple(tasks_svc)
 
+            # --- SMART LISTS SETUP ---
+            # Fetch lists once
+            tl_cache = get_task_lists(tasks_svc)
+            # Define Smart Lists we want
+            smart_target = ["Inbox", "Hoy", "Proyectos"]
+            
             # Allow creating new task here
-            # Fix: Use a form or callback to avoid infinite loop on rerun
             with st.form("quick_task_form", clear_on_submit=True):
-                c_form1, c_form2 = st.columns([4, 1])
+                c_form1, c_form2, c_form3 = st.columns([3, 1.5, 1])
                 with c_form1:
                     new_t = st.text_input("➕ Nueva Tarea", placeholder="Escribir...", label_visibility="collapsed")
                 with c_form2:
-                    submitted = st.form_submit_button("Agregar")
+                    # Map names to IDs
+                    list_opts = {l['title']: l['id'] for l in tl_cache}
+                    # Default to @default or first one
+                    sel_list_name = st.selectbox("Lista", options=list_opts.keys(), label_visibility="collapsed")
+                with c_form3:
+                    submitted = st.form_submit_button("Agregar 🚀", use_container_width=True)
 
                 if submitted and new_t:
-                    res = add_task_to_google(tasks_svc, "@default", new_t)
+                    target_id = list_opts.get(sel_list_name, '@default')
+                    res = add_task_to_google(tasks_svc, target_id, new_t)
                     if res: 
-                        st.success("Tarea añadida")
+                        st.success(f"Tarea añadida a '{sel_list_name}'")
                         time.sleep(1) # Give API a moment
                         st.rerun()
 
@@ -1813,7 +1877,8 @@ def view_inbox():
                         st.write("No hay correos para etiquetar.")
 
                 with tab_ev:
-                    events = [x for x in items if x.get('is_event') or x.get('start_time')]
+                    # New Strict Logic: 'type' == 'event'
+                    events = [x for x in items if x.get('type') == 'event' or (x.get('is_event') is True)] 
                     if not events: st.info("No hay eventos de calendario estrictos.")
 
                     for i, ev in enumerate(events):
@@ -1898,7 +1963,8 @@ def view_inbox():
                                             else: st.error(f"Error: {msg}")
 
                 with tab_info:
-                    tasks = [x for x in items if not x.get('is_event') and not x.get('start_time')]
+                    # New Strict Logic: 'type' == 'task'
+                    tasks = [x for x in items if x.get('type') == 'task' or (x.get('is_event') is False)]
                     if not tasks: st.info("No hay información suelta o tareas sin fecha.")
 
                     for i, t in enumerate(tasks):
@@ -1914,38 +1980,64 @@ def view_inbox():
                                 email_link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
                                 st.markdown(f"🔗 [Ver Correo Original]({email_link})")
 
-                            # Action: Save as Task with Date Selection
-                            c_task1, c_task2 = st.columns([2, 1])
-                            selected_date = c_task1.date_input("Fecha vencimiento", value=datetime.date.today(), key=f"date_tk_{i}")
+                            # Action: Save as Task OR Time Block
+                            c_task1, c_task2 = st.columns([1, 1.2]) # Adjusted ratio
+                            
+                            # Option 1: Calendar Block (Focus)
+                            with c_task1:
+                                if st.button(f"⏱️ Bloquear (Focus)", key=f"btn_blk_tk_{i}", use_container_width=True):
+                                     cal_id = st.session_state.get('connected_email')
+                                     svc_cal = get_calendar_service()
+                                     if svc_cal and cal_id:
+                                         # Create Block Event
+                                         blk_ev = {
+                                             'summary': f"Focus: {t.get('summary')}",
+                                             'description': t.get('description', '') + (f"\n\n🔗 {email_link}" if email_link else ""),
+                                             'start_time': datetime.datetime.now().replace(hour=10, minute=0).isoformat(), # Default 10am
+                                             'colorId': "7" # Peacock
+                                         }
+                                         res, msg = add_event_to_calendar(svc_cal, blk_ev, cal_id)
+                                         if res: st.success("¡Tiempo Bloqueado!")
+                                         else: st.error(msg)
+                            
+                            # Option 2: Google Task with List Selection
+                            with c_task2:
+                                # Fetch lists for selector (Cached ideally, but doing it here for safety)
+                                # Optimization: We could fetch once outside loop, but Streamlit caches get_task_lists logic if we wrap it properly or relies on session.
+                                # For now, let's assume get_tasks_service is fast enough or we just use default if this is slow.
+                                # To avoid slow API calls inside loop, we'll just use a text input or a simplified selector if we had top-level cache.
+                                # BETTER: Just separate the button.
+                                
+                                if st.button("💾 Guardar Tarea (@Default)", key=f"btn_tk_{i}", use_container_width=True):
+                                    svc_tasks = get_tasks_service()
+                                    if svc_tasks:
+                                        # Append Link to Notes
+                                        final_notes = t.get('description', '')
+                                        if email_link:
+                                            final_notes += f"\n\n🔗 Correo: {email_link}"
 
-                            if c_task2.button("💾 Guardar Tarea", key=f"btn_tk_{i}"):
-                                svc_tasks = get_tasks_service()
-                                if svc_tasks:
-                                    # Append Link to Notes
-                                    final_notes = t.get('description', '')
-                                    if email_link:
-                                        final_notes += f"\n\n🔗 Correo: {email_link}"
+                                        # Default Due Date: Today + 1
+                                        due_dt = datetime.datetime.now() + datetime.timedelta(days=1)
+                                        due_dt = due_dt.replace(hour=12, minute=0)
 
-                                    # Use selected date
-                                    # Convert date to datetime at noon UTC to ensure correct day representation in global tasks
-                                    due_dt = datetime.datetime.combine(selected_date, datetime.time(12, 0))
+                                        res = add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_dt)
 
-                                    res = add_task_to_google(svc_tasks, "@default", t.get('summary'), final_notes, due_date=due_dt)
-
-                                    if res:
-                                        # --- SAVE HISTORY: TASK (RICH) ---
-                                        if t.get('id') and 'license_key' in st.session_state:
-                                            rich_tk = [{
-                                                'id': t['id'],
-                                                's': t.get('summary', 'Tarea Guardada'),
-                                                'd': datetime.date.today().strftime('%Y-%m-%d'),
-                                                't': 'task'
-                                            }]
-                                            auth.update_user_history(st.session_state.license_key, {'tasks': rich_tk})
-                                        # --------------------------
-                                        st.success(f"✅ Guardada para el {selected_date.strftime('%d/%m')}")
-                                    else:
-                                        st.error("❌ Error al guardar tarea.")
+                                        if res:
+                                            # --- SAVE HISTORY: TASK (RICH) ---
+                                            if t.get('id') and 'license_key' in st.session_state:
+                                                rich_tk = [{
+                                                    'id': t['id'],
+                                                    's': t.get('summary', 'Tarea Guardada'),
+                                                    'd': datetime.date.today().strftime('%Y-%m-%d'),
+                                                    't': 'task'
+                                                }]
+                                                auth.update_user_history(st.session_state.license_key, {'tasks': rich_tk})
+                                            # --------------------------
+                                            st.success(f"✅ Guardada en Inbox")
+                                            time.sleep(1)
+                                            st.rerun()
+                                        else:
+                                            st.error("❌ Error al guardar tarea.")
 
         elif 'fetched_emails' in st.session_state:
             st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")

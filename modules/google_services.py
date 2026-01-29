@@ -643,6 +643,11 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
         if color_id:
             event_body['colorId'] = color_id
             
+        # Recurrence Support
+        recurrence = event_data.get('recurrence')
+        if recurrence and isinstance(recurrence, list):
+            event_body['recurrence'] = recurrence
+            
         created_event = service.events().insert(calendarId=calendar_id, body=event_body).execute()
         return True, "Evento creado exitosamente (con recordatorios)"
     except Exception as e:
