@@ -360,18 +360,6 @@ Borrador:
 @st.cache_data(show_spinner=False)
 def generate_reply_email(email_body, intent="Confirmar recepción"):
     client = _get_groq_client()
-    try:
-        completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": PROMPT_EMAIL_REPLY.format(email_body=email_body[:2000], intent=intent)}
-            ],
-            model="llama-3.1-8b-instant",
-            temperature=0.3,
-            max_tokens=256
-        )
-        return completion.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Error generando borrador: {e}"
     if not model_id:
          if 'user_data_full' in st.session_state and 'modelo_ia' in st.session_state.user_data_full:
              pref = str(st.session_state.user_data_full['modelo_ia']).strip()
@@ -380,6 +368,9 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
     if not model_id: model_id = default_primary
 
     all_results = []
+    total_batches = (len(emails) + BATCH_SIZE - 1) // BATCH_SIZE
+    
+    st.toast(f"📊 Procesando {total_batches} batches con modelo {model_id}", icon="📊")
     
     # Chunking Loop
     for i in range(0, len(emails), BATCH_SIZE):
@@ -400,6 +391,8 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
         prompt = PROMPT_EMAIL_ANALYSIS.format(current_date=datetime.datetime.now().strftime("%Y-%m-%d"))
         
         try:
+            st.toast(f"🤖 Llamando a {model_id} (Batch {i//BATCH_SIZE + 1}/{total_batches})", icon="🤖")
+            
             # Call AI
             completion = client.chat.completions.create(
                 messages=[
@@ -411,6 +404,9 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
                 max_tokens=4096 # Increased from 2048
             )
             raw_content = completion.choices[0].message.content.strip()
+            
+            st.toast(f"✅ Recibida respuesta de IA ({len(raw_content)} chars)", icon="✅")
+            
             # FORCE Debug Output (ALWAYS create)
             if 'debug_ai_raw' not in st.session_state: 
                 st.session_state.debug_ai_raw = []
@@ -441,6 +437,12 @@ def generate_reply_email(email_body, intent="Confirmar recepción"):
         except Exception as e:
             err_msg = str(e)
             print(f"ERROR BATCH {i}: {err_msg}")
+            st.error(f"❌ Error en Batch {i//BATCH_SIZE + 1}: {err_msg}")
+            
+            traceback_str = traceback.format_exc()
+            print(f"TRACEBACK:\n{traceback_str}")
+            st.code(traceback_str)
+            
             # Automatic Fallback for 429 Rate Limits
             if ("429" in err_msg or "rate limit" in err_msg.lower()) and not custom_model:
                 st.warning(f"⚠️ Limit (Batch {i//BATCH_SIZE + 1}): Swapping to {fallback_model}...")
