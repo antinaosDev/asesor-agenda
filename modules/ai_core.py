@@ -38,26 +38,18 @@ La descripción DEBE ser COMPLETA y PROFESIONAL:
 4. Estilo: Formal, ejecutivo, profesional - como un acta de reunión
 5. NO resumir - incluir TODOS los detalles relevantes del correo
 
-FORMATO IDEAL DE DESCRIPCIÓN PARA REUNIONES:
-📋 AGENDA:
-
-1. [Tema 1 completo con todos sus detalles]
-   - Detalles específicos, nombres, regulaciones
-   
-2. [Tema 2 completo]
-   - Información adicional relevante
-   
-3. [Tema 3...]
-
-👥 PARTICIPANTES: [nombres mencionados]
-📍 UBICACIÓN: [sala/lugar si se menciona]
-📎 REFERENCIAS: [artículos, decretos, reglamentos citados]
-💬 NOTAS: [información adicional del remitente]
+EJEMPLO DE ESTRUCTURA IDEAL:
+- AGENDA: Lista numerada de todos los temas
+- PARTICIPANTES: Nombres mencionados
+- UBICACION: Sala/lugar si se menciona
+- REFERENCIAS: Artículos, decretos, reglamentos citados
+- NOTAS: Información adicional del remitente
 
 ⭐ Para TAREAS:
 - Descripción clara del objetivo
 - Incluir responsables si se mencionan
 - Especificar fechas límite o plazos
+
 
 🎨 CÓDIGO DE COLOR (Google Calendar IDs):
 - "11" (Rojo): URGENTE / Alta Prioridad
@@ -121,27 +113,17 @@ Para EVENTOS (reuniones, consejos, comités):
 5. NO resumir - incluir TODOS los detalles relevantes
 6. Mantener el orden de los temas tal como aparecen
 
-FORMATO IDEAL DE DESCRIPCIÓN PARA REUNIONES:
-"""
-📋 AGENDA:
-
-1. [Tema 1 completo con todos sus detalles]
-   - Detalles específicos, nombres, regulaciones
-   
-2. [Tema 2 completo]
-   - Información adicional relevante
-   
-3. [Tema 3...]
-
-👥 PARTICIPANTES: [si se mencionan]
-📍 UBICACIÓN: [si se menciona]
-📎 REFERENCIAS: [artículos, decretos, reglamentos mencionados]
-"""
+EJEMPLO DE ESTRUCTURA IDEAL PARA DESCRIPCIONES:
+- AGENDA: Lista numerada completa con todos los temas y detalles
+- PARTICIPANTES: Nombres y cargos si se mencionan
+- UBICACION: Sala o lugar si se menciona
+- REFERENCIAS: Artículos, decretos, reglamentos mencionados textualmente
 
 Para TAREAS:
 - Descripción clara del objetivo y entregable esperado
 - Incluir responsables si se mencionan
 - Especificar requisitos o referencias normativas
+
 
 🔍 REGLAS ESPECIALES:
 
