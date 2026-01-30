@@ -948,6 +948,7 @@ def save_calendar_session(username, calendar_id):
         if not target_col:
             target_col = "sesion_calendar"
             df[target_col] = ""
+            df[target_col] = df[target_col].astype('object')  # Force string type
         
         # Find user row
         idx_list = df.index[df[user_col].astype(str).str.strip() == username.strip()].tolist()
