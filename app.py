@@ -2985,10 +2985,53 @@ def main_app():
         selection = st.radio("Navegación", list(nav_options.keys()), format_func=lambda x: nav_options[x], label_visibility="collapsed")
 
         st.divider()
-        st.caption("Configuración")
-        st.text_input("ID Calendario", value=st.session_state.get('connected_email', ''), key='connected_email_input')
-        if st.session_state.connected_email_input != st.session_state.get('connected_email', ''):
-            st.session_state.connected_email = st.session_state.connected_email_input
+        st.caption("Configuración de Calendario")
+        
+        # --- CALENDAR SESSION MANAGEMENT ---
+        # Cargar sesión guardada si es la primera vez
+        if 'calendar_loaded' not in st.session_state:
+            if 'license_key' in st.session_state:
+                saved_calendar = auth.load_calendar_session(st.session_state.license_key)
+                if saved_calendar:
+                    st.session_state.connected_email = saved_calendar
+                    st.toast(f"📅 Calendario cargado: {saved_calendar[:30]}...")
+            st.session_state.calendar_loaded = True
+
+        # Input de Calendar ID
+        current_calendar = st.session_state.get('connected_email', '')
+        new_calendar = st.text_input("ID Calendario", value=current_calendar, key='connected_email_input', 
+                                     help="Ingresa tu email de Google Calendar")
+
+        # Detectar cambio y guardar
+        if new_calendar != current_calendar:
+            st.session_state.connected_email = new_calendar
+            if 'license_key' in st.session_state and new_calendar:
+                auth.save_calendar_session(st.session_state.license_key, new_calendar)
+            # Limpiar caché al cambiar calendario
+            if 'c_events_cache' in st.session_state:
+                del st.session_state['c_events_cache']
+                st.toast("🔄 Caché de eventos limpiado")
+
+        # Botones de control
+        col_cal_1, col_cal_2 = st.columns(2)
+        with col_cal_1:
+            if st.button("🔄 Refrescar", key="btn_refresh", use_container_width=True, 
+                        help="Limpiar caché y actualizar eventos"):
+                if 'c_events_cache' in st.session_state:
+                    del st.session_state['c_events_cache']
+                st.success("✅ Caché limpiado")
+                st.rerun()
+
+        with col_cal_2:
+            if st.button("🚪 Cerrar Cal", key="btn_logout_cal", use_container_width=True,
+                        help="Cerrar sesión de calendario"):
+                st.session_state.connected_email = ''
+                if 'license_key' in st.session_state:
+                    auth.save_calendar_session(st.session_state.license_key, '')
+                if 'c_events_cache' in st.session_state:
+                    del st.session_state['c_events_cache']
+                st.info("📅 Sesión de calendario cerrada")
+                st.rerun()
 
         st.markdown("<br><br>", unsafe_allow_html=True)
         if st.button("🔐 Cerrar Sesión App", key="btn_logout_sidebar", width="stretch"):

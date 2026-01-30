@@ -907,3 +907,114 @@ def check_and_update_doc_analysis_quota(username, requested_amount=0):
     except Exception as e:
         print(f"Doc Quota Error: {e}")
         return False, 0, 0, 0
+
+def save_calendar_session(username, calendar_id):
+    """
+    Guarda el Calendar ID en la columna 'sesion_calendar' de Google Sheets.
+    
+    Args:
+        username: Usuario actual
+        calendar_id: ID del calendario a guardar (email)
+        
+    Returns:
+        bool: True si se guardó exitosamente, False en caso contrario
+    """
+    if not username:
+        return False
+    
+    try:
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+            sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+        
+        from streamlit_gsheets import GSheetsConnection
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Find columns (case insensitive)
+        target_col = None
+        user_col = None
+        for c in df.columns:
+            if c.lower().strip() == 'sesion_calendar':
+                target_col = c
+            if c.lower().strip() == 'user':
+                user_col = c
+        
+        if not user_col:
+            return False
+        
+        # Create column if missing
+        if not target_col:
+            target_col = "sesion_calendar"
+            df[target_col] = ""
+        
+        # Find user row
+        idx_list = df.index[df[user_col].astype(str).str.strip() == username.strip()].tolist()
+        if not idx_list:
+            return False
+        
+        idx = idx_list[0]
+        
+        # Update value
+        df.at[idx, target_col] = str(calendar_id).strip()
+        conn.update(spreadsheet=sheet_url, data=df)
+        
+        if calendar_id:
+            st.toast("📅 Sesión de calendario guardada")
+        return True
+        
+    except Exception as e:
+        st.error(f"Error guardando sesión: {e}")
+        return False
+
+def load_calendar_session(username):
+    """
+    Carga el Calendar ID guardado desde Google Sheets.
+    
+    Args:
+        username: Usuario actual
+        
+    Returns:
+        str | None: Calendar ID guardado o None si no existe
+    """
+    if not username:
+        return None
+    
+    try:
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+            sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+        
+        from streamlit_gsheets import GSheetsConnection
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Find columns (case insensitive)
+        target_col = None
+        user_col = None
+        for c in df.columns:
+            if c.lower().strip() == 'sesion_calendar':
+                target_col = c
+            if c.lower().strip() == 'user':
+                user_col = c
+        
+        if not user_col or not target_col:
+            return None
+        
+        # Find user row
+        idx_list = df.index[df[user_col].astype(str).str.strip() == username.strip()].tolist()
+        if not idx_list:
+            return None
+        
+        idx = idx_list[0]
+        cal_id = str(df.at[idx, target_col]).strip()
+        
+        if cal_id and cal_id.lower() != 'nan' and cal_id.lower() != 'none':
+            return cal_id
+        return None
+        
+    except Exception as e:
+        print(f"Error loading calendar session: {e}")
+        return None
