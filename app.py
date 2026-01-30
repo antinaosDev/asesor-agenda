@@ -3013,17 +3013,20 @@ def main_app():
         st.divider()
         st.caption("Configuración de Calendario")
         
+        
         # Input de Calendar ID
         current_calendar = st.session_state.get('connected_email', '')
         new_calendar = st.text_input("ID Calendario", value=current_calendar, key='connected_email_input', 
                                      help="Ingresa tu email de Google Calendar")
 
         # Detectar cambio y guardar
-        if new_calendar != current_calendar:
+        # CRITICAL: Only save if user is authenticated (has license_key)
+        # This prevents saving during app logout when session states are being cleared
+        if new_calendar != current_calendar and 'license_key' in st.session_state:
             st.session_state.connected_email = new_calendar
             # SIEMPRE guardar, incluso si está vacío
-            if 'license_key' in st.session_state:
-                auth.save_calendar_session(st.session_state.license_key, new_calendar)
+            auth.save_calendar_session(st.session_state.license_key, new_calendar)
+            
             # Limpiar caché al cambiar calendario
             if 'c_events_cache' in st.session_state:
                 del st.session_state['c_events_cache']
@@ -3076,7 +3079,7 @@ def main_app():
             # Solo se borra si el usuario hace clic en "Cambiar Cuenta / Salir"
 
             # Clear Local Session State ONLY (UI Reset)
-            keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'authenticated', 'user_data_full', 'license_key']
+            keys_to_clear = ['connected_email', 'connected_email_input', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'authenticated', 'user_data_full', 'license_key', 'c_events_cache', 'c_events_cache_time']
             for k in keys_to_clear:
                 if k in st.session_state:
                     del st.session_state[k]
