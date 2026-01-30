@@ -3049,13 +3049,23 @@ def main_app():
         with col_cal_2:
             if st.button("🚪 Cerrar Cal", key="btn_logout_cal", use_container_width=True,
                         help="Cerrar sesión de calendario"):
+                # Clear session state
                 st.session_state.connected_email = ''
+                
+                # Clear widget state (CRITICAL for visual update)
+                if 'connected_email_input' in st.session_state:
+                    st.session_state.connected_email_input = ''
+                
+                # Save empty to Sheets
                 if 'license_key' in st.session_state:
                     auth.save_calendar_session(st.session_state.license_key, '')
+                
+                # Clear cache
                 if 'c_events_cache' in st.session_state:
                     del st.session_state['c_events_cache']
                 if 'c_events_cache_time' in st.session_state:
                     del st.session_state['c_events_cache_time']
+                
                 st.info("📅 Sesión de calendario cerrada")
                 st.rerun()
 
