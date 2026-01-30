@@ -3021,14 +3021,18 @@ def main_app():
         # Detectar cambio y guardar
         if new_calendar != current_calendar:
             st.session_state.connected_email = new_calendar
-            if 'license_key' in st.session_state and new_calendar:
+            # SIEMPRE guardar, incluso si está vacío
+            if 'license_key' in st.session_state:
                 auth.save_calendar_session(st.session_state.license_key, new_calendar)
             # Limpiar caché al cambiar calendario
             if 'c_events_cache' in st.session_state:
                 del st.session_state['c_events_cache']
             if 'c_events_cache_time' in st.session_state:
                 del st.session_state['c_events_cache_time']
-            st.toast("🔄 Caché de eventos limpiado")
+            if new_calendar:
+                st.toast("🔄 Caché de eventos limpiado")
+            else:
+                st.toast("📅 Sesión de calendario cerrada")
 
         # Botones de control
         col_cal_1, col_cal_2 = st.columns(2)
