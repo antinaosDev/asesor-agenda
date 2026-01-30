@@ -947,7 +947,7 @@ Saludos."""
             st.markdown("""
             Crea eventos al instante con texto simple. Ejemplos:
             - `Reunión mañana 3pm`
-            - `Almuerzo viernes 1pm con Juan`
+            - `Almuerzo viernes 1pm`
             - `Call lunes 9am`
             """)
             

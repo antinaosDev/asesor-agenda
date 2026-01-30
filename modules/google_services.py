@@ -1183,7 +1183,7 @@ def deduplicate_tasks(service):
 def quick_add_event(service, text, calendar_id='primary'):
     """
     Creates an event from a simple text string using Calendar API quickAdd.
-    Examples: "Reunión mañana 3pm", "Almuerzo viernes 1pm con Juan"
+    Examples: "Reunión mañana 3pm", "Almuerzo viernes 1pm"
     
     Args:
         service: Google Calendar service instance
