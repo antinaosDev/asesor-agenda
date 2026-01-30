@@ -819,21 +819,48 @@ def _call_agenda_ai_chunk(client, payload):
     VALID COLOR IDs (String 1-11) for EVENTS:
     - "1": Lavanda (Misc)
     - "2": Salvia (Intercultural/VerdeClaro)
-    ... (Use standard Google Colors) ...
+    - "3": Uva (Morado)
+    - "4": Rosado (Reuniones Internas/Equipo)
+    - "5": Amarillo (Planificación)
+    - "6": Naranja (Reuniones Externas/Clientes)
+    - "7": Azul Peacock (Trabajo Profundo/Proyectos)
+    - "8": Gris (Neutro)
+    - "9": Azul Oscuro
+    - "10": Verde (Salud/Bienestar)
     - "11": Tomate (Urgente/Rojo)
 
     GOALS:
     1. EVENTS: Rewrite summaries to be professional/executive. Assign correct Color ID.
     2. TASKS: Rewrite titles to be ACTIONABLE (Start with verb). Suggest 'new_due' ONLY if urgent/overdue context is obvious (otherwise keep same).
     
+    CRITICAL RULE - USE REAL IDs:
+    - You will receive a JSON payload with events and/or tasks
+    - Each event/task has an "id" field
+    - In your output, you MUST use the EXACT SAME "id" values from the input
+    - DO NOT generate fictional IDs like "event_id_1" or "task_id_1"
+    - ONLY include items in the output if they actually need optimization
+    - If an item is already well-written, SKIP it from the output
+    
     OUTPUT FORMAT (JSON):
     {
         "optimization_plan": {
-            "event_id_1": {"type": "event", "new_summary": "...", "colorId": "ID_STRING"},
-            "task_id_1":  {"type": "task",  "new_title": "...", "list_id": "...", "new_due": "YYYY-MM-DD (Optional)"}
+            "<REAL_EVENT_ID_FROM_INPUT>": {"type": "event", "new_summary": "...", "colorId": "ID_STRING"},
+            "<REAL_TASK_ID_FROM_INPUT>":  {"type": "task",  "new_title": "...", "list_id": "...", "new_due": "YYYY-MM-DD (Optional)"}
         },
         "advisor_note": "Resumen estratégico de mejoras..."
     }
+    
+    EXAMPLE INPUT:
+    {"events": [{"id": "abc123xyz", "summary": "reunion equipo", "start": "..."}], "tasks": []}
+    
+    EXAMPLE OUTPUT (using REAL ID from input):
+    {
+        "optimization_plan": {
+            "abc123xyz": {"type": "event", "new_summary": "Reunión Estratégica del Equipo", "colorId": "4"}
+        },
+        "advisor_note": "Mejorado el profesionalismo del título del evento."
+    }
+    
     LANGUAGE: SPANISH.
     """
     
