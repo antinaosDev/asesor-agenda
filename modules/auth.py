@@ -948,7 +948,11 @@ def save_calendar_session(username, calendar_id):
         if not target_col:
             target_col = "sesion_calendar"
             df[target_col] = ""
-            df[target_col] = df[target_col].astype('object')  # Force string type
+        
+        # CRITICAL: Force object dtype BEFORE assignment to avoid FutureWarning
+        # This must be done even if column exists, because Sheets may read it as float64
+        if target_col in df.columns:
+            df[target_col] = df[target_col].astype('object')
         
         # Find user row
         idx_list = df.index[df[user_col].astype(str).str.strip() == username.strip()].tolist()
@@ -957,7 +961,7 @@ def save_calendar_session(username, calendar_id):
         
         idx = idx_list[0]
         
-        # Update value
+        # Update value (now safe because column is object type)
         df.at[idx, target_col] = str(calendar_id).strip()
         conn.update(spreadsheet=sheet_url, data=df)
         
