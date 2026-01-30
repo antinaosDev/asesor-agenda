@@ -3052,9 +3052,9 @@ def main_app():
                 # Clear session state
                 st.session_state.connected_email = ''
                 
-                # Clear widget state (CRITICAL for visual update)
+                # Delete widget key to force reset (can't modify after widget creation)
                 if 'connected_email_input' in st.session_state:
-                    st.session_state.connected_email_input = ''
+                    del st.session_state['connected_email_input']
                 
                 # Save empty to Sheets
                 if 'license_key' in st.session_state:
