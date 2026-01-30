@@ -305,6 +305,13 @@ def render_login_page():
                     st.session_state.authenticated = True
                     st.session_state.user_data_full = data
                     st.session_state.license_key = u
+                    
+                    # AUTO-LOAD CALENDAR SESSION
+                    saved_calendar = auth.load_calendar_session(u)
+                    if saved_calendar:
+                        st.session_state.connected_email = saved_calendar
+                        st.toast(f"📅 Calendario cargado: {saved_calendar[:30]}...")
+                    
                     st.rerun()
                 else:
                     st.error("Acceso Denegado")
@@ -1139,12 +1146,22 @@ def view_planner():
     calendar_context_str = ""
     calendar_id = st.session_state.get('connected_email', '')
 
-    # Common Calendar Fetch (Optimized)
+    # Common Calendar Fetch (Optimized with TTL)
     if 'c_events_cache' not in st.session_state:
         st.session_state.c_events_cache = []
+        st.session_state.c_events_cache_time = None
 
-    # Always fetch if cache empty or requested (Only if email connected)
-    if not st.session_state.c_events_cache and calendar_id:
+    # Check if cache needs refresh (TTL: 5 minutes)
+    cache_expired = False
+    if st.session_state.c_events_cache_time:
+        import datetime as dt
+        time_since_cache = (dt.datetime.now() - st.session_state.c_events_cache_time).total_seconds()
+        if time_since_cache > 300:  # 5 minutes = 300 seconds
+            cache_expired = True
+            st.session_state.c_events_cache = []  # Clear expired cache
+
+    # Always fetch if cache empty, expired, or requested (Only if email connected)
+    if (not st.session_state.c_events_cache or cache_expired) and calendar_id:
         svc = get_calendar_service()
         if svc:
             try:
@@ -1155,8 +1172,13 @@ def view_planner():
                 st.session_state.c_events_cache = svc.events().list(
                     calendarId=calendar_id, timeMin=t_min, timeMax=t_max, 
                     singleEvents=True, orderBy='startTime', maxResults=2000,
-                    fields="items(summary,start,end,description)" 
+                    fields="items(summary,start,end,description,id,colorId)" 
                 ).execute().get('items', [])
+                
+                # Update timestamp
+                import datetime as dt
+                st.session_state.c_events_cache_time = dt.datetime.now()
+                
             except Exception as e:
                 err_msg = str(e)
                 fallback_success = False
@@ -1170,10 +1192,14 @@ def view_planner():
                             st.session_state.c_events_cache = svc_sa.events().list(
                                 calendarId=calendar_id, timeMin=t_min, timeMax=t_max, 
                                 singleEvents=True, orderBy='startTime', maxResults=2000,
-                                fields="items(summary,start,end,description)" 
+                                fields="items(summary,start,end,description,id,colorId)" 
                             ).execute().get('items', [])
                             fallback_success = True
                             st.toast(f"🤖 Usando cuenta Robot para ver {calendar_id}")
+                            
+                            # Update timestamp
+                            import datetime as dt
+                            st.session_state.c_events_cache_time = dt.datetime.now()
                     except:
                         pass
 
@@ -2987,16 +3013,6 @@ def main_app():
         st.divider()
         st.caption("Configuración de Calendario")
         
-        # --- CALENDAR SESSION MANAGEMENT ---
-        # Cargar sesión guardada si es la primera vez
-        if 'calendar_loaded' not in st.session_state:
-            if 'license_key' in st.session_state:
-                saved_calendar = auth.load_calendar_session(st.session_state.license_key)
-                if saved_calendar:
-                    st.session_state.connected_email = saved_calendar
-                    st.toast(f"📅 Calendario cargado: {saved_calendar[:30]}...")
-            st.session_state.calendar_loaded = True
-
         # Input de Calendar ID
         current_calendar = st.session_state.get('connected_email', '')
         new_calendar = st.text_input("ID Calendario", value=current_calendar, key='connected_email_input', 
@@ -3010,7 +3026,9 @@ def main_app():
             # Limpiar caché al cambiar calendario
             if 'c_events_cache' in st.session_state:
                 del st.session_state['c_events_cache']
-                st.toast("🔄 Caché de eventos limpiado")
+            if 'c_events_cache_time' in st.session_state:
+                del st.session_state['c_events_cache_time']
+            st.toast("🔄 Caché de eventos limpiado")
 
         # Botones de control
         col_cal_1, col_cal_2 = st.columns(2)
@@ -3019,6 +3037,8 @@ def main_app():
                         help="Limpiar caché y actualizar eventos"):
                 if 'c_events_cache' in st.session_state:
                     del st.session_state['c_events_cache']
+                if 'c_events_cache_time' in st.session_state:
+                    del st.session_state['c_events_cache_time']
                 st.success("✅ Caché limpiado")
                 st.rerun()
 
@@ -3030,6 +3050,8 @@ def main_app():
                     auth.save_calendar_session(st.session_state.license_key, '')
                 if 'c_events_cache' in st.session_state:
                     del st.session_state['c_events_cache']
+                if 'c_events_cache_time' in st.session_state:
+                    del st.session_state['c_events_cache_time']
                 st.info("📅 Sesión de calendario cerrada")
                 st.rerun()
 
