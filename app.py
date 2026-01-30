@@ -2520,11 +2520,55 @@ def view_optimize():
             st.write(f"📅 Se leyeron {len(events)} eventos y {len(tasks)} tareas activas.")
 
 
+
         if st.button("🧠 AI: Analizar Agenda Completa (Eventos + Tareas)"):
+             # === FORCE REFRESH: Clear cache and reimport data ===
+             with st.spinner("🔄 Actualizando datos desde Google Calendar/Tasks..."):
+                 # Clear cached events
+                 if 'opt_events' in st.session_state:
+                     del st.session_state['opt_events']
+                 
+                 # Reimport fresh data
+                 service = get_calendar_service()
+                 if service:
+                     t_min = datetime.datetime.combine(start_date, datetime.time.min).isoformat() + 'Z'
+                     t_max = datetime.datetime.combine(end_date, datetime.time.max).isoformat() + 'Z'
+                     
+                     try:
+                         res = service.events().list(
+                             calendarId=calendar_id,
+                             timeMin=t_min,
+                             timeMax=t_max,
+                             singleEvents=True,
+                             orderBy='startTime',
+                             maxResults=250
+                         ).execute()
+                         st.session_state.opt_events = res.get('items', [])
+                         events_to_optimize = st.session_state.opt_events
+                         st.toast(f"✅ Datos actualizados: {len(events_to_optimize)} eventos", icon="✅")
+                     except Exception as e:
+                         st.error(f"Error actualizando datos: {e}")
+                         events_to_optimize = []
+                 else:
+                     events_to_optimize = []
+                 
+                 # Refetch tasks as well
+                 task_svc = get_tasks_service()
+                 tasks = []
+                 if task_svc:
+                     tasks = get_existing_tasks_simple(task_svc)
+                     st.toast(f"✅ Tareas actualizadas: {len(tasks)}", icon="✅")
+             
+             # Now filter by optimization history
+             if 'user_data_full' in st.session_state:
+                 history_now = auth.get_user_history(st.session_state.user_data_full)
+                 already_optimized_ids = {x.get('id') for x in history_now.get('opt_events', []) if x.get('id')}
+                 events_to_optimize = [e for e in events_to_optimize if e['id'] not in already_optimized_ids]
+             
              if not events_to_optimize and not tasks:
-                 st.warning("No hay elementos nuevos para optimizar.")
+                  st.warning("No hay elementos nuevos para optimizar.")
              else:
-                with st.spinner("Analizando patrones y optimizando agenda..."):
+                 with st.spinner("Analizando patrones y optimizando agenda..."):
                     # Only send new stuff + tasks
                     # (Tasks usually change state often so strict persistence might be overkill, 
                     # but we can improve later. For now, we optim tasks every time.)
