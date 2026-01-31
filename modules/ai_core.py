@@ -98,7 +98,7 @@ IMPORTANTE: NO devuelvas `{{ "draft_email": ... }}`. SIEMPRE usa `{{ "action": "
         model="llama-3.1-8b-instant", # Most efficient model
         messages=messages,
         temperature=0.5,
-        max_tokens=512,
+        max_tokens=2000, # Increased for batch actions
         stream=True
     )
 
