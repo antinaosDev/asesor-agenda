@@ -60,13 +60,24 @@ Si el usuario pide crear algo (evento, tarea, email), TU RESPUESTA DEBE TERMINAR
 IMPORTANTE: Si generas el JSON, tu respuesta verbal DEBE confirmar que lo harás. NO digas "no puedo" y luego pongas el JSON.
 Sé flexible con los emails; si parece un email, úsalo.
 
-Formato JSON:
+Formato JSON ESTRICTO (No inventes otro formato):
 ```json
 {{
-  "action": "create_event",  // O "create_task", "draft_email"
-  "params": {{ ... }}
+  "action": "create_event", // Valores válidos: "create_event", "create_task", "draft_email"
+  "params": {{
+    // EVENTO: "summary", "start_time" (ISO), "end_time" (ISO), "description"
+    // TAREA: "title", "due_date" (ISO)
+    // EMAIL: "subject", "body", "recipient" (opcional)
+  }}
 }}
 ```
+
+EJEMPLOS:
+1. Evento: `{{"action": "create_event", "params": {{"summary": "Cita", "start_time": "2024-01-31T10:00:00", "end_time": "2024-01-31T11:00:00"}}}}`
+2. Tarea: `{{"action": "create_task", "params": {{"title": "Comprar pan", "due_date": "2024-02-01"}}}}`
+3. Email: `{{"action": "draft_email", "params": {{"subject": "Hola", "body": "Texto..."}}}}`
+
+IMPORTANTE: NO devuelvas `{{ "draft_email": ... }}`. SIEMPRE usa `{{ "action": "...", "params": ... }}`.
 """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     

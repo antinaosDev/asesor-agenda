@@ -88,14 +88,23 @@ def render_chat_view():
         import json
         import re
         
-        # 1. Check for JSON Block (Flexible Regex)
-        json_match = re.search(r'```json(.*?)```', full_response, re.DOTALL)
+        # 1. Check for JSON Block (Robust Regex Strategy)
+        # Strategy A: Markdown Code Block
+        json_match = re.search(r'```json\s*(\{.*?\})\s*```', full_response, re.DOTALL)
+        
+        # Strategy B: Raw JSON at the end (Fallback)
+        if not json_match:
+             json_match = re.search(r'(\{[\s\n]*"action"[\s\n]*:[\s\n]*".*?"[\s\S]*?\})\s*$', full_response, re.DOTALL)
+
         clean_text = full_response
         
         action_executed = False
         if json_match:
             try:
                 json_str = json_match.group(1)
+                # Cleaning to ensure valid JSON (remove comments if AI hallucinated //)
+                json_str = re.sub(r'//.*', '', json_str) 
+                
                 action_data = json.loads(json_str)
                 
                 # Check Action Type
