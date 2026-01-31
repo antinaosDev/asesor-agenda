@@ -94,21 +94,84 @@ def _get_lite_context():
     now = datetime.datetime.now()
     ctx = f"Fecha: {now.strftime('%Y-%m-%d %H:%M')}\n"
     
-    # Events (Lite)
+    # --- CONTEXTO REAL TIME ---
+    # 1. EVENTS (Today + Tomorrow)
+    ctx += "=== AGENDA REAL ===\n"
     try:
-        if 'c_events_cache' in st.session_state:
-            # Use Cache if available to save API calls
-            events = st.session_state.c_events_cache
-            ctx += "Agenda Hoy:\n"
+        # Try Cache First
+        events = st.session_state.get('c_events_cache', [])
+        
+        # If cache empty, force fetch (Critical for Chat accuracy)
+        if not events:
+            svc_cal = gs.get_calendar_service()
+            if svc_cal:
+                t_min = now.isoformat() + 'Z'
+                t_max = (now + datetime.timedelta(days=2)).isoformat() + 'Z' # 48 hours window
+                events_result = svc_cal.events().list(
+                    calendarId='primary', timeMin=t_min, timeMax=t_max, 
+                    singleEvents=True, orderBy='startTime'
+                ).execute()
+                events = events_result.get('items', [])
+        
+        if events:
             count = 0
             for e in events:
-                start = e.get('start', {}).get('dateTime', '')[11:16]
-                summary = e.get('summary', 'Evento')
-                ctx += f"- {start} {summary}\n"
+                start = e.get('start', {}).get('dateTime', e.get('start', {}).get('date'))
+                summary = e.get('summary', 'Sin Título')
+                
+                # Format friendly
+                try: 
+                    dt_s = datetime.datetime.fromisoformat(start)
+                    start_str = dt_s.strftime("%d/%m %H:%M")
+                except: start_str = start
+                
+                ctx += f"- [{start_str}] {summary}\n"
                 count += 1
-                if count >= 5: break # Limit to 5 for tokens
-            if count == 0: ctx += "(Agenda libre)\n"
+                if count >= 8: break # Cap at 8 events
+        else:
+            ctx += "(Sin eventos próximos)\n"
+    except Exception as e:
+        ctx += f"(Error leyendo agenda: {e})\n"
+
+    # 2. TASKS (Pending)
+    ctx += "\n=== TAREAS PENDIENTES ===\n"
+    try:
+        svc_tasks = gs.get_tasks_service()
+        if svc_tasks:
+            tasks = gs.get_existing_tasks_simple(svc_tasks)
+            # Filter only needing action? API already returns 'needsAction' primarily if showCompleted=False
+            if tasks:
+                for t in tasks[:5]: # Top 5
+                   ctx += f"- {t.get('title', 'Tarea')}\n"
+            else:
+                ctx += "(Sin tareas pendientes)\n"
     except:
-        ctx += "Agenda: No disponible\n"
+        ctx += "(No se pudo leer Tasks)\n"
+
+    # 3. EMAILS (Unread Context)
+    ctx += "\n=== CORREOS NO LEÍDOS (Recientes) ===\n"
+    try:
+        svc_gmail = gs.get_gmail_credentials() # Returns creds, need service
+        if svc_gmail:
+            from googleapiclient.discovery import build
+            curr_svc = build('gmail', 'v1', credentials=svc_gmail, cache_discovery=False)
+            
+            # Re-use fetch logic but keep it simple/fast
+            # Query: unread
+            results = curr_svc.users().messages().list(userId='me', q="is:unread -category:promotions -category:social", maxResults=5).execute()
+            msgs = results.get('messages', [])
+            
+            if msgs:
+                for m in msgs:
+                    # Quick fetch snippet
+                    full = curr_svc.users().messages().get(userId='me', id=m['id'], format='minimal').execute()
+                    headers = full.get('payload', {}).get('headers', [])
+                    subj = next((h['value'] for h in headers if h['name'] == 'Subject'), '(Sin Asunto)')
+                    sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Desconocido')
+                    ctx += f"- De: {sender} | Asunto: {subj}\n"
+            else:
+               ctx += "(Bandeja al día)\n"
+    except:
+        ctx += "(Error leyendo correos)\n"
 
     return ctx
