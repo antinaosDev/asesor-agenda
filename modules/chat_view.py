@@ -3,6 +3,8 @@ import modules.ai_core as ai
 import modules.google_services as gs
 import datetime
 import time
+import json
+import re
 
 def render_chat_view():
     st.markdown("""
