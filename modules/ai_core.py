@@ -61,19 +61,24 @@ IMPORTANTE: Si generas el JSON, tu respuesta verbal DEBE confirmar que lo harás
 Sé flexible con los emails; si parece un email, úsalo.
 
 Formato JSON ESTRICTO (No inventes otro formato):
+Puedes devolver UN OBJETO `{{ "action": ... }}` o UNA LISTA `[ {{ "action": ... }}, {{ "action": ... }} ]` para múltiples acciones (ej. 5 cumpleaños).
+
 ```json
 {{
-  "action": "create_event", // Valores válidos: "create_event", "create_task", "draft_email"
+  "action": "create_event", // O "create_task", "draft_email", "delete_event", "delete_task"
   "params": {{
     // EVENTO: "summary", "start_time" (ISO), "end_time" (ISO), "description"
     // TAREA: "title", "due_date" (ISO)
     // EMAIL: "subject", "body", "recipient" (opcional)
+    // BORRAR EVENTO: "event_id" (Sacar del contexto)
+    // BORRAR TAREA: "task_id" (Sacar del contexto)
   }}
 }}
 ```
 
 EJEMPLOS:
-1. Evento: `{{"action": "create_event", "params": {{"summary": "Cita", "start_time": "2024-01-31T10:00:00", "end_time": "2024-01-31T11:00:00"}}}}`
+1. Batch Eventos: `[{{ "action": "create_event", "params": {{...}} }}, {{ "action": "create_event", "params": {{...}} }}]`
+2. Borrar: `{{"action": "delete_event", "params": {{"event_id": "ab123..."}}}}`
 2. Tarea: `{{"action": "create_task", "params": {{"title": "Comprar pan", "due_date": "2024-02-01"}}}}`
 3. Email: `{{"action": "draft_email", "params": {{"subject": "Hola", "body": "Texto..."}}}}`
 

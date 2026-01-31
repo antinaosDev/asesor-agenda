@@ -85,90 +85,118 @@ def render_chat_view():
         st.session_state.chat_history.append({"role": "assistant", "content": full_response})
 
         # Logic to trigger actions based on response (Function Calling)
-        import json
-        import re
+        # 1. Check for JSON Blocks (Robust Multi-Action Strategy)
+        # Strategy: Find all potential JSON blocks (code blocked or raw)
+        # and iterate to execute them.
         
-        # 1. Check for JSON Block (Robust Regex Strategy)
-        # Strategy A: Markdown Code Block
-        json_match = re.search(r'```json\s*(\{.*?\})\s*```', full_response, re.DOTALL)
+        regex_strategies = [
+            r'```json\s*([\[\{].*?[\]\}])\s*```', # Code block with { or [
+            r'([\[\{][\s\n]*"action".*?[\]\}])\s*$' # Raw JSON at end
+        ]
         
-        # Strategy B: Raw JSON at the end (Fallback)
-        if not json_match:
-             json_match = re.search(r'(\{[\s\n]*"action"[\s\n]*:[\s\n]*".*?"[\s\S]*?\})\s*$', full_response, re.DOTALL)
-
+        found_matches = []
+        for reg in regex_strategies:
+             found_matches = list(re.finditer(reg, full_response, re.DOTALL))
+             if found_matches: break
+        
         clean_text = full_response
-        
         action_executed = False
-        if json_match:
-            try:
-                json_str = json_match.group(1)
-                # Cleaning to ensure valid JSON (remove comments if AI hallucinated //)
-                json_str = re.sub(r'//.*', '', json_str) 
-                
-                action_data = json.loads(json_str)
-                
-                # Check Action Type
-                action_type = action_data.get('action')
-                params = action_data.get('params', {})
-                
-                result_msg = ""
-                
-                if action_type == 'create_event':
-                    with st.spinner("🗓️ Creando evento en tu calendario..."):
-                        # VALIDATION: Check required fields
-                        s_time = params.get('start_time', '')
-                        e_time = params.get('end_time', '')
+        
+        if found_matches:
+            for match in found_matches:
+                try:
+                    json_str = match.group(1)
+                    # Cleaning
+                    json_str = re.sub(r'//.*', '', json_str)
+                    
+                    # Parse (Handle List or Single Object)
+                    data = json.loads(json_str)
+                    actions_list = data if isinstance(data, list) else [data]
+                    
+                    for action_data in actions_list:
+                        action_type = action_data.get('action')
+                        params = action_data.get('params', {})
+                        result_msg = ""
                         
-                        if not s_time or not e_time:
-                            st.error("⚠️ Faltan fecha u hora para el evento. Por favor especifícalos.")
-                        else:
-                            svc = gs.get_calendar_service()
-                            if svc:
-                                ok, msg = gs.add_event_to_calendar(svc, params)
-                                if ok: 
-                                    result_msg = f"✅ Evento creado: {params.get('summary')}"
-                                    action_executed = True
-                                else: st.error(f"Error creando evento: {msg}")
-                            else: st.error("No hay conexión con Calendar.")
+                        if action_type == 'create_event':
+                            # ... existing create_event logic ...
+                            with st.spinner(f"🗓️ Creando: {params.get('summary', 'Evento')}"):
+                                s_time = params.get('start_time', '')
+                                e_time = params.get('end_time', '')
+                                if not s_time or not e_time:
+                                    st.error("⚠️ Faltan fecha/hora.")
+                                else:
+                                    svc = gs.get_calendar_service()
+                                    if svc:
+                                        ok, msg = gs.add_event_to_calendar(svc, params)
+                                        if ok: 
+                                            result_msg = f"✅ Evento creado: {params.get('summary')}"
+                                            action_executed = True
+                                        else: st.error(f"Error: {msg}")
 
-                elif action_type == 'create_task':
-                     with st.spinner("✅ Creando tarea..."):
-                        svc = gs.get_tasks_service()
-                        if svc:
-                            # Need TaskList ID (Default to first one)
-                            t_lists = gs.get_task_lists(svc)
-                            if t_lists:
-                                t_list_id = t_lists[0]['id']
-                                res = gs.add_task_to_google(svc, t_list_id, params.get('title'), due_date=params.get('due_date'))
-                                if res:
-                                    result_msg = f"✅ Tarea creada: {params.get('title')}"
-                                    action_executed = True
-                                else: st.error("Error al crear tarea.")
-                            else: st.error("No se encontraron listas de tareas.")
+                        elif action_type == 'delete_event':
+                            with st.spinner("🗑️ Eliminando evento..."):
+                                 evt_id = params.get('event_id')
+                                 if evt_id:
+                                     svc = gs.get_calendar_service()
+                                     if svc:
+                                         if gs.delete_event(svc, evt_id):
+                                             result_msg = "🗑️ Evento eliminado correctamente."
+                                             action_executed = True
+                                         else: st.error("No se pudo eliminar el evento.")
+                                 else: st.error("ID de evento no proporcionado.")
 
-                elif action_type == 'draft_email':
-                     with st.spinner("📧 Redactando borrador..."):
-                        svc = gs.get_gmail_credentials() # Need service actually
-                        if svc:
-                            from googleapiclient.discovery import build
-                            svc_gmail = build('gmail', 'v1', credentials=svc, cache_discovery=False)
-                            # Params: recipient, subject, body
-                            draft = gs.create_draft(svc_gmail, 'me', params.get('body'), params.get('recipient'), params.get('subject'))
-                            if draft:
-                                result_msg = f"✅ Borrador guardado: {params.get('subject')}"
-                                action_executed = True
-                            else: st.error("Error creando borrador.")
-                
-                if action_executed:
-                    st.toast(result_msg, icon="🚀")
-                    # Remove JSON from display text to look clean
-                    clean_text = full_response.replace(json_match.group(0), "").strip()
-                    # Rerender last message clean
-                    # (Streamlit chat message is already rendered, tricky to update in-place without rerun or empty placeholder hack)
-                    # For now, we just rely on TTS reading clean text.
+                        elif action_type == 'create_task':
+                             # ... existing create_task logic ...
+                             with st.spinner(f"✅ Creando tarea: {params.get('title', 'Tarea')}"):
+                                svc = gs.get_tasks_service()
+                                if svc:
+                                    t_lists = gs.get_task_lists(svc)
+                                    if t_lists:
+                                        t_list_id = t_lists[0]['id']
+                                        res = gs.add_task_to_google(svc, t_list_id, params.get('title'), due_date=params.get('due_date'))
+                                        if res:
+                                            result_msg = f"✅ Tarea creada: {params.get('title')}"
+                                            action_executed = True
+                                        else: st.error("Error al crear tarea.")
 
-            except Exception as e:
-                st.error(f"Error procesando acción: {e}")
+                        elif action_type == 'delete_task':
+                            with st.spinner("🗑️ Eliminando tarea..."):
+                                 tsk_id = params.get('task_id')
+                                 # We ideally need the list_id too, but we can try finding it or default
+                                 # For simplicity, let's look in the first list or search
+                                 svc = gs.get_tasks_service()
+                                 if svc and tsk_id:
+                                     t_lists = gs.get_task_lists(svc)
+                                     deleted = False
+                                     for tl in t_lists: # Brute force search delete
+                                         if gs.delete_task_google(svc, tl['id'], tsk_id):
+                                             deleted = True
+                                             break
+                                     if deleted:
+                                          result_msg = "🗑️ Tarea eliminada."
+                                          action_executed = True
+                                     else: st.error("No se pudo eliminar (o no encontrada).")
+
+                        elif action_type == 'draft_email':
+                             with st.spinner("📧 Dejando borrador..."):
+                                svc = gs.get_gmail_credentials()
+                                if svc:
+                                    from googleapiclient.discovery import build
+                                    svc_gmail = build('gmail', 'v1', credentials=svc, cache_discovery=False)
+                                    draft = gs.create_draft(svc_gmail, 'me', params.get('body'), params.get('recipient'), params.get('subject'))
+                                    if draft:
+                                        result_msg = f"✅ Borrador: {params.get('subject')}"
+                                        action_executed = True
+
+                        if action_executed and result_msg:
+                            st.toast(result_msg, icon="🚀")
+
+                    # Remove matched JSON from display text
+                    clean_text = clean_text.replace(match.group(0), "").strip()
+
+                except Exception as e:
+                    st.error(f"Error procesando lote de acciones: {e}")
 
         # 2. TTS Generation (Jarvis Mode)
         # Use clean_text (without JSON)
@@ -230,7 +258,7 @@ def _get_lite_context():
                     start_str = dt_s.strftime("%d/%m %H:%M")
                 except: start_str = start
                 
-                ctx += f"- [{start_str}] {summary}\n"
+                ctx += f"- [{start_str}] {summary} (ID: {e['id']})\n"
                 count += 1
                 if count >= 8: break # Cap at 8 events
         else:
@@ -247,7 +275,7 @@ def _get_lite_context():
             # Filter only needing action? API already returns 'needsAction' primarily if showCompleted=False
             if tasks:
                 for t in tasks[:5]: # Top 5
-                   ctx += f"- {t.get('title', 'Tarea')}\n"
+                   ctx += f"- {t.get('title', 'Tarea')} (ID: {t.get('id')})\n"
             else:
                 ctx += "(Sin tareas pendientes)\n"
     except:
