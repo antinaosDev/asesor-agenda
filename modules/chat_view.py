@@ -34,8 +34,12 @@ def render_chat_view():
 
     if audio_value:
         # Process Audio
-        if "last_audio_id" not in st.session_state or st.session_state.last_audio_id != audio_value.id:
-            st.session_state.last_audio_id = audio_value.id
+        # Use simple hash of bytes to detect change, as .id attribute is unreliable
+        audio_bytes = audio_value.getvalue()
+        audio_hash = hash(audio_bytes)
+        
+        if "last_audio_hash" not in st.session_state or st.session_state.last_audio_hash != audio_hash:
+            st.session_state.last_audio_hash = audio_hash
             with st.spinner("🎧 Escuchando y transcribiendo..."):
                 user_input = ai.transcribe_audio_groq(audio_value)
                 is_audio = True
