@@ -33,19 +33,22 @@ def render_chat_view():
     user_input = None
     is_audio = False
 
-    if audio_value:
-        # Process Audio
-        # Use simple hash of bytes to detect change, as .id attribute is unreliable
+    # PRIORITY 1: Text Input (Ephemeral, always new if present)
+    if prompt_text:
+        user_input = prompt_text
+
+    # PRIORITY 2: Audio Input (Persistent, need hash check)
+    # Only process audio if no text was entered to avoid conflict
+    elif audio_value:
         audio_bytes = audio_value.getvalue()
         audio_hash = hash(audio_bytes)
         
+        # Check against session state to see if this is a NEW recording
         if "last_audio_hash" not in st.session_state or st.session_state.last_audio_hash != audio_hash:
             st.session_state.last_audio_hash = audio_hash
             with st.spinner("🎧 Escuchando y transcribiendo..."):
                 user_input = ai.transcribe_audio_groq(audio_value)
                 is_audio = True
-    elif prompt_text:
-        user_input = prompt_text
 
     # 4. Process Logic
     if user_input:

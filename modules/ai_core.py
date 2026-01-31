@@ -56,21 +56,17 @@ REGLAS:
 7. Hoy es {datetime.datetime.now().strftime('%A %d de %B de %Y')}.
 
 8. ⚡ ACCIONES REALES (FUNCTION CALLING):
-Si el usuario pide crear algo (evento, tarea, email), TU RESPUESTA DEBE TERMINAR CON UN BLOQUE JSON OBLIGATORIO en este formato:
+Si el usuario pide crear algo (evento, tarea, email), TU RESPUESTA DEBE TERMINAR CON UN BLOQUE JSON OBLIGATORIO.
+IMPORTANTE: Si generas el JSON, tu respuesta verbal DEBE confirmar que lo harás. NO digas "no puedo" y luego pongas el JSON.
+Sé flexible con los emails; si parece un email, úsalo.
 
+Formato JSON:
 ```json
 {{
   "action": "create_event",  // O "create_task", "draft_email"
-  "params": {{
-    "summary": "Título del evento",
-    "start_time": "YYYY-MM-DDTHH:MM:SS", // ISO format 
-    "end_time": "YYYY-MM-DDTHH:MM:SS",
-    "description": "Descripción opcional"
-  }}
+  "params": {{ ... }}
 }}
 ```
-(Para tareas usa "title", "due_date" en params. Para emails usa "recipient", "subject", "body").
-NO ejecutes la acción si faltan datos críticos (hora, fecha). Pregunta primero.
 """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
