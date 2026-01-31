@@ -54,8 +54,24 @@ REGLAS:
 5. INFORMACIÓN "REAL": Usa EXCLUSIVAMENTE los datos bajo "CONTEXTO ACTUAL" para responder sobre agenda/tareas.
 6. Si el contexto dice "Sin eventos" o "Error", dilo honestamente. NO INVENTES EVENTOS.
 7. Hoy es {datetime.datetime.now().strftime('%A %d de %B de %Y')}.
-"""
 
+8. ⚡ ACCIONES REALES (FUNCTION CALLING):
+Si el usuario pide crear algo (evento, tarea, email), TU RESPUESTA DEBE TERMINAR CON UN BLOQUE JSON OBLIGATORIO en este formato:
+
+```json
+{{
+  "action": "create_event",  // O "create_task", "draft_email"
+  "params": {{
+    "summary": "Título del evento",
+    "start_time": "YYYY-MM-DDTHH:MM:SS", // ISO format 
+    "end_time": "YYYY-MM-DDTHH:MM:SS",
+    "description": "Descripción opcional"
+  }}
+}}
+```
+(Para tareas usa "title", "due_date" en params. Para emails usa "recipient", "subject", "body").
+NO ejecutes la acción si faltan datos críticos (hora, fecha). Pregunta primero.
+"""
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
     # Add history (should be already limited by caller)

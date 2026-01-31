@@ -80,9 +80,94 @@ def render_chat_view():
         # Add Assistant Message to History
         st.session_state.chat_history.append({"role": "assistant", "content": full_response})
 
-        # Logic to trigger actions based on response (Optional - Advanced)
-        # If response contains specific flags, we could trigger UI updates here.
+        # Logic to trigger actions based on response (Function Calling)
+        import json
+        import re
         
+        # 1. Check for JSON Block
+        json_match = re.search(r'```json\n(.*?)\n```', full_response, re.DOTALL)
+        clean_text = full_response
+        
+        action_executed = False
+        if json_match:
+            try:
+                json_str = json_match.group(1)
+                action_data = json.loads(json_str)
+                
+                # Check Action Type
+                action_type = action_data.get('action')
+                params = action_data.get('params', {})
+                
+                result_msg = ""
+                
+                if action_type == 'create_event':
+                    with st.spinner("🗓️ Creando evento en tu calendario..."):
+                        svc = gs.get_calendar_service()
+                        if svc:
+                            ok, msg = gs.add_event_to_calendar(svc, params)
+                            if ok: 
+                                result_msg = f"✅ Evento creado: {params.get('summary')}"
+                                action_executed = True
+                            else: st.error(f"Error creando evento: {msg}")
+                        else: st.error("No hay conexión con Calendar.")
+
+                elif action_type == 'create_task':
+                     with st.spinner("✅ Creando tarea..."):
+                        svc = gs.get_tasks_service()
+                        if svc:
+                            # Need TaskList ID (Default to first one)
+                            t_lists = gs.get_task_lists(svc)
+                            if t_lists:
+                                t_list_id = t_lists[0]['id']
+                                res = gs.add_task_to_google(svc, t_list_id, params.get('title'), due_date=params.get('due_date'))
+                                if res:
+                                    result_msg = f"✅ Tarea creada: {params.get('title')}"
+                                    action_executed = True
+                                else: st.error("Error al crear tarea.")
+                            else: st.error("No se encontraron listas de tareas.")
+
+                elif action_type == 'draft_email':
+                     with st.spinner("📧 Redactando borrador..."):
+                        svc = gs.get_gmail_credentials() # Need service actually
+                        if svc:
+                            from googleapiclient.discovery import build
+                            svc_gmail = build('gmail', 'v1', credentials=svc, cache_discovery=False)
+                            # Params: recipient, subject, body
+                            draft = gs.create_draft(svc_gmail, 'me', params.get('body'), params.get('recipient'), params.get('subject'))
+                            if draft:
+                                result_msg = f"✅ Borrador guardado: {params.get('subject')}"
+                                action_executed = True
+                            else: st.error("Error creando borrador.")
+                
+                if action_executed:
+                    st.toast(result_msg, icon="🚀")
+                    # Remove JSON from display text to look clean
+                    clean_text = full_response.replace(json_match.group(0), "").strip()
+                    # Rerender last message clean
+                    # (Streamlit chat message is already rendered, tricky to update in-place without rerun or empty placeholder hack)
+                    # For now, we just rely on TTS reading clean text.
+
+            except Exception as e:
+                st.error(f"Error procesando acción: {e}")
+
+        # 2. TTS Generation (Jarvis Mode)
+        # Use clean_text (without JSON)
+        if clean_text:
+            try:
+                import modules.tts_service as tts
+                # Voice: AlvaroNeural (Spanish Male Executive)
+                audio_bytes = tts.text_to_speech(clean_text, voice='es-ES-AlvaroNeural')
+                if audio_bytes:
+                    st.audio(audio_bytes, format='audio/mp3', autoplay=True)
+            except Exception as e:
+                # Silent fail for TTS
+                print(f"TTS Error: {e}")
+
+        # Force Rerun if action changed state significantly (optional)
+        if action_executed:
+            time.sleep(1)
+            st.rerun()
+
         # Rerun to update if it was an audio interaction to clear the widget state visually if needed
         # (Streamlit handles audio widget state tricky, usually requires user to clear it)
 
