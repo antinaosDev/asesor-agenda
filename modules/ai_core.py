@@ -12,6 +12,70 @@ def _get_groq_client():
         GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
     return Groq(api_key=GROQ_API_KEY)
 
+# --- CHAT & AUDIO FUNCTIONS (NEW) ---
+
+def transcribe_audio_groq(audio_file):
+    """
+    Transcribe audio usando Groq Whisper (Whisper-large-v3).
+    Soporta input directo de st.audio_input (UploadedFile).
+    """
+    client = _get_groq_client()
+    try:
+        # Streamlit UploadedFile -> BytesIO
+        # Groq client espera un archivo con nombre para detectar formato
+        completion = client.audio.transcriptions.create(
+            file=(audio_file.name, audio_file.getvalue()),
+            model="whisper-large-v3", # Multilingual, excellent for Spanish
+            response_format="json",
+            language="es", # Force Spanish for better accuracy
+            temperature=0.0
+        )
+        return completion.text
+    except Exception as e:
+        return f"Error en transcripción: {str(e)}"
+
+def chat_stream(user_input, history, context_data):
+    """
+    Genera respuesta de chat en streaming.
+    Eficiente en tokens: System Prompt Conciso + Historial Limitado.
+    """
+    client = _get_groq_client()
+    
+    SYSTEM_PROMPT = f"""Eres un Asistente Ejecutivo IA eficiente y profesional.
+CONTEXTO ACTUAL:
+{context_data}
+
+OBJETIVO: Ayudar al usuario a gestionar su agenda, tareas y correos.
+REGLAS:
+1. Respuestas BREVES y DIRECTAS (ahorro de tokens).
+2. Si te piden una acción (crear evento, enviar correo), confirma los detalles necesarios.
+3. Habla en español profesional.
+4. No uses saludos largos. Ve al grano.
+"""
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    # Add history (should be already limited by caller)
+    for msg in history:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+        
+    # Add current user input if not already in history (caller handles append Usually, but safe check)
+    if history and history[-1]["content"] != user_input:
+        messages.append({"role": "user", "content": user_input})
+
+    completion = client.chat.completions.create(
+        model="llama-3.1-8b-instant", # Most efficient model
+        messages=messages,
+        temperature=0.5,
+        max_tokens=512,
+        stream=True
+    )
+
+    for chunk in completion:
+        if chunk.choices[0].delta.content is not None:
+            yield chunk.choices[0].delta.content
+
+
 # --- SYSTEM PROMPTS (CONSTANTS) ---
 
 PROMPT_EMAIL_ANALYSIS = """

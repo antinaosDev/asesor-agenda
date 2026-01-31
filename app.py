@@ -46,6 +46,7 @@ os.environ['LC_ALL'] = 'es_ES.UTF-8'
 # --- MODULE IMPORTS ---
 import modules.auth as auth
 import modules.notifications as notif
+import modules.chat_view as chat_view # NEW CHAT MODULE
 
 from modules.google_services import (
     get_calendar_service, get_tasks_service, get_sheets_service, get_gmail_credentials,
@@ -3000,6 +3001,7 @@ def main_app():
         # Navigation Buttons with icons and emojis for visual appeal
         nav_options = {
             "Dashboard": "📊 Panel Principal",
+            "Chat": "💬 Asistente", # NEW CHAT OPTION
             "Create": "➕ Crear Evento",
             "Planner": "📅 Planificador",
             "Inbox": "📧 Bandeja IA",
@@ -3184,6 +3186,7 @@ def main_app():
 
     # Main Router
     if selection == "Dashboard": view_dashboard()
+    elif selection == "Chat": chat_view.render_chat_view() # NEW ROUTE
     elif selection == "Create": view_create()
     elif selection == "Planner": view_planner()
     elif selection == "Inbox": view_inbox()
