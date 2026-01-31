@@ -1,5 +1,6 @@
 import streamlit as st
 import modules.ai_core as ai
+import modules.google_services as gs
 import datetime
 import time
 
@@ -84,8 +85,8 @@ def render_chat_view():
         import json
         import re
         
-        # 1. Check for JSON Block
-        json_match = re.search(r'```json\n(.*?)\n```', full_response, re.DOTALL)
+        # 1. Check for JSON Block (Flexible Regex)
+        json_match = re.search(r'```json(.*?)```', full_response, re.DOTALL)
         clean_text = full_response
         
         action_executed = False
@@ -102,14 +103,21 @@ def render_chat_view():
                 
                 if action_type == 'create_event':
                     with st.spinner("🗓️ Creando evento en tu calendario..."):
-                        svc = gs.get_calendar_service()
-                        if svc:
-                            ok, msg = gs.add_event_to_calendar(svc, params)
-                            if ok: 
-                                result_msg = f"✅ Evento creado: {params.get('summary')}"
-                                action_executed = True
-                            else: st.error(f"Error creando evento: {msg}")
-                        else: st.error("No hay conexión con Calendar.")
+                        # VALIDATION: Check required fields
+                        s_time = params.get('start_time', '')
+                        e_time = params.get('end_time', '')
+                        
+                        if not s_time or not e_time:
+                            st.error("⚠️ Faltan fecha u hora para el evento. Por favor especifícalos.")
+                        else:
+                            svc = gs.get_calendar_service()
+                            if svc:
+                                ok, msg = gs.add_event_to_calendar(svc, params)
+                                if ok: 
+                                    result_msg = f"✅ Evento creado: {params.get('summary')}"
+                                    action_executed = True
+                                else: st.error(f"Error creando evento: {msg}")
+                            else: st.error("No hay conexión con Calendar.")
 
                 elif action_type == 'create_task':
                      with st.spinner("✅ Creando tarea..."):
