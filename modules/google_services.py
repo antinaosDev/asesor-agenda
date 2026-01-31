@@ -432,8 +432,14 @@ def create_draft(service, user_id, message_body, to_email=None, subject="(Sin as
         # Create a MIMEText object
         message = MIMEText(message_body, 'plain', 'utf-8')
         message['subject'] = subject
+        
         if to_email:
-            message['to'] = to_email
+            # Clean and validate recipient
+            to_clean = to_email.strip()
+            if '@' in to_clean and '.' in to_clean:
+                message['to'] = to_clean
+            else:
+                print(f"Warning: Invalid email format '{to_email}'. Creating draft without recipient.")
         
         # Encode the message in base64
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
