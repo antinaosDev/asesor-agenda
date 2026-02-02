@@ -17,6 +17,10 @@ def render_chat_view():
         st.session_state.chat_history = [
             {"role": "assistant", "content": "Hola. Soy tu asistente ejecutivo. ¿En qué puedo ayudarte hoy? Puedes pedirme que revise tu agenda, redacte correos o cree tareas."}
         ]
+    
+    # Initialize Recent Actions Tracking (for delete/edit functionality)
+    if "recent_actions" not in st.session_state:
+        st.session_state.recent_actions = []  # Store last 10 created events/tasks
 
     # 2. Display Chat History
     for msg in st.session_state.chat_history:
@@ -134,6 +138,25 @@ def render_chat_view():
                                         if ok: 
                                             result_msg = f"✅ Evento creado: {params.get('summary')}"
                                             action_executed = True
+                                            
+                                            # Extract event ID from message (format: "Evento creado. ID: xxx")
+                                            event_id = None
+                                            if "ID:" in msg:
+                                                event_id = msg.split("ID:")[1].strip()
+                                            
+                                            # Store in recent actions
+                                            if event_id:
+                                                action_record = {
+                                                    "type": "event",
+                                                    "id": event_id,
+                                                    "summary": params.get('summary', 'Sin título'),
+                                                    "start_time": s_time,
+                                                    "timestamp": datetime.datetime.now().isoformat()
+                                                }
+                                                st.session_state.recent_actions.append(action_record)
+                                                # Keep only last 10
+                                                if len(st.session_state.recent_actions) > 10:
+                                                    st.session_state.recent_actions = st.session_state.recent_actions[-10:]
                                         else: st.error(f"Error: {msg}")
 
                         elif action_type == 'delete_event':
@@ -145,8 +168,54 @@ def render_chat_view():
                                          if gs.delete_event(svc, evt_id):
                                              result_msg = "🗑️ Evento eliminado correctamente."
                                              action_executed = True
+                                             
+                                             # Remove from recent actions
+                                             st.session_state.recent_actions = [
+                                                 a for a in st.session_state.recent_actions 
+                                                 if a.get('id') != evt_id
+                                             ]
                                          else: st.error("No se pudo eliminar el evento.")
                                  else: st.error("ID de evento no proporcionado.")
+
+                        elif action_type == 'edit_event':
+                            with st.spinner("✏️ Editando evento..."):
+                                evt_id = params.get('event_id')
+                                if evt_id:
+                                    svc = gs.get_calendar_service()
+                                    if svc:
+                                        # Build update dict with only provided fields
+                                        updates = {}
+                                        if 'summary' in params:
+                                            updates['summary'] = params['summary']
+                                        if 'start_time' in params:
+                                            updates['start'] = {'dateTime': params['start_time']}
+                                        if 'end_time' in params:
+                                            updates['end'] = {'dateTime': params['end_time']}
+                                        if 'description' in params:
+                                            updates['description'] = params['description']
+                                        if 'colorId' in params:
+                                            updates['colorId'] = params['colorId']
+                                        
+                                        if updates:
+                                            success = gs.update_event_calendar(svc, evt_id, updates)
+                                            if success:
+                                                result_msg = "✏️ Evento actualizado correctamente."
+                                                action_executed = True
+                                                
+                                                # Update in recent actions if present
+                                                for action in st.session_state.recent_actions:
+                                                    if action.get('id') == evt_id:
+                                                        if 'summary' in params:
+                                                            action['summary'] = params['summary']
+                                                        if 'start_time' in params:
+                                                            action['start_time'] = params['start_time']
+                                                        break
+                                            else:
+                                                st.error("No se pudo actualizar el evento.")
+                                        else:
+                                            st.error("No se especificaron campos para editar.")
+                                else:
+                                    st.error("ID de evento no proporcionado.")
 
                         elif action_type == 'create_task':
                              # ... existing create_task logic ...
@@ -160,6 +229,20 @@ def render_chat_view():
                                         if res:
                                             result_msg = f"✅ Tarea creada: {params.get('title')}"
                                             action_executed = True
+                                            
+                                            # Store in recent actions
+                                            if res.get('id'):
+                                                action_record = {
+                                                    "type": "task",
+                                                    "id": res['id'],
+                                                    "title": params.get('title', 'Sin título'),
+                                                    "due_date": params.get('due_date'),
+                                                    "timestamp": datetime.datetime.now().isoformat()
+                                                }
+                                                st.session_state.recent_actions.append(action_record)
+                                                # Keep only last 10
+                                                if len(st.session_state.recent_actions) > 10:
+                                                    st.session_state.recent_actions = st.session_state.recent_actions[-10:]
                                         else: st.error("Error al crear tarea.")
 
                         elif action_type == 'delete_task':
@@ -229,9 +312,21 @@ def _get_lite_context():
     now = datetime.datetime.now()
     ctx = f"Fecha: {now.strftime('%Y-%m-%d %H:%M')}\n"
     
+    # --- ACCIONES RECIENTES (For Delete/Edit) ---
+    ctx += "\n=== ACCIONES RECIENTES (últimos eventos/tareas creados) ===\n"
+    recent_actions = st.session_state.get('recent_actions', [])
+    if recent_actions:
+        for i, action in enumerate(reversed(recent_actions[-5:]), 1):  # Show last 5
+            action_type = action.get('type', 'desconocido')
+            summary = action.get('summary', action.get('title', 'Sin título'))
+            action_id = action.get('id', 'N/A')
+            ctx += f"{i}. [{action_type.upper()}] {summary} (ID: {action_id})\n"
+    else:
+        ctx += "(Ninguna acción reciente en esta sesión)\n"
+    
     # --- CONTEXTO REAL TIME ---
     # 1. EVENTS (Today + Tomorrow)
-    ctx += "=== AGENDA REAL ===\n"
+    ctx += "\n=== AGENDA REAL ===\n"
     try:
         # Try Cache First
         events = st.session_state.get('c_events_cache', [])
