@@ -151,9 +151,8 @@ def render_chat_view():
                                 # Auto-generate end_time if missing (default: +1 hour)
                                 if s_time and not e_time:
                                     try:
-                                        from datetime import datetime, timedelta
-                                        start_dt = datetime.fromisoformat(s_time)
-                                        end_dt = start_dt + timedelta(hours=1)
+                                        start_dt = datetime.datetime.fromisoformat(s_time)
+                                        end_dt = start_dt + datetime.timedelta(hours=1)
                                         e_time = end_dt.isoformat()
                                         params['end_time'] = e_time  # Add to params for calendar API
                                     except:
