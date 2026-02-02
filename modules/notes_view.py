@@ -105,6 +105,13 @@ def view_notes_page():
 
 def _handle_ai_result(result, original_text):
     """Handles the JSON action from AI."""
+    # Defensive programming: Handle list vs dict
+    if isinstance(result, list):
+        if len(result) > 0:
+            result = result[0]
+        else:
+            result = {}
+
     action = result.get('action')
     
     if action == 'create_event':
