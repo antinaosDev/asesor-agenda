@@ -887,7 +887,8 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
             event_body['recurrence'] = recurrence
             
         created_event = service.events().insert(calendarId=calendar_id, body=event_body).execute()
-        return True, "Evento creado exitosamente (con recordatorios)"
+        event_id = created_event.get('id', '')
+        return True, f"Evento creado. ID: {event_id}"
     except Exception as e:
         return False, str(e)
 
