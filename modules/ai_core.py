@@ -81,7 +81,7 @@ Puedes devolver UN OBJETO `{{ "action": ... }}` o UNA LISTA `[ {{ "action": ... 
 {{
   "action": "create_event", // O "create_task", "draft_email", "delete_event", "delete_task", "edit_event"
   "params": {{
-    // EVENTO: "summary", "start_time" (ISO), "end_time" (ISO), "description"
+    // EVENTO: "summary", "start_time" (ISO REQUERIDO), "end_time" (ISO - si no se especifica, se auto-genera +1 hora), "description"
     // TAREA: "title", "due_date" (ISO)
     // EMAIL: "subject", "body", "recipient" (opcional)
     // BORRAR EVENTO: "event_id" (Sacar del contexto)

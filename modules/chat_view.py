@@ -81,7 +81,23 @@ def render_chat_view():
                     if chunk:
                         full_response += chunk
                         response_placeholder.markdown(full_response + "▌")
-                response_placeholder.markdown(full_response)
+                
+                # Clean JSON from display (but keep full_response for action execution)
+                regex_strategies = [
+                    r'```json\s*([\[\{].*?[\]\}])\s*```',  # Code block
+                    r'([\[\{][\s\n]*"action".*?[\]\}])\s*$'  # Raw JSON at end
+                ]
+                
+                display_text = full_response
+                for reg in regex_strategies:
+                    display_text = re.sub(reg, '', display_text, flags=re.DOTALL)
+                
+                # Clean up extra whitespace
+                display_text = re.sub(r'\n{3,}', '\n\n', display_text.strip())
+                
+                # Show cleaned response (without JSON)
+                response_placeholder.markdown(display_text)
+                
             except Exception as e:
                 st.error(f"Error del asistente: {e}")
                 full_response = "Lo siento, tuve un problema procesando eso. ¿Podrías intentarlo de nuevo?"
@@ -105,7 +121,9 @@ def render_chat_view():
              found_matches = list(re.finditer(reg, full_response, re.DOTALL))
              if found_matches: break
         
-        clean_text = full_response
+        # Use display_text (already cleaned) for TTS and other purposes
+        # But keep full_response for action parsing
+        clean_text = display_text if 'display_text' in locals() else full_response
         action_executed = False
         
         if found_matches:
@@ -129,6 +147,18 @@ def render_chat_view():
                             with st.spinner(f"🗓️ Creando: {params.get('summary', 'Evento')}"):
                                 s_time = params.get('start_time', '')
                                 e_time = params.get('end_time', '')
+                                
+                                # Auto-generate end_time if missing (default: +1 hour)
+                                if s_time and not e_time:
+                                    try:
+                                        from datetime import datetime, timedelta
+                                        start_dt = datetime.fromisoformat(s_time)
+                                        end_dt = start_dt + timedelta(hours=1)
+                                        e_time = end_dt.isoformat()
+                                        params['end_time'] = e_time  # Add to params for calendar API
+                                    except:
+                                        pass  # If parsing fails, continue with validation below
+                                
                                 if not s_time or not e_time:
                                     st.error("⚠️ Faltan fecha/hora.")
                                 else:
@@ -276,9 +306,6 @@ def render_chat_view():
 
                         if action_executed and result_msg:
                             st.toast(result_msg, icon="🚀")
-
-                    # Remove matched JSON from display text
-                    clean_text = clean_text.replace(match.group(0), "").strip()
 
                 except Exception as e:
                     st.error(f"Error procesando lote de acciones: {e}")
