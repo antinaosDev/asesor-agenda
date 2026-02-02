@@ -1131,3 +1131,79 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
         
         st.error(f"AI Breakdown Error ({model_id}): {e}")
         return []
+
+# --- BRAIN DUMP PROCESSING (NOTES) ---
+PROMPT_BRAIN_DUMP = """
+Eres un asistente ejecutivo experto en GTD (Getting Things Done).
+Tu tarea es analizar una "Nota Rápida" (Brain Dump) y clasificarla en una acción concreta.
+
+INPUT: "{note_text}"
+
+FECHA ACTUAL: {current_date}
+
+INSTRUCCIONES:
+1. Analiza el contenido.
+2. Determina la MEJOR acción:
+   - "create_event": Si tiene fecha/hora específica y parece una reunión/evento.
+   - "create_task": Si es una acción a realizar, un pendiente, o algo sin hora fija.
+   - "keep_note": Si es solo información, una idea, o algo que no requiere acción inmediata.
+
+OUTPUT (JSON):
+Si es EVENTO:
+{{
+    "action": "create_event",
+    "summary": "Título del evento",
+    "description": "Descripción detallada",
+    "start_time": "YYYY-MM-DDTHH:MM:SS",
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (Calcula 1h por defecto si no se especifica),
+    "colorId": "11" (Usa códigos de color estándar)
+}}
+
+Si es TAREA:
+{{
+    "action": "create_task",
+    "title": "Título de la tarea",
+    "notes": "Notas adicionales",
+    "due_date": "YYYY-MM-DD" (Opcional, si se menciona)
+}}
+
+Si es NOTA:
+{{
+    "action": "keep_note",
+    "tags": ["tag1", "tag2"],
+    "summary": "Breve resumen para título"
+}}
+
+REGLAS:
+- Responde SOLO el JSON.
+- Si faltan datos (ej: hora), asume lo más lógico (ej: mañana a las 9am) o conviértelo en Tarea.
+"""
+
+def process_brain_dump(note_text):
+    """
+    Analiza una nota rápida y determina si es Evento, Tarea o Nota.
+    Retorna dict con 'action' y datos.
+    """
+    import datetime
+    import json
+    
+    client = _get_groq_client()
+    now = datetime.datetime.now()
+    
+    prompt = PROMPT_BRAIN_DUMP.format(
+        note_text=note_text,
+        current_date=now.strftime("%Y-%m-%d %H:%M")
+    )
+    
+    try:
+        completion = client.chat.completions.create(
+            messages=[{"role": "system", "content": prompt}],
+            model="llama-3.1-8b-instant",
+            temperature=0.1,
+            max_tokens=1024
+        )
+        content = _clean_json_output(completion.choices[0].message.content.strip())
+        result = json.loads(content)
+        return result
+    except Exception as e:
+        return {"action": "error", "error": str(e)}
