@@ -8,7 +8,7 @@ import re
 
 def render_chat_view():
     st.markdown("""
-    <h1 style='color: #0dd7f2; font-size: 2rem;'>💬 Asistente Ejecutivo IA</h1>
+    <h1 style='color: #0dd7f2; font-size: 2rem;'>💬 Asistente Ejecutivo IA <span style='color: #666; font-size: 0.8rem;'>v2.1 JSON-FIX</span></h1>
     <p style='color: #9cb6ba;'>Tu copiloto inteligente. Habla o escribe para gestionar tu agenda.</p>
     """, unsafe_allow_html=True)
 
@@ -21,6 +21,7 @@ def render_chat_view():
     # Initialize Recent Actions Tracking (for delete/edit functionality)
     if "recent_actions" not in st.session_state:
         st.session_state.recent_actions = []  # Store last 10 created events/tasks
+        st.toast("✅ Código v2.1 cargado - JSON será ocultado", icon="🔧")
 
     # 2. Display Chat History
     for msg in st.session_state.chat_history:
