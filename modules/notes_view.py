@@ -34,7 +34,23 @@ def render_brain_dump_widget():
 def view_notes_page():
     """Main Notes/Inbox Management Page."""
     st.title("🧠 Captura y Procesamiento (Brain Dump)")
-    st.markdown("Captura ideas, tareas sueltas o eventos rápidos. La IA te ayudará a organizarlos.")
+    
+    with st.expander("ℹ️ ¿Qué es el Brain Dump?", expanded=False):
+        st.markdown("""
+        **Brain Dump** (Vaciado Mental) es una técnica de productividad para **sacar todo lo que tienes en la cabeza** y guardarlo en un sistema confiable.
+        
+        **¿Cómo usar esta herramienta?**
+        1.  **Captura Rápida:** Escribe CUALQUIER cosa que se te ocurra en el cuadro de abajo.
+            *   *"Llamar a Jorge mañana a las 5pm"* (Evento)
+            *   *"Comprar cartuchos de impresora"* (Tarea)
+            *   *"Idea para el proyecto X: usar IA"* (Nota)
+        2.  **Procesar con IA:** La Inteligencia Artificial analizará tu texto y te sugerirá la mejor acción:
+            *   📅 **Crear Evento:** Si detecta fecha y hora.
+            *   ☑️ **Crear Tarea:** Si es algo que debes hacer.
+            *   📌 **Guardar Nota:** Si es información o una idea.
+        
+        ¡Úsalo para liberar tu mente y asegurarte de que nada se te olvide!
+        """)
     
     # 1. Main Input Area
     with st.container(border=True):

@@ -2389,6 +2389,14 @@ def view_optimize():
     </div>
     """, unsafe_allow_html=True)
 
+    # --- UX GUIDE: OPTIMIZE ---
+    with st.expander("📚 Guía Rápida: Auditoría y Optimización", expanded=False):
+         import modules.ui_components as ui
+         st.markdown(ui.render_guide_card_html(
+             "El Optimizador actúa como un consultor de productividad externo. Analiza tu agenda futura para detectar conflictos, días sobrecargados y oportunidades de mejora.",
+             "Úsalo al principio de la semana para asegurar tiempos de enfoque y evitar el agotamiento."
+         ), unsafe_allow_html=True)
+
     calendar_id = st.session_state.get('connected_email', '')
     if not calendar_id:
         st.warning("⚠️  Configura tu ID de Calendario en la barra lateral.")
