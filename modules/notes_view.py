@@ -9,7 +9,7 @@ def render_brain_dump_widget():
     """Renders the simplified Brain Dump widget for the sidebar or dashboard."""
     with st.container(border=True):
         st.markdown("### 🧠 Brain Dump")
-        note_content = st.text_area("Captura rapida:", height=100, key="quick_note_input", placeholder="Ej: Llamar a Juan mañana a las 3pm...")
+        note_content = st.text_area("Captura rapida:", height=100, key="quick_note_input", placeholder="Ej: Llamar a proveedor mañana a las 3pm...")
         
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -41,8 +41,8 @@ def view_notes_page():
         
         **¿Cómo usar esta herramienta?**
         1.  **Captura Rápida:** Escribe CUALQUIER cosa que se te ocurra en el cuadro de abajo.
-            *   *"Llamar a Jorge mañana a las 5pm"* (Evento)
-            *   *"Comprar cartuchos de impresora"* (Tarea)
+            *   *"Reunión de coordinación mañana a las 5pm"* (Evento)
+            *   *"Comprar insumos de oficina"* (Tarea)
             *   *"Idea para el proyecto X: usar IA"* (Nota)
         2.  **Procesar con IA:** La Inteligencia Artificial analizará tu texto y te sugerirá la mejor acción:
             *   📅 **Crear Evento:** Si detecta fecha y hora.
