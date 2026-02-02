@@ -47,6 +47,7 @@ os.environ['LC_ALL'] = 'es_ES.UTF-8'
 import modules.auth as auth
 import modules.notifications as notif
 import modules.chat_view as chat_view # NEW CHAT MODULE
+import modules.notes_view as notes_view # NEW NOTES MODULE
 
 from modules.google_services import (
     get_calendar_service, get_tasks_service, get_sheets_service, get_gmail_credentials,
@@ -2998,6 +2999,10 @@ def main_app():
                     </div>
                     """, unsafe_allow_html=True)
 
+        # QUICK NOTE WIDGET
+        notes_view.render_brain_dump_widget()
+        st.divider()
+
         # Navigation Buttons with icons and emojis for visual appeal
         nav_options = {
             "Dashboard": "📊 Panel Principal",
@@ -3005,6 +3010,7 @@ def main_app():
             "Create": "➕ Crear Evento",
             "Planner": "📅 Planificador",
             "Inbox": "📧 Bandeja IA",
+            "Notes": "🧠 Notas/Ideas",
             "Optimize": "⚡ Optimizar",
             "Insights": "📉 Insights",
             "Account": "⚙️ Mi Cuenta"
@@ -3190,6 +3196,7 @@ def main_app():
     elif selection == "Create": view_create()
     elif selection == "Planner": view_planner()
     elif selection == "Inbox": view_inbox()
+    elif selection == "Notes": notes_view.view_notes_page()
     elif selection == "Optimize": view_optimize()
     elif selection == "Insights": view_time_insights()
     elif selection == "Account": view_account()
