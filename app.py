@@ -3007,9 +3007,9 @@ def main_app():
                     </div>
                     """, unsafe_allow_html=True)
 
-        # QUICK NOTE WIDGET
-        notes_view.render_brain_dump_widget()
-        st.divider()
+        # QUICK NOTE WIDGET (Removed)
+        # notes_view.render_brain_dump_widget()
+        # st.divider()
 
         # Navigation Buttons with icons and emojis for visual appeal
         nav_options = {
