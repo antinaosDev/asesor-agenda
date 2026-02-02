@@ -9,6 +9,9 @@ def render_brain_dump_widget():
     """Renders the simplified Brain Dump widget for the sidebar or dashboard."""
     with st.container(border=True):
         st.markdown("### 🧠 Brain Dump")
+        # Ensure Sheets Service is Ready
+        google_services.get_sheets_service()
+
         note_content = st.text_area("Captura rapida:", height=100, key="quick_note_input", placeholder="Ej: Llamar a proveedor mañana a las 3pm...")
         
         col1, col2 = st.columns([1, 1])
@@ -34,6 +37,8 @@ def render_brain_dump_widget():
 def view_notes_page():
     """Main Notes/Inbox Management Page."""
     st.title("🧠 Captura y Procesamiento (Brain Dump)")
+    # Ensure Sheets Service is Ready
+    google_services.get_sheets_service()
     
     with st.expander("ℹ️ ¿Qué es el Brain Dump?", expanded=False):
         st.markdown("""
