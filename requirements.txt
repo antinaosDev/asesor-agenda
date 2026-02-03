@@ -1,7 +1,8 @@
 
 # Validated versions to prevent 'malloc' and 'SSL' crashes
+numpy<2
 protobuf<5.0.0dev
-grpcio>=1.60.0
+grpcio==1.62.2
 google-api-python-client>=2.100.0
 pandas>=2.0.0
 # Existing
