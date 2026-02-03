@@ -262,3 +262,46 @@ def archive_note(note_id):
         return True
     return False
 
+def delete_note(note_id):
+    """Marks a note as deleted."""
+    if 'sheets_service' not in st.session_state:
+        return False
+        
+    service = st.session_state.sheets_service
+    
+    # --- ROBUST ID EXTRACTION ---
+    spreadsheet_id = None
+    if "private_sheet_url" in st.secrets:
+        import re
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", st.secrets["private_sheet_url"])
+        if match: spreadsheet_id = match.group(1)
+            
+    if not spreadsheet_id and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+         spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    if not spreadsheet_id:
+        spreadsheet_id = "1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ"
+    
+    if not spreadsheet_id: return False
+    
+    try:
+        all_notes = _get_notes_data(service, spreadsheet_id)
+    except: return False
+    
+    row_index = -1
+    for i, note in enumerate(all_notes):
+        if note['id'] == note_id:
+            row_index = i + 2 
+            break
+            
+    if row_index != -1:
+        body = {'values': [['deleted']]}
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{NOTES_SHEET_NAME}!D{row_index}", # Status is column D (4th)
+            valueInputOption="RAW",
+            body=body
+        ).execute()
+        return True
+    return False
+

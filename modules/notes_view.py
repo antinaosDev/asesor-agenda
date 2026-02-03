@@ -1,6 +1,7 @@
 
 import streamlit as st
 import datetime
+import json
 import modules.notes_manager as notes_manager
 import modules.ai_core as ai_core
 import modules.google_services as google_services
@@ -22,6 +23,8 @@ def render_brain_dump_widget():
                     if new_id:
                         st.success("Nota guardada")
                         # Clear input hack if needed, or just let user see confirmation
+                    else:
+                        st.error("Error al guardar")
                 else:
                     st.warning("Escribe algo primero")
                     
@@ -57,7 +60,6 @@ def view_notes_page():
         ¡Úsalo para liberar tu mente y asegurarte de que nada se te olvide!
         """)
     
-    # 1. Main Input Area
     # 1. Main Input Area & Mode Selector
     with st.container(border=True):
         st.subheader("📝 Nueva Captura")
@@ -81,14 +83,8 @@ def view_notes_page():
                             _handle_ai_result(result, new_note)
                         elif "Cornell" in mode:
                             result = ai_core.process_study_notes(new_note, mode="cornell")
-                            st.markdown("### 📚 Notas Cornell Generadas")
-                            st.markdown(result, unsafe_allow_html=True)
-                            # Save option?
-                            if st.button("💾 Guardar en Notas"):
-                                # Save as HTML note? Or Markdown? 
-                                # For now, just a toast as 'saving rich text' is complex in simple text notes
-                                notes_manager.create_note(f"CORNELL: {new_note[:50]}...", source="cornell", tags="study")
-                                st.success("Guardado en referencias")
+                            st.session_state.temp_cornell_result = result
+                            st.rerun()
                         elif "Flashcards" in mode:
                             result = ai_core.process_study_notes(new_note, mode="flashcards")
                             st.session_state.last_flashcards = result # Save for rendering
@@ -96,7 +92,19 @@ def view_notes_page():
                             
                 else:
                     st.warning("El campo está vacío")
-                    
+        
+        # Check if we have a temp cornell result to show
+        if 'temp_cornell_result' in st.session_state and st.session_state.temp_cornell_result:
+             st.markdown("### 📚 Notas Cornell Generadas")
+             st.markdown(st.session_state.temp_cornell_result, unsafe_allow_html=True)
+             if st.button("💾 Guardar en Notas"):
+                 if notes_manager.create_note(f"CORNELL: {new_note[:50]}...", source="cornell", tags="study"):
+                     st.success("Guardado en referencias")
+                     del st.session_state.temp_cornell_result
+                     st.rerun()
+                 else:
+                     st.error("No se pudo guardar la nota")
+                     
         with c2:
             if st.button("💾 Solo Guardar", use_container_width=True):
                 if new_note.strip():
@@ -130,54 +138,57 @@ def view_notes_page():
     
     active_notes = notes_manager.get_active_notes()
     
-    import modules.ui_interactive as ui
     import time
     
     if not active_notes:
         st.info("No hay notas pendientes. ¡Estás al día!")
     else:
-        # Prepare props for V2 Component
-        items = []
+        # Standard Streamlit UI Loop
         for note in active_notes:
-            items.append({
-                "id": note['id'],
-                "title": f"📌 {note['created_at'][:10]}",
-                "content": note['content'],
-                "actions": [
-                    {"id": "process", "label": "Procesar", "icon": "✨", "type": "primary", "autoHide": True},
-                    {"id": "archive", "label": "Archivar", "icon": "🗑️", "type": "danger", "autoHide": True}
-                ]
-            })
-            
-        # Render Component
-        action = ui.action_card_list(items, key="inbox_list")
-        
-        # Handle Events
+            with st.container(border=True):
+                # Header: Title/Date
+                c_title, c_date = st.columns([0.7, 0.3])
+                with c_title:
+                    st.markdown(f"**📌 Nota**")
+                with c_date:
+                    st.caption(f"{note['created_at'][:16]}")
+                
+                # Content
+                st.markdown(note['content'])
+                
+                # Actions
+                c_proc, c_arch, c_del = st.columns([1, 1, 1])
+                
+                with c_proc:
+                    if st.button("✨ Procesar", key=f"proc_{note['id']}", type="primary", use_container_width=True):
+                         st.session_state.processing_note_id = note['id']
+                         # Clear previous cache if different note
+                         if st.session_state.get('last_processed_note') != note['id']:
+                              st.session_state.ai_result_cache = None
+                              st.session_state.last_processed_note = note['id']
+                         st.rerun()
+                         
+                with c_arch:
+                    if st.button("📂 Archivar", key=f"arch_{note['id']}", use_container_width=True):
+                        notes_manager.archive_note(note['id'])
+                        st.toast("Nota archivada")
+                        time.sleep(0.5)
+                        st.rerun()
+
+                with c_del:
+                    if st.button("🗑️ Eliminar", key=f"del_{note['id']}", type="primary", help="Borrar permanentemente", use_container_width=True):
+                        notes_manager.delete_note(note['id'])
+                        st.toast("Nota eliminada")
+                        time.sleep(0.5)
+                        st.rerun()
+
     # Init Session State for processing
     if 'processing_note_id' not in st.session_state:
         st.session_state.processing_note_id = None
     if 'ai_result_cache' not in st.session_state:
         st.session_state.ai_result_cache = None
 
-    # Handle Component Events
-    if action:
-        note_id = action['itemId']
-        act_id = action['actionId']
-        
-        target_note = next((n for n in active_notes if n['id'] == note_id), None)
-        
-        if target_note:
-            if act_id == "process":
-                st.session_state.processing_note_id = note_id
-                # Clear previous cache if different note
-                if st.session_state.get('last_processed_note') != note_id:
-                     st.session_state.ai_result_cache = None
-                     st.session_state.last_processed_note = note_id
-                     
-            elif act_id == "archive":
-                notes_manager.archive_note(note_id)
-                time.sleep(0.5)
-                st.rerun()
+    # Handle Component Events (Legacy/Fallback removed)
 
     # --- Render Processing UI (Persistent) ---
     if st.session_state.processing_note_id:
