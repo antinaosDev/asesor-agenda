@@ -1,10 +1,15 @@
+
+# Validated versions to prevent 'malloc' and 'SSL' crashes
+protobuf<5.0.0dev
+grpcio>=1.60.0
+google-api-python-client>=2.100.0
+pandas>=2.0.0
+# Existing
 google-auth
-google-api-python-client
 groq
 python-dotenv
 streamlit
 watchdog
-pandas
 plotly
 google-auth-oauthlib
 beautifulsoup4
