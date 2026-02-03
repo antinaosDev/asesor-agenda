@@ -88,6 +88,7 @@ def _load_service_account_creds():
 
 def get_calendar_service(force_service_account=False):
     """Authenticates and returns the Google Calendar service."""
+    print(f"DEBUG: get_calendar_service called (force_sa={force_service_account})")
     if force_service_account:
         # Bypass cache and user creds, force Robot (SA)
         creds = _load_service_account_creds()
@@ -166,9 +167,11 @@ def get_gmail_credentials():
         st.session_state.logout_google = False
         return None
 
+    print("DEBUG: Starting get_gmail_credentials")
     creds = None
     # 1. Try to load token from Session State
     if 'google_token' in st.session_state:
+        print("DEBUG: Found google_token in session_state")
         creds = st.session_state.google_token
         
     # 2. Try to load token from Google Sheets (Persistent Storage)
@@ -212,6 +215,7 @@ def get_gmail_credentials():
 
     # 4. New Login (If no valid creds found)
     if not creds or not creds.valid:
+        print("DEBUG: No valid creds, starting new login flow check")
         # Load Client Config
         client_config = None
         
