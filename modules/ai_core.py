@@ -1207,3 +1207,76 @@ def process_brain_dump(note_text):
         return result
     except Exception as e:
         return {"action": "error", "error": str(e)}
+
+# --- STUDY MODES ---
+PROMPT_CORNELL = """
+RESUME ESTO:
+{text}
+
+FORMATO HTML ESTRICTO (bootstrap classes, sin markdown blocks):
+<div class='cornell-notes' style='background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;'>
+  <div class='row'>
+    <div class='col-md-4 key-points' style='border-right: 1px solid rgba(255,255,255,0.1); padding-right: 15px;'>
+      <h5 style='color: #0dd7f2;'>📌 Puntos Clave</h5>
+      <ul>
+        <li>Concepto 1</li>
+        <li>Pregunta Clave?</li>
+      </ul>
+    </div>
+    <div class='col-md-8 detailed-notes' style='padding-left: 15px;'>
+      <h5 style='color: #0dd7f2;'>📝 Notas Detalladas</h5>
+      <p>Explicación detallada del tema...</p>
+    </div>
+  </div>
+  <hr style='border-color: rgba(255,255,255,0.1); margin: 20px 0;'>
+  <div class='summary-section'>
+    <h5 style='color: #f59e0b;'>💡 Resumen (Síntesis)</h5>
+    <p>Resumen breve de todo el contenido...</p>
+  </div>
+</div>
+"""
+
+PROMPT_FLASHCARDS = """
+EXTRAE JSON FLASHCARDS DE ESTE TEXTO:
+{text}
+
+FORMATO EXCLUSIVO JSON (Lista de objetos):
+[
+  {{"q": "Pregunta corta?", "a": "Respuesta precisa"}},
+  ...
+]
+REGLAS:
+- Mínimo 3, Máximo 10 tarjetas.
+- Preguntas desafiantes pero claras.
+- Respuestas breves para memorizar.
+"""
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def process_study_notes(text, mode="cornell"):
+    client = _get_groq_client()
+    
+    if mode == "cornell":
+        prompt = PROMPT_CORNELL.replace("{text}", text[:8000])
+    elif mode == "flashcards":
+        prompt = PROMPT_FLASHCARDS.replace("{text}", text[:8000])
+    else:
+        return {"error": "Modo desconocido"}
+
+    try:
+        completion = client.chat.completions.create(
+            messages=[{"role": "system", "content": prompt}],
+            model="llama-3.1-8b-instant",
+            temperature=0.3, # Low temp for factual accuracy
+            max_tokens=2048
+        )
+        content = completion.choices[0].message.content.strip()
+        
+        if mode == "flashcards":
+             return _clean_json_output(content)
+        
+        # Cleanup potential markdown wrapper for Cornell
+        clean_html = content.replace("```html", "").replace("```", "").strip()
+        return clean_html
+        
+    except Exception as e:
+        return f"Error: {e}"
