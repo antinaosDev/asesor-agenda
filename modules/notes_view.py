@@ -183,6 +183,49 @@ def view_notes_page():
                         time.sleep(0.5)
                         st.rerun()
 
+                # --- NOTE ACTIONS EXTRAS (TAGS) ---
+                with st.expander("🏷️ Etiquetas y Vínculos", expanded=False):
+                    c_tag, c_btn = st.columns([0.7, 0.3])
+                    current_tags = note.get('tags', '')
+                    
+                    with c_tag:
+                        new_tags = st.text_input("Etiquetas (sep. por comas)", value=current_tags, key=f"tags_{note['id']}")
+                    with c_btn:
+                        st.write("") # Spacer
+                        st.write("") 
+                        if st.button("Guardar Tags", key=f"save_tags_{note['id']}"):
+                            if new_tags != current_tags:
+                                notes_manager.update_note(note['id'], {'tags': new_tags})
+                                st.toast("Etiquetas actualizadas")
+                                time.sleep(0.5)
+                                st.rerun()
+
+    # 3. Archived Notes Section
+    st.divider()
+    with st.expander("🗄️ Historial / Archivadas", expanded=False):
+        archived_notes = notes_manager.get_archived_notes()
+        if not archived_notes:
+            st.info("No hay notas archivadas.")
+        else:
+             for anote in archived_notes:
+                with st.container(border=True):
+                     st.caption(f"📅 {anote['created_at'][:10]} | 🏷️ {anote.get('tags', 'Sin etiquetas')}")
+                     st.markdown(anote['content'])
+                     
+                     c_rest, c_del_perm = st.columns([1, 1])
+                     with c_rest:
+                         if st.button("♻️ Recuperar", key=f"rest_{anote['id']}"):
+                             notes_manager.update_note(anote['id'], {'status': 'active'})
+                             st.toast("Nota recuperada a Inbox")
+                             time.sleep(0.5)
+                             st.rerun()
+                     with c_del_perm:
+                          if st.button("❌ Borrar", key=f"perm_del_{anote['id']}", type="primary"):
+                             notes_manager.delete_note(anote['id'])
+                             st.toast("Eliminada permanentemente")
+                             time.sleep(0.5)
+                             st.rerun()
+
     # Init Session State for processing
     if 'processing_note_id' not in st.session_state:
         st.session_state.processing_note_id = None
@@ -231,7 +274,7 @@ def view_notes_page():
             st.session_state.processing_note_id = None
             st.rerun()
 
-def _handle_ai_result(result, original_text):
+def _handle_ai_result(result, original_text, user_id=None):
     """Handles the JSON action from AI. Returns True if action completed successfully."""
     # Defensive programming
     if isinstance(result, list):

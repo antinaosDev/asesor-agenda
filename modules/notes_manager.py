@@ -8,7 +8,7 @@ from modules.google_services import get_sheets_service
 
 # --- CONSTANTS ---
 NOTES_SHEET_NAME = "notes"
-NOTES_COLUMNS = ["id", "created_at", "content", "status", "tags", "source", "linked_event_id"]
+NOTES_COLUMNS = ["id", "created_at", "content", "status", "tags", "source", "linked_event_id", "user_id"]
 
 def _get_notes_data(service, spreadsheet_id):
     """Fetches all notes from the 'notes' tab."""
@@ -16,7 +16,7 @@ def _get_notes_data(service, spreadsheet_id):
         sheet = service.spreadsheets()
         result = sheet.values().get(
             spreadsheetId=spreadsheet_id, 
-            range=f"{NOTES_SHEET_NAME}!A:G"
+            range=f"{NOTES_SHEET_NAME}!A:H"
         ).execute()
         rows = result.get('values', [])
         
@@ -38,7 +38,8 @@ def _get_notes_data(service, spreadsheet_id):
                 "status": row[3],
                 "tags": row[4],
                 "source": row[5],
-                "linked_event_id": row[6]
+                "linked_event_id": row[6],
+                "user_id": row[7]
             }
             data.append(note)
             
@@ -99,32 +100,13 @@ def ensure_notes_tab_exists(service, spreadsheet_id):
                 return False
     return True
 
-def create_note(content, source="manual", tags="", linked_event_id=""):
+def create_note(content, source="manual", tags="", linked_event_id="", user_id=""):
     """Creates a new note."""
     if 'sheets_service' not in st.session_state:
         st.error("Servicio de Sheets no conectado")
         return False
         
     service = st.session_state.sheets_service
-    # We need the user's specific spreadsheet ID where they store data
-    # Assuming it is stored in st.session_state.user_data_full['spreadsheet_id'] 
-    # OR retrieving it dynamically. 
-    # Based on app logic, user data is in a main sheet, but each user might just use the main DB 
-    # or their own. Let's assume we write to the MAIN database defined in .env or config 
-    # BUT wait, this app uses Google Sheets AS the database. 
-    
-    # Correction: The app seems to use a single sheet for Auth but maybe expects users to have their own?
-    # Let's look at how other modules get the spreadsheet ID.
-    # Looking at google_services.py might help. 
-    # For now, let's assume we pass the ID or get it from env.
-    
-    # RETRIEVING CONFIG
-    # In this specific app, it seems 'st.secrets' or implicit knowledge is used.
-    # Let's check how 'auth.py' or others identify the sheet.
-    # If not found, we will simply use st.secrets["connections"]["gsheets"]["spreadsheet"] if available.
-    
-    # Let's assume there is a specific 'user_data_full' that contains personal config?
-    # Or simply use the main one. I'll defer ID resolution to logic below.
     
     # --- ROBUST ID EXTRACTION ---
     spreadsheet_id = None
@@ -148,7 +130,7 @@ def create_note(content, source="manual", tags="", linked_event_id=""):
     new_id = str(uuid.uuid4())
     timestamp = datetime.datetime.now().isoformat()
     
-    values = [[new_id, timestamp, content, "active", tags, source, linked_event_id]]
+    values = [[new_id, timestamp, content, "active", tags, source, linked_event_id, user_id]]
     
     body = {'values': values}
     
@@ -158,7 +140,7 @@ def create_note(content, source="manual", tags="", linked_event_id=""):
         try:
             service.spreadsheets().values().append(
                 spreadsheetId=spreadsheet_id,
-                range=f"{NOTES_SHEET_NAME}!A:G",
+                range=f"{NOTES_SHEET_NAME}!A:H",
                 valueInputOption="USER_ENTERED",
                 body=body
             ).execute()
@@ -175,8 +157,8 @@ def create_note(content, source="manual", tags="", linked_event_id=""):
                 return None
     return None
 
-def get_active_notes():
-    """Returns list of active notes."""
+def get_active_notes(user_id=""):
+    """Returns list of active notes for a specific user."""
     if 'sheets_service' not in st.session_state:
         return []
     
@@ -208,7 +190,11 @@ def get_active_notes():
     
     try:
         all_notes = _get_notes_data(service, spreadsheet_id)
-        return [n for n in all_notes if n['status'] == 'active']
+        # Filter for 'active' AND user_id strict match
+        # We handle empty user_id in DB (legacy) by showing them ONLY if user_id arg is also empty (admin?) or maybe just show?
+        # User requested Strict Isolation. If Note has no ID, who owns it? 
+        # For now, simplistic check: if note['user_id'] matches user_id
+        return [n for n in all_notes if n['status'] == 'active' and str(n.get('user_id', '')).strip() == str(user_id).strip()]
     except Exception as e:
         if "404" in str(e):
             st.error(f"No se encontró la hoja. ID: {spreadsheet_id}")
@@ -302,6 +288,93 @@ def delete_note(note_id):
             valueInputOption="RAW",
             body=body
         ).execute()
+        return True
+    return False
+
+def get_archived_notes(user_id=""):
+    """Returns list of archived notes for a specific user."""
+    if 'sheets_service' not in st.session_state:
+        return []
+    
+    service = st.session_state.sheets_service
+    
+    # --- IDS ---
+    spreadsheet_id = None
+    if "private_sheet_url" in st.secrets:
+        import re
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", st.secrets["private_sheet_url"])
+        if match: spreadsheet_id = match.group(1)
+            
+    if not spreadsheet_id and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+         spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    if not spreadsheet_id:
+        spreadsheet_id = "1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ"
+        
+    try:
+        all_notes = _get_notes_data(service, spreadsheet_id)
+        # Filter for 'archived' AND user_id strict match
+        return [n for n in all_notes if n['status'] == 'archived' and str(n.get('user_id', '')).strip() == str(user_id).strip()]
+    except Exception as e:
+        print(f"Error reading archived notes: {e}")
+        return []
+
+def update_note(note_id, updates):
+    """
+    Updates specific fields of a note.
+    updates: dict with keys 'status', 'tags', 'linked_event_id'
+    """
+    if 'sheets_service' not in st.session_state:
+        return False
+        
+    service = st.session_state.sheets_service
+    
+    # --- IDS ---
+    spreadsheet_id = None
+    if "private_sheet_url" in st.secrets:
+        import re
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", st.secrets["private_sheet_url"])
+        if match: spreadsheet_id = match.group(1)
+            
+    if not spreadsheet_id and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+         spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    if not spreadsheet_id:
+        spreadsheet_id = "1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ"
+        
+    try:
+        all_notes = _get_notes_data(service, spreadsheet_id)
+    except: return False
+    
+    row_index = -1
+    for i, note in enumerate(all_notes):
+        if note['id'] == note_id:
+            row_index = i + 2 # Header + 1-indexed
+            break
+            
+    if row_index != -1:
+        # Columns mapping: 
+        # A: id, B: created_at, C: content, D: status, E: tags, F: source, G: linked_event_id
+        
+        # We process each update safely
+        if 'status' in updates:
+            service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id, range=f"{NOTES_SHEET_NAME}!D{row_index}",
+                valueInputOption="RAW", body={'values': [[updates['status']]]}
+            ).execute()
+            
+        if 'tags' in updates:
+             service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id, range=f"{NOTES_SHEET_NAME}!E{row_index}",
+                valueInputOption="USER_ENTERED", body={'values': [[updates['tags']]]}
+            ).execute()
+            
+        if 'linked_event_id' in updates:
+             service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id, range=f"{NOTES_SHEET_NAME}!G{row_index}",
+                valueInputOption="RAW", body={'values': [[updates['linked_event_id']]]}
+            ).execute()
+            
         return True
     return False
 
