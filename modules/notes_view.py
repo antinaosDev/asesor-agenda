@@ -19,7 +19,8 @@ def render_brain_dump_widget():
         with col1:
             if st.button("💾 Guardar", use_container_width=True):
                 if note_content.strip():
-                    new_id = notes_manager.create_note(note_content, source="quick_widget")
+                    user_id = st.session_state.get('license_key', '')
+                    new_id = notes_manager.create_note(note_content, source="quick_widget", user_id=user_id)
                     if new_id:
                         st.success("Nota guardada")
                         # Clear input hack if needed, or just let user see confirmation
@@ -99,7 +100,8 @@ def view_notes_page():
              st.markdown("### 📚 Notas Cornell Generadas")
              st.markdown(st.session_state.temp_cornell_result, unsafe_allow_html=True)
              if st.button("💾 Guardar en Notas"):
-                 if notes_manager.create_note(f"CORNELL: {new_note[:50]}...", source="cornell", tags="study"):
+                 user_id = st.session_state.get('license_key', '')
+                 if notes_manager.create_note(f"CORNELL: {new_note[:50]}...", source="cornell", tags="study", user_id=user_id):
                      st.success("Guardado en referencias")
                      del st.session_state.temp_cornell_result
                      st.rerun()
@@ -109,7 +111,8 @@ def view_notes_page():
         with c2:
             if st.button("💾 Solo Guardar", use_container_width=True):
                 if new_note.strip():
-                    if notes_manager.create_note(new_note, source="main_view"):
+                    user_id = st.session_state.get('license_key', '')
+                    if notes_manager.create_note(new_note, source="main_view", user_id=user_id):
                         st.success("Nota guardada en Inbox")
                         st.rerun()
 
@@ -137,7 +140,8 @@ def view_notes_page():
     # 2. Processor Inbox (Unprocessed Notes)
     st.subheader("📥 Inbox de Notas")
     
-    active_notes = notes_manager.get_active_notes()
+    user_id = st.session_state.get('license_key', '')
+    active_notes = notes_manager.get_active_notes(user_id=user_id)
     
     import time
     
@@ -203,7 +207,8 @@ def view_notes_page():
     # 3. Archived Notes Section
     st.divider()
     with st.expander("🗄️ Historial / Archivadas", expanded=False):
-        archived_notes = notes_manager.get_archived_notes()
+        user_id = st.session_state.get('license_key', '')
+        archived_notes = notes_manager.get_archived_notes(user_id=user_id)
         if not archived_notes:
             st.info("No hay notas archivadas.")
         else:
