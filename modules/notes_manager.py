@@ -142,18 +142,40 @@ def get_active_notes():
         return []
     
     service = st.session_state.sheets_service
-    # Use standard lookup from Google Services if possible, or fallback
-    spreadsheet_id = st.secrets.get("spreadsheet", {}).get("spreadsheet_id")
-    if not spreadsheet_id and "connections" in st.secrets:
-         # Try streamlit cloud default
+    
+    # --- ROBUST ID EXTRACTION ---
+    spreadsheet_id = None
+    
+    # 1. Try 'private_sheet_url' (from auth.py)
+    if "private_sheet_url" in st.secrets:
+        url = st.secrets["private_sheet_url"]
+        # Extract /d/ID/
+        import re
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
+        if match:
+            spreadsheet_id = match.group(1)
+            
+    # 2. Try 'connections.gsheets' (standard)
+    if not spreadsheet_id and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
          spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    # 3. Fallback Hardcoded (Matches auth.py logic for this user)
+    if not spreadsheet_id:
+        spreadsheet_id = "1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ"
     
     if not spreadsheet_id:
         st.error("Spreadsheet ID no configurado en secrets.")
-        return [] 
+        return []
     
-    all_notes = _get_notes_data(service, spreadsheet_id)
-    return [n for n in all_notes if n['status'] == 'active']
+    try:
+        all_notes = _get_notes_data(service, spreadsheet_id)
+        return [n for n in all_notes if n['status'] == 'active']
+    except Exception as e:
+        if "404" in str(e):
+            st.error(f"No se encontró la hoja. ID: {spreadsheet_id}")
+        else:
+            st.error(f"Error leyendo notas: {e}")
+        return []
 
 def archive_note(note_id):
     """Marks a note as archived."""
@@ -164,15 +186,25 @@ def archive_note(note_id):
         return False
         
     service = st.session_state.sheets_service
-    # Use standard lookup from Google Services if possible, or fallback
-    spreadsheet_id = st.secrets.get("spreadsheet", {}).get("spreadsheet_id")
-    if not spreadsheet_id and "connections" in st.secrets:
-         # Try streamlit cloud default
+        
+    # --- ROBUST ID EXTRACTION (Duplicate logic for safety) ---
+    spreadsheet_id = None
+    if "private_sheet_url" in st.secrets:
+        import re
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", st.secrets["private_sheet_url"])
+        if match: spreadsheet_id = match.group(1)
+            
+    if not spreadsheet_id and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
          spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    if not spreadsheet_id:
+        spreadsheet_id = "1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ"
     
     if not spreadsheet_id: return False
     
-    all_notes = _get_notes_data(service, spreadsheet_id)
+    try:
+        all_notes = _get_notes_data(service, spreadsheet_id)
+    except: return False
     
     row_index = -1
     for i, note in enumerate(all_notes):
