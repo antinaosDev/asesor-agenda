@@ -50,6 +50,7 @@ def _get_notes_data(service, spreadsheet_id):
 def ensure_notes_tab_exists(service, spreadsheet_id):
     """Checks if 'notes' tab exists, creates if not."""
     try:
+        if not spreadsheet_id: return False
         spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
         sheets = spreadsheet.get('sheets', '')
         sheet_titles = [s['properties']['title'] for s in sheets]
@@ -113,7 +114,22 @@ def create_note(content, source="manual", tags="", linked_event_id=""):
     # Let's assume there is a specific 'user_data_full' that contains personal config?
     # Or simply use the main one. I'll defer ID resolution to logic below.
     
-    spreadsheet_id = st.secrets["connections"]["gsheets"]["spreadsheet"] 
+    # --- ROBUST ID EXTRACTION ---
+    spreadsheet_id = None
+    if "private_sheet_url" in st.secrets:
+        import re
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", st.secrets["private_sheet_url"])
+        if match: spreadsheet_id = match.group(1)
+            
+    if not spreadsheet_id and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+         spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    if not spreadsheet_id:
+        spreadsheet_id = "1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ"
+    
+    if not spreadsheet_id:
+        st.error("Spreadsheet ID no configurado.")
+        return False 
     
     ensure_notes_tab_exists(service, spreadsheet_id)
     
