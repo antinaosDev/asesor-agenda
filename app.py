@@ -3133,7 +3133,12 @@ def main_app():
             # Solo se borra si el usuario hace clic en "Cambiar Cuenta / Salir"
 
             # Clear Local Session State ONLY (UI Reset)
-            keys_to_clear = ['connected_email', 'connected_email_input', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'authenticated', 'user_data_full', 'license_key', 'c_events_cache', 'c_events_cache_time']
+            keys_to_clear = ['connected_email', 'connected_email_input', 'google_token',
+                             'calendar_service', 'tasks_service', 'sheets_service',
+                             'authenticated', 'user_data_full', 'license_key',
+                             'c_events_cache', 'c_events_cache_time',
+                             'last_flashcards', 'temp_cornell_result', 'processing_note_id',
+                             'ai_result_cache']
             for k in keys_to_clear:
                 if k in st.session_state:
                     del st.session_state[k]
