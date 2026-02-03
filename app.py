@@ -1268,7 +1268,7 @@ def view_planner():
 
                 tasks_to_sync = []
 
-                import modules.ui_interactive as ui
+                import modules.ui_interactive as ui_v2
 
                 for i, day_en in enumerate(days_en):
                     day_es = days_map[day_en]
@@ -1297,7 +1297,7 @@ def view_planner():
                             })
                         
                         # Render Interactive List
-                        action = ui.action_card_list(day_items, key=f"kb_list_{day_en}")
+                        action = ui_v2.action_card_list(day_items, key=f"kb_list_{day_en}")
 
                         if action:
                             act_id = action['actionId']
@@ -2254,9 +2254,10 @@ def view_inbox():
                             "actions": actions
                         })
 
+
                     # Render Component
-                    import modules.ui_interactive as ui
-                    action = ui.action_card_list(v2_events, key="inbox_events")
+                    import modules.ui_interactive as ui_v2
+                    action = ui_v2.action_card_list(v2_events, key="inbox_events")
 
                     # Handle Actions
                     if action:

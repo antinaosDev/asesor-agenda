@@ -142,7 +142,15 @@ def get_active_notes():
         return []
     
     service = st.session_state.sheets_service
-    spreadsheet_id = st.secrets["connections"]["gsheets"]["spreadsheet"] 
+    # Use standard lookup from Google Services if possible, or fallback
+    spreadsheet_id = st.secrets.get("spreadsheet", {}).get("spreadsheet_id")
+    if not spreadsheet_id and "connections" in st.secrets:
+         # Try streamlit cloud default
+         spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    if not spreadsheet_id:
+        st.error("Spreadsheet ID no configurado en secrets.")
+        return [] 
     
     all_notes = _get_notes_data(service, spreadsheet_id)
     return [n for n in all_notes if n['status'] == 'active']
@@ -156,7 +164,13 @@ def archive_note(note_id):
         return False
         
     service = st.session_state.sheets_service
-    spreadsheet_id = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    # Use standard lookup from Google Services if possible, or fallback
+    spreadsheet_id = st.secrets.get("spreadsheet", {}).get("spreadsheet_id")
+    if not spreadsheet_id and "connections" in st.secrets:
+         # Try streamlit cloud default
+         spreadsheet_id = st.secrets["connections"]["gsheets"].get("spreadsheet")     
+    
+    if not spreadsheet_id: return False
     
     all_notes = _get_notes_data(service, spreadsheet_id)
     
