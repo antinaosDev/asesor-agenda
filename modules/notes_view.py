@@ -39,6 +39,7 @@ def render_brain_dump_widget():
 
 def view_notes_page():
     """Main Notes/Inbox Management Page."""
+    import json
     st.title("🧠 Captura y Procesamiento (Brain Dump)")
     # Ensure Sheets Service is Ready
     google_services.get_sheets_service()
