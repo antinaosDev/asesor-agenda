@@ -49,42 +49,54 @@ def _get_notes_data(service, spreadsheet_id):
 
 def ensure_notes_tab_exists(service, spreadsheet_id):
     """Checks if 'notes' tab exists, creates if not."""
-    try:
-        if not spreadsheet_id: return False
-        spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-        sheets = spreadsheet.get('sheets', '')
-        sheet_titles = [s['properties']['title'] for s in sheets]
-        
-        if NOTES_SHEET_NAME not in sheet_titles:
-            # Create sheet
-            body = {
-                'requests': [{
-                    'addSheet': {
-                        'properties': {
-                            'title': NOTES_SHEET_NAME
-                        }
-                    }
-                }]
-            }
-            service.spreadsheets().batchUpdate(
-                spreadsheetId=spreadsheet_id,
-                body=body
-            ).execute()
+    import time
+    retries = 3
+    for attempt in range(retries):
+        try:
+            if not spreadsheet_id: return False
+            spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            sheets = spreadsheet.get('sheets', '')
+            sheet_titles = [s['properties']['title'] for s in sheets]
             
-            # Add headers
-            header_body = {
-                'values': [NOTES_COLUMNS]
-            }
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range=f"{NOTES_SHEET_NAME}!A1",
-                valueInputOption="RAW",
-                body=header_body
-            ).execute()
-            return True
-    except Exception as e:
-        st.error(f"Error creating Notes tab: {e}")
-        return False
+            if NOTES_SHEET_NAME not in sheet_titles:
+                # Create sheet
+                body = {
+                    'requests': [{
+                        'addSheet': {
+                            'properties': {
+                                'title': NOTES_SHEET_NAME
+                            }
+                        }
+                    }]
+                }
+                service.spreadsheets().batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body=body
+                ).execute()
+                
+                # Add headers
+                header_body = {
+                    'values': [NOTES_COLUMNS]
+                }
+                service.spreadsheets().values().update(
+                    spreadsheetId=spreadsheet_id,
+                    range=f"{NOTES_SHEET_NAME}!A1",
+                    valueInputOption="RAW",
+                    body=header_body
+                ).execute()
+                return True
+            return True # Exists
+            
+        except Exception as e:
+            err_str = str(e).lower()
+            if "ssl" in err_str or "decryption" in err_str or "connection" in err_str or "broken pipe" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            
+            if attempt == retries - 1:
+                st.error(f"Error checking/creating Notes tab: {e}")
+                return False
     return True
 
 def create_note(content, source="manual", tags="", linked_event_id=""):
@@ -140,17 +152,28 @@ def create_note(content, source="manual", tags="", linked_event_id=""):
     
     body = {'values': values}
     
-    try:
-        service.spreadsheets().values().append(
-            spreadsheetId=spreadsheet_id,
-            range=f"{NOTES_SHEET_NAME}!A:G",
-            valueInputOption="USER_ENTERED",
-            body=body
-        ).execute()
-        return new_id
-    except Exception as e:
-        st.error(f"Error saving note: {e}")
-        return None
+    import time
+    retries = 3
+    for attempt in range(retries):
+        try:
+            service.spreadsheets().values().append(
+                spreadsheetId=spreadsheet_id,
+                range=f"{NOTES_SHEET_NAME}!A:G",
+                valueInputOption="USER_ENTERED",
+                body=body
+            ).execute()
+            return new_id
+        except Exception as e:
+            err_str = str(e).lower()
+            if "ssl" in err_str or "decryption" in err_str or "connection" in err_str or "broken pipe" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            
+            if attempt == retries - 1:
+                st.error(f"Error saving note: {e}")
+                return None
+    return None
 
 def get_active_notes():
     """Returns list of active notes."""
