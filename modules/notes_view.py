@@ -101,7 +101,7 @@ def view_notes_page():
              st.markdown(st.session_state.temp_cornell_result, unsafe_allow_html=True)
              if st.button("💾 Guardar en Notas"):
                  user_id = st.session_state.get('license_key', '')
-                 if notes_manager.create_note(f"CORNELL: {new_note[:50]}...", source="cornell", tags="study", user_id=user_id):
+                 if notes_manager.create_note(st.session_state.temp_cornell_result, source="cornell", tags="study", user_id=user_id):
                      st.success("Guardado en referencias")
                      del st.session_state.temp_cornell_result
                      st.rerun()

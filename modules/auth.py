@@ -1023,3 +1023,4 @@ def load_calendar_session(username):
     except Exception as e:
         print(f"Error loading calendar session: {e}")
         return None
+
