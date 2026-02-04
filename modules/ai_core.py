@@ -413,6 +413,13 @@ def analyze_document_vision(text_content, images_base64=[]):
             if event.get('start_time') and event['start_time'].endswith('Z'): event['start_time'] = event['start_time'][:-1]
             if event.get('end_time') and event['end_time'].endswith('Z'): event['end_time'] = event['end_time'][:-1]
             
+            # Auto-calculate End Time (+2h) if missing
+            if event.get('start_time') and not event.get('end_time'):
+                try:
+                    s = datetime.datetime.fromisoformat(event['start_time'])
+                    event['end_time'] = (s + datetime.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
+                except: pass
+            
         return events
     except Exception as e:
         st.error(f"Vision Analysis Error: {e}")
@@ -1065,7 +1072,7 @@ Si es EVENTO:
     "summary": "Título del evento",
     "description": "Descripción detallada",
     "start_time": "YYYY-MM-DDTHH:MM:SS",
-    "end_time": "YYYY-MM-DDTHH:MM:SS" (Calcula 1h por defecto),
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (Calcula 2h por defecto),
     "colorId": "11"
 }}
 
@@ -1116,6 +1123,14 @@ def process_brain_dump(note_text):
         result = json.loads(content)
         if isinstance(result, list):
             result = result[0] if result else {"action": "error", "error": "No data returned"}
+            
+        # Enforce 2h default for Brain Dump events
+        if result.get('action') == 'create_event' and result.get('start_time') and not result.get('end_time'):
+             try:
+                s = datetime.datetime.fromisoformat(result['start_time'])
+                result['end_time'] = (s + datetime.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
+             except: pass
+             
         return result
     except Exception as e:
         return {"action": "error", "error": str(e)}
