@@ -681,6 +681,7 @@ def create_task_list(service, title):
 
 def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, start_date=None, parent=None):
     """Adds a task to the specified list with optional start and due dates."""
+    print(f"DEBUG: add_task_to_google called for title='{title}'")
     try:
         task = {
             'title': title,
@@ -737,6 +738,7 @@ def add_task_to_google(service, tasklist_id, title, notes=None, due_date=None, s
 
 def delete_task_google(service, tasklist_id, task_id):
     """Deletes a task from the specified list."""
+    print(f"DEBUG: delete_task_google called for id='{task_id}'")
     retries = 3
     for attempt in range(retries):
         try:

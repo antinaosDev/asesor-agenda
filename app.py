@@ -1736,6 +1736,7 @@ def view_planner():
                                 st.rerun()
                         with c_t2:
                             if st.button("🗑️ Borrar Tarea", key=f"d_t_{t['id']}"):
+                                st.toast(f"🗑️ Intentando borrar tarea {t['id']}...", icon="🛑")
                                 delete_task_google(tasks_svc, t['list_id'], t['id'])
                                 st.rerun()
 
