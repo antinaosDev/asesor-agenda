@@ -295,6 +295,35 @@ def _try_parse_block(block, results_list):
     except:
         pass
 
+# --- HELPERS ---
+def _calculate_default_end_time(start_str):
+    """
+    Calculates end time with 2-hour default + Work Hour Constraints.
+    Mon-Thu: Limit 17:00
+    Fri: Limit 16:00
+    """
+    import datetime
+    try:
+        start_dt = datetime.datetime.fromisoformat(start_str)
+        default_end = start_dt + datetime.timedelta(hours=2)
+        
+        # Work Hour Limits
+        weekday = start_dt.weekday() # 0=Mon, 4=Fri
+        limit_hour = 17 
+        if weekday == 4: # Friday
+            limit_hour = 16
+            
+        limit_dt = start_dt.replace(hour=limit_hour, minute=0, second=0, microsecond=0)
+        
+        # If default end exceeds limit (and start is before limit), cap it.
+        # But if start is already after limit (e.g. evening meeting), keep 2h duration.
+        if start_dt < limit_dt and default_end > limit_dt:
+             return limit_dt.strftime("%Y-%m-%dT%H:%M:%S")
+        
+        return default_end.strftime("%Y-%m-%dT%H:%M:%S")
+    except:
+        return None
+
 # --- CORE FUNCTIONS ---
 
 # @st.cache_data(ttl=3600, show_spinner=False) # TEMPORARILY DISABLED FOR TESTING
@@ -415,10 +444,8 @@ def analyze_document_vision(text_content, images_base64=[]):
             
             # Auto-calculate End Time (+2h) if missing
             if event.get('start_time') and not event.get('end_time'):
-                try:
-                    s = datetime.datetime.fromisoformat(event['start_time'])
-                    event['end_time'] = (s + datetime.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
-                except: pass
+                calc_end = _calculate_default_end_time(event['start_time'])
+                if calc_end: event['end_time'] = calc_end
             
         return events
     except Exception as e:
@@ -1126,10 +1153,8 @@ def process_brain_dump(note_text):
             
         # Enforce 2h default for Brain Dump events
         if result.get('action') == 'create_event' and result.get('start_time') and not result.get('end_time'):
-             try:
-                s = datetime.datetime.fromisoformat(result['start_time'])
-                result['end_time'] = (s + datetime.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
-             except: pass
+             calc_end = _calculate_default_end_time(result['start_time'])
+             if calc_end: result['end_time'] = calc_end
              
         return result
     except Exception as e:
