@@ -1268,7 +1268,7 @@ def view_planner():
 
                 tasks_to_sync = []
 
-                import modules.ui_interactive as ui_v2
+                # import modules.ui_interactive as ui_v2 (REMOVED due to SegFault risk)
 
                 for i, day_en in enumerate(days_en):
                     day_es = days_map[day_en]
@@ -1296,33 +1296,47 @@ def view_planner():
                                 ]
                             })
                         
-                        # Render Interactive List
-                        action = ui_v2.action_card_list(day_items, key=f"kb_list_{day_en}")
+                        # Render Interactive List (Native)
+                        for idx, t in enumerate(tasks):
+                            with st.container():
+                                st.markdown(f"""
+                                <div style="background: rgba(24, 40, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); 
+                                            border-radius: 8px; padding: 12px; margin-bottom: 8px; font-size: 0.9rem;">
+                                    {t[:100]}...
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                c_act = st.columns([1, 4])
+                                with c_act[0]:
+                                    btn_k_key = f"btn_del_kb_{day_en}_{idx}"
+                                    if st.button("🗑️", key=btn_k_key, help="Borrar"):
+                                        st.session_state['triggered_kb_del'] = {'day': day_en, 'idx': idx, 'day_es': day_es}
 
-                        if action:
-                            act_id = action['actionId']
-                            item_id = action['itemId']
-                            
-                            # Parse index
-                            try:
-                                t_idx = int(item_id.split('_')[1])
-                                if act_id == "delete":
-                                    # Update Session State
-                                    # We need to find the list reference again and pop
-                                    current_list = None
-                                    if isinstance(st.session_state.weekly_plan, dict):
-                                        if day_en in st.session_state.weekly_plan:
-                                            st.session_state.weekly_plan[day_en].pop(t_idx)
-                                        elif day_es in st.session_state.weekly_plan:
-                                            st.session_state.weekly_plan[day_es].pop(t_idx)
-                                    # Handle list-wrapped dict case if necessary
-                                    elif isinstance(st.session_state.weekly_plan, list):
-                                        pass # Complicated, skip for brevity or handle if strict
-                                    
-                                    st.toast("Tarea eliminada del plan")
-                                    time.sleep(0.3)
-                                    st.rerun()
-                            except: pass
+                        # Handle Deletion State (Post-Loop)
+                        if 'triggered_kb_del' in st.session_state:
+                             trig = st.session_state.triggered_kb_del
+                             # Validate it matches current loop context if needed or just execute
+                             # Since we rerun immediately, global state is fine
+                             d_key = trig['day']
+                             d_idx = trig['idx']
+                             d_es = trig['day_es']
+                             
+                             del st.session_state['triggered_kb_del'] # Reset
+                             
+                             try:
+                                 # Update Session State
+                                 current_list = None
+                                 if isinstance(st.session_state.weekly_plan, dict):
+                                     if d_key in st.session_state.weekly_plan:
+                                         st.session_state.weekly_plan[d_key].pop(d_idx)
+                                     elif d_es in st.session_state.weekly_plan:
+                                         st.session_state.weekly_plan[d_es].pop(d_idx)
+                                 
+                                 st.toast("🗑️ Tarea eliminada del plan")
+                                 time.sleep(0.3)
+                                 st.rerun()
+                             except Exception as e:
+                                 st.error(f"Error borrando: {e}")
 
                         # Prepare for sync (Global button still useful)
                         for t in tasks:
