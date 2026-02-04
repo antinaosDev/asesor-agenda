@@ -9,7 +9,7 @@ pandas>=2.0.0
 google-auth
 groq
 python-dotenv
-streamlit
+streamlit>=1.39.0
 watchdog
 plotly
 google-auth-oauthlib
