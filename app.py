@@ -2258,6 +2258,7 @@ def view_inbox():
                     # Render Component
                     import modules.ui_interactive as ui_v2
                     action = ui_v2.action_card_list(v2_events, key="inbox_events")
+                    st.toast(f"🔍 ACTION STATE: {action}") # Debug Probe
 
                     # Handle Actions
                     if action:
