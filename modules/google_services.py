@@ -873,7 +873,7 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
             }
         }
         
-        }
+
         
         # Simple heuristic: If string doesn't have Z or offset, assume it needs a specific TZ
         # For now we stick to UTC to match previous behavior or simple pass-through
