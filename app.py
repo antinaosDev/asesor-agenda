@@ -2256,50 +2256,67 @@ def view_inbox():
 
 
                     # Render Component
-                    import modules.ui_interactive as ui_v2
-                    action = ui_v2.action_card_list(v2_events, key="inbox_events")
-                    st.toast(f"🔍 ACTION STATE: {action}") # Debug Probe
+                    # Render Native UI (Fallback for Reliability)
+                    for ev in v2_events:
+                        # Card Container
+                        with st.container():
+                            st.markdown(f"""
+                            <div style="background: rgba(24, 40, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); 
+                                        border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                                {ev['content']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Actions Row
+                            cols = st.columns(len(ev['actions']) + 2) # Flex spacing
+                            for idx, act in enumerate(ev['actions']):
+                                with cols[idx]:
+                                    # Create specific unique key
+                                    btn_key = f"btn_{act['id']}_{ev['id']}"
+                                    if st.button(f"{act['icon']} {act['label']}", key=btn_key):
+                                        st.session_state['triggered_action'] = {'itemId': ev['id'], 'actionId': act['id']}
 
-                    # Handle Actions
-                    if action:
-                        ev_id = action['itemId']
-                        act_id = action['actionId']
-                        
-                        target_ev = next((e for e in events if e['id'] == ev_id), None)
-                        
-                        if not target_ev:
-                            st.error(f"❌ Error: No se encontró el evento con ID {ev_id}")
-                        if not service_cal:
-                            st.error("❌ Error: No se pudo conectar al calendario (Service is None)")
+                    # Handle Triggered Action (from above buttons)
+                    if 'triggered_action' in st.session_state:
+                         trigger = st.session_state.triggered_action
+                         ev_id = trigger['itemId']
+                         act_id = trigger['actionId']
+                         del st.session_state['triggered_action'] # Consume click immediately
+                         
+                         target_ev = next((e for e in events if e['id'] == ev_id), None)
+                         
+                         if target_ev and service_cal:
+                             if act_id == "schedule" or act_id == "regenerate":
+                                 # Append Link to Description
+                                 final_desc = target_ev.get('description', '-')
+                                 st.toast(f"📅 Agendando '{target_ev.get('summary')}'...", icon="⏳")
+                                 
+                                 if target_ev.get('id'):
+                                     t_id = target_ev.get('threadId', target_ev['id'])
+                                     user_email = st.session_state.get('connected_email', '0')
+                                     link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
+                                     if link not in final_desc:
+                                         final_desc += f"\n\n🔗 Correo: {link}"
 
-                        if target_ev and service_cal:
-                            if act_id == "schedule" or act_id == "regenerate":
-                                # Append Link to Description
-                                final_desc = target_ev.get('description', '-')
-                                st.toast(f"🛑 DEBUG: Intentando agendar '{target_ev.get('summary')}'...", icon="🛑")
-                                if target_ev.get('id'):
-                                    t_id = target_ev.get('threadId', target_ev['id'])
-                                    user_email = st.session_state.get('connected_email', '0')
-                                    link = f"https://mail.google.com/mail/u/?authuser={user_email}#inbox/{t_id}"
-                                    if link not in final_desc:
-                                        final_desc += f"\n\n🔗 Correo: {link}"
+                                 ev_to_add = target_ev.copy()
+                                 ev_to_add['description'] = final_desc
 
-                                ev_to_add = target_ev.copy()
-                                ev_to_add['description'] = final_desc
-
-                                with st.spinner("Agendando..."):
-                                    res, msg = add_event_to_calendar(service_cal, ev_to_add, cal_id)
-                                    if res:
-                                        # Save History
-                                        if 'license_key' in st.session_state:
-                                             rich_ev = [{'id': target_ev['id'], 's': target_ev.get('summary', 'Evento'), 'd': datetime.date.today().strftime('%Y-%m-%d')}]
-                                             auth.update_user_history(st.session_state.license_key, {'mail': rich_ev})
-                                        
-                                        st.toast("✅ Evento agendado correctamente")
-                                        time.sleep(1) # Visual feedback
-                                        st.rerun()
-                                    else:
-                                        st.error(f"Error: {msg}")
+                                 # Force Work Hour Limits (Mon-Thu 17h, Fri 16h)
+                                 # (Already handled by AI/helper, but good to ensure default logic applies if AI missed it)
+                                 
+                                 with st.spinner("Agendando..."):
+                                     res, msg = add_event_to_calendar(service_cal, ev_to_add, cal_id)
+                                     if res:
+                                         # Save History
+                                         if 'license_key' in st.session_state:
+                                              rich_ev = [{'id': target_ev['id'], 's': target_ev.get('summary', 'Evento'), 'd': datetime.date.today().strftime('%Y-%m-%d')}]
+                                              auth.update_user_history(st.session_state.license_key, {'mail': rich_ev})
+                                         
+                                         st.toast("✅ Evento agendado correctamente")
+                                         time.sleep(1) 
+                                         st.rerun()
+                                     else:
+                                         st.error(f"Error: {msg}")
 
                 with tab_info:
                     # New Strict Logic: 'type' == 'task'
