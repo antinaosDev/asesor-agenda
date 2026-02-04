@@ -159,7 +159,7 @@ def view_notes_page():
                     st.caption(f"{note['created_at'][:16]}")
                 
                 # Content
-                st.markdown(note['content'])
+                st.markdown(note['content'], unsafe_allow_html=True)
                 
                 # Actions
                 c_proc, c_arch, c_del = st.columns([1, 1, 1])
@@ -215,7 +215,7 @@ def view_notes_page():
              for anote in archived_notes:
                 with st.container(border=True):
                      st.caption(f"📅 {anote['created_at'][:10]} | 🏷️ {anote.get('tags', 'Sin etiquetas')}")
-                     st.markdown(anote['content'])
+                     st.markdown(anote['content'], unsafe_allow_html=True)
                      
                      c_rest, c_del_perm = st.columns([1, 1])
                      with c_rest:

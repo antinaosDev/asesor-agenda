@@ -128,68 +128,40 @@ IMPORTANTE: NO devuelvas `{{ "draft_email": ... }}`. SIEMPRE usa `{{ "action": "
 PROMPT_EMAIL_ANALYSIS = """
 Eres un asistente ejecutivo de élite que extrae eventos y tareas de correos electrónicos.
 
-🎯 CLASIFICACIÓN:
-1. Si menciona "Reunión", "Jornada", "Curso", "Consejo", "Comité", "Sesión" o tiene hora específica (10:00, 3pm) → type="event"
-2. Todo lo demás → type="task"
-3. NUNCA devuelvas lista vacía. Cada correo genera al menos un objeto.
-4. Si no hay fecha explícita, usa {current_date} con hora 09:00
+🎯 FILOSOFÍA: "ANTE LA DUDA, ES UN EVENTO".
+Tu prioridad ABSOLUTA es NO PERDER ningún compromiso, reunión o fecha importante.
 
-📝 REGLAS CRÍTICAS PARA DESCRIPCIONES:
+📋 CLASIFICACIÓN AGRESIVA:
+1. EVENTO (type="event"):
+   - CUALQUIER mención de una fecha o hora futura.
+   - Listas de fechas (ej: "Enero 20, Marzo 5...").
+   - Palabras clave: Calendario, Programación, Reunión, Cita, Visita, Entrega.
+2. TAREA (type="task"):
+   - Acciones sin fecha específica ("Revisar informe").
+   - Solicitudes generales ("Favor enviar cotización").
+3. IMPORTANTE: NUNCA devuelvas lista vacía si hay fechas en el texto.
 
-⭐ Para EVENTOS (reuniones, consejos, comités):
-La descripción DEBE ser COMPLETA y PROFESIONAL:
-1. Incluir TODOS los temas/puntos de agenda mencionados en el correo
-2. Capturar TEXTUALMENTE:
-   - Nombres completos de personas (funcionarios, participantes)
-   - Cargos y categorías (ej: "Tecnólogo Médico, categoría B")
-   - Artículos de ley, decretos, reglamentos (ej: "artículo 56 del D.S. N°1889/2005")
-   - Fechas y plazos específicos
-   - Lugares/salas mencionadas
-3. Organizar con viñetas o numeración para claridad
-4. Estilo: Formal, ejecutivo, profesional - como un acta de reunión
-5. NO resumir - incluir TODOS los detalles relevantes del correo
+🔍 REGLAS PARA LISTAS Y FECHAS:
+1. 🔢 LISTAS: Si hay una lista de fechas (separada por enters, comas, guiones o pipes "|"), GENERA UN EVENTO POR CADA UNA.
+2. 🗓️ FECHA IMPLÍCITA: Si dice "Martes 20" y estamos en Enero, asume Enero 20 del año actual.
+3. 🙈 IGNORA encabezados (De/Para). Lee solo el cuerpo.
 
-EJEMPLO DE ESTRUCTURA IDEAL:
-- AGENDA: Lista numerada de todos los temas
-- PARTICIPANTES: Nombres mencionados
-- UBICACION: Sala/lugar si se menciona
-- REFERENCIAS: Artículos, decretos, reglamentos citados
-- NOTAS: Información adicional del remitente
-
-⭐ Para TAREAS:
-- Descripción clara del objetivo
-- Incluir responsables si se mencionan
-- Especificar fechas límite o plazos
-
-
-🎨 CÓDIGO DE COLOR (Google Calendar IDs):
-- "11" (Rojo): URGENTE / Alta Prioridad
-- "10" (Verde): Salud / Médico
-- "7" (Azul): Proyectos / Operaciones
-- "6" (Naranja): Reuniones Externas / Clientes
-- "4" (Rosado): Reuniones Internas / Consejos / Comités
-- "2" (Verde Salvia): Planificación / Revisión
-- "1" (Lavanda): General / Otros
-
-📋 ESTRUCTURA JSON DE SALIDA:
+📝 FORMATO DE SALIDA (JSON):
 [
   {{
     "id": "email_id",
     "type": "event",
-    "summary": "Título Profesional del Evento",
-    "description": "Descripción COMPLETA y DETALLADA con TODOS los temas, nombres, referencias, ubicación y notas del correo",
+    "summary": "Título del Evento (Infiérelo si es necesario)",
+    "description": "Copia TODOS los detalles originales. No resumas.",
     "start_time": "YYYY-MM-DDTHH:MM:SS",
-    "end_time": "YYYY-MM-DDTHH:MM:SS",
-    "category": "Reunión",
-    "colorId": "4"
+    "end_time": "YYYY-MM-DDTHH:MM:SS", 
+    "colorId": "11"
   }}
 ]
 
 ⚠️ CRÍTICO:
-- Devuelve SOLO el JSON. Sin texto adicional ni markdown.
-- Las descripciones de eventos DEBEN capturar TODA la información del correo
-- NO omitir detalles importantes: nombres, artículos legales, fechas, lugares
-- Formato JSON válido estricto
+- Devuelve SOLO el JSON.
+- Si hay múltiples fechas, crea múltiples objetos EVENTO.
 """
 
 
@@ -198,112 +170,46 @@ Eres un asistente ejecutivo de élite especializado en extraer eventos y tareas 
 
 🎯 OBJETIVO PRINCIPAL: Analizar el input y generar una lista JSON con TODOS los eventos/tareas encontrados.
 
+CONTEXTO TEMPORAL:
+- Fecha Actual: {current_date}
+- Año por Defecto: {current_year} (Si no se especifica año, usa este. Si el mes es anterior al actual, asume el próximo año).
+
 📋 REGLAS DE CLASIFICACIÓN:
 
 1️⃣ EVENTO (type="event"):
-- Reuniones, juntas, llamadas, consejos, comités con hora específica
-- Tiene hora exacta (10:00, 14:30, "a las 3pm") o período específico
-- Palabras clave: "Reunión", "Jornada", "Curso", "Consejo", "Comité", "Sesión"
-- Ejemplos: "Reunión coordinación", "Consejo técnico", "Jornada de capacitación"
+- Reuniones, juntas, capacitaciones, consejos con fecha y hora.
+- Listas de fechas en correos de "Calendario Anual" o "Programación".
+- Palabras clave: "Reunión", "Comité", "Jornada", "Sesión", "Cita".
 
 2️⃣ TAREA (type="task"):  
-- Actividades con período extendido o fecha límite
-- Rangos de fechas ("2 enero - 15 marzo", "enero-febrero")
-- Palabras como: "realizar", "completar", "entregar", "formalizar", "validar"
-- Hitos, procesos, evaluaciones
-- Ejemplos: "Autoevaluación MAIS", "Presupuesto 2026", "Plan de Acción"
+- Pendientes sin hora específica o con plazos (deadlines).
+- Acciones a realizar: "Enviar informe", "Comprar insumos".
 
-📝 REGLAS CRÍTICAS PARA DESCRIPCIONES DE EVENTOS:
+🔍 REGLAS PARA EMAIL Y LISTAS:
+1. 🙈 IGNORA encabezados de correo (De:, Para:, Asunto:, Enviado:). Céntrate en el CUERPO.
+2. 🔢 LISTAS NUMERADAS O SEPARADAS: Si hay una lista "1. Febrero 5..." o separada por signos (|, /, -) "ENERO 20 | FEBRERO 15", GENERA UN EVENTO POR CADA ÍTEM.
+3. 🗓️ FECHAS RELATIVAS: 
+   - "jueves 22 de enero" -> Calcula la fecha exacta usando el año {current_year}.
+   - "ENERO, MARTES 20" -> Mismo caso, infiere el año actual.
+4. ⏰ RANGOS DE HORAS: "14:00 a 17:00" -> start_time 14:00:00, end_time 17:00:00.
 
-⭐ DESCRIPCIÓN PROFESIONAL Y COMPLETA:
-Para EVENTOS (reuniones, consejos, comités):
-1. La descripción DEBE incluir TODOS los temas/puntos de agenda mencionados
-2. Capturar TEXTUALMENTE nombres completos, cargos, artículos de ley, números de decreto
-(Para tareas usa "title", "due_date" en params. Para emails usa "subject", "body", y opcionalmente "recipient").
-NO ejecutes la acción si faltan datos críticos (hora/fecha para eventos). 
-Para borradores de email, el destinatario NO es obligatorio.
-5. NO resumir - incluir TODOS los detalles relevantes
-6. Mantener el orden de los temas tal como aparecen
-
-EJEMPLO DE ESTRUCTURA IDEAL PARA DESCRIPCIONES:
-- AGENDA: Lista numerada completa con todos los temas y detalles
-- PARTICIPANTES: Nombres y cargos si se mencionan
-- UBICACION: Sala o lugar si se menciona
-- REFERENCIAS: Artículos, decretos, reglamentos mencionados textualmente
-
-Para TAREAS:
-- Descripción clara del objetivo y entregable esperado
-- Incluir responsables si se mencionan
-- Especificar requisitos o referencias normativas
-
-
-🔍 REGLAS ESPECIALES:
-
-📌 Rule 1 - MÚLTIPLES ITEMS
-Si el input contiene VARIOS eventos/tareas separados (por títulos, emojis, secciones):
-➡️ Genera un objeto JSON por cada uno
-➡️ Detecta separadores como: emojis de fecha 📅, saltos de línea, títulos diferentes
-
-📌 Rule 2 - PERÍODOS = TAREA CON DEADLINE
-"2 enero - 15 marzo" → start_time="2026-01-02T09:00:00", end_time="2026-03-15T18:00:00"
-"Enero - febrero" → start_time="2026-01-01T09:00:00", end_time="2026-02-28T18:00:00"
-
-📌 Rule 3 - PRESERVAR INFORMACIÓN CRÍTICA
-✅ SIEMPRE incluir:
-- Nombres completos de personas (funcionarios, personal, etc.)
-- Cargos y categorías (ej: "Tecnólogo Médico, categoría B")
-- Números de artículos, decretos, leyes (ej: "artículo 56 del D.S. N°1889/2005")
-- Fechas y plazos específicos
-- Lugares o salas (ej: "sala de reunión")
-
-❌ NUNCA simplificar ni omitir:
-- Referencias legales o normativas
-- Nombres de funcionarios o participantes
-- Detalles técnicos o administrativos
-
-📌 Rule 4 - ESPAÑOL PROFESIONAL
-Todos los textos deben estar en español formal y profesional
-
-📅 CONTEXTO:
-- Fecha Actual: {current_date}
-- Año por Defecto: {current_year}
-
-🎨 COLORES (Google Calendar IDs):
-- "11" (Rojo): URGENTE / Alta Prioridad / Deadlines Críticos
-- "10" (Verde): Salud / Bienestar / Médico
-- "7" (Azul Peacock): Trabajo Profundo / Proyectos / Operaciones  
-- "6" (Naranja): Reuniones Externas / Clientes
-- "4" (Rosado): Reuniones Internas / Equipo / Consejos / Comités
-- "2" (Verde Salvia): Planificación / Revisión / QBR
-- "1" (Lavanda): General / Otros
-
-📝 ESTRUCTURA JSON DE SALIDA:
+📝 FORMATO DE SALIDA (JSON ÚNICAMENTE):
 [
   {{
     "type": "event",
-    "summary": "Título Profesional y Claro del Evento",
-    "description": "Descripción COMPLETA y DETALLADA con TODOS los temas de agenda, nombres, referencias, etc.",
+    "summary": "Título Descriptivo (ej: Reunión Comité Capacitación)",
+    "description": "Detalle completo: agenda, lugar, participantes. Copia textual referencias importantes.",
     "start_time": "YYYY-MM-DDTHH:MM:SS",
     "end_time": "YYYY-MM-DDTHH:MM:SS",
     "colorId": "4"
-  }},
-  {{
-    "type": "task",
-    "summary": "Título de la Tarea",
-    "description": "Descripción completa incluyendo responsables, hitos y detalles",
-    "start_time": "YYYY-MM-DDTHH:MM:SS",
-    "end_time": "YYYY-MM-DDTHH:MM:SS",
-    "colorId": "11"
   }}
 ]
 
 ⚠️ CRÍTICO:
-- SIEMPRE devuelve al menos un objeto si hay información
-- Si detectas MÚLTIPLES items, devuelve un array con varios objetos
-- NO devuelvas array vacío [] a menos que el input esté completamente vacío
-- Formato JSON válido, sin texto adicional
-- Extrae TODA la información útil (responsables, hitos, períodos, referencias)
-- Las descripciones de eventos DEBEN ser completas y profesionales
+- Devuelve SOLO el JSON válido.
+- SIEMPRE devuelve una lista `[...]`, aunque sea de un solo elemento.
+- NO omitas ningún ítem de una lista de fechas.
+- Si el título no es explícito en el ítem, usa el contexto del correo (ej: "Reunión Comité" para todas las fechas).
 """
 
 PROMPT_PLANNING = """
@@ -1138,18 +1044,19 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
 # --- BRAIN DUMP PROCESSING (NOTES) ---
 PROMPT_BRAIN_DUMP = """
 Eres un asistente ejecutivo experto en GTD (Getting Things Done).
-Tu tarea es analizar una "Nota Rápida" (Brain Dump) y clasificarla en una acción concreta.
+Tu tarea es analizar una "Nota Rápida" (Brain Dump) y clasificarla.
 
 INPUT: "{note_text}"
-
 FECHA ACTUAL: {current_date}
 
-INSTRUCCIONES:
-1. Analiza el contenido.
-2. Determina la MEJOR acción:
-   - "create_event": Si tiene fecha/hora específica y parece una reunión/evento.
-   - "create_task": Si es una acción a realizar, un pendiente, o algo sin hora fija.
-   - "keep_note": Si es solo información, una idea, o algo que no requiere acción inmediata.
+🎯 REGLA DE ORO:
+Si el texto menciona una FECHA, HORA, o COMPROMISO TEMPORAL (ej: "mañana", "el martes", "en 2 horas"), DEBE ser "create_event".
+No lo conviertas en tarea si puedes ponerle fecha y hora en el calendario.
+
+OPCIONES:
+1. "create_event": Si tiene fecha/hora (explícita o implícita). Prioriza esto.
+2. "create_task": Solo si es una acción SIN fecha específica.
+3. "keep_note": Solo información pasiva (ideas, referencias).
 
 OUTPUT (JSON):
 Si es EVENTO:
@@ -1158,8 +1065,8 @@ Si es EVENTO:
     "summary": "Título del evento",
     "description": "Descripción detallada",
     "start_time": "YYYY-MM-DDTHH:MM:SS",
-    "end_time": "YYYY-MM-DDTHH:MM:SS" (Calcula 1h por defecto si no se especifica),
-    "colorId": "11" (Usa códigos de color estándar)
+    "end_time": "YYYY-MM-DDTHH:MM:SS" (Calcula 1h por defecto),
+    "colorId": "11"
 }}
 
 Si es TAREA:
@@ -1167,19 +1074,19 @@ Si es TAREA:
     "action": "create_task",
     "title": "Título de la tarea",
     "notes": "Notas adicionales",
-    "due_date": "YYYY-MM-DD" (Opcional, si se menciona)
+    "due_date": "YYYY-MM-DD" (Solo si es fecha límite, no evento)
 }}
 
 Si es NOTA:
 {{
     "action": "keep_note",
     "tags": ["tag1", "tag2"],
-    "summary": "Breve resumen para título"
+    "summary": "Título Breve"
 }}
 
 REGLAS:
 - Responde SOLO el JSON.
-- Si faltan datos (ej: hora), asume lo más lógico (ej: mañana a las 9am) o conviértelo en Tarea.
+- Sé agresivo detectando eventos. Mejor que sobre a que falte en el calendario.
 """
 
 def process_brain_dump(note_text):
@@ -1207,6 +1114,8 @@ def process_brain_dump(note_text):
         )
         content = _clean_json_output(completion.choices[0].message.content.strip())
         result = json.loads(content)
+        if isinstance(result, list):
+            result = result[0] if result else {"action": "error", "error": "No data returned"}
         return result
     except Exception as e:
         return {"action": "error", "error": str(e)}
