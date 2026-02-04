@@ -2266,10 +2266,16 @@ def view_inbox():
                         
                         target_ev = next((e for e in events if e['id'] == ev_id), None)
                         
+                        if not target_ev:
+                            st.error(f"❌ Error: No se encontró el evento con ID {ev_id}")
+                        if not service_cal:
+                            st.error("❌ Error: No se pudo conectar al calendario (Service is None)")
+
                         if target_ev and service_cal:
                             if act_id == "schedule" or act_id == "regenerate":
                                 # Append Link to Description
                                 final_desc = target_ev.get('description', '-')
+                                st.toast(f"🛑 DEBUG: Intentando agendar '{target_ev.get('summary')}'...", icon="🛑")
                                 if target_ev.get('id'):
                                     t_id = target_ev.get('threadId', target_ev['id'])
                                     user_email = st.session_state.get('connected_email', '0')
