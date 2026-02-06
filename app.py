@@ -2272,7 +2272,7 @@ def view_inbox():
 
                     # Render Component
                     # Render Native UI (Fallback for Reliability)
-                    for ev in v2_events:
+                    for idx_ev, ev in enumerate(v2_events):
                         # Card Container
                         with st.container():
                             st.markdown(f"""
@@ -2287,7 +2287,7 @@ def view_inbox():
                             for idx, act in enumerate(ev['actions']):
                                 with cols[idx]:
                                     # Create specific unique key
-                                    btn_key = f"btn_{act['id']}_{ev['id']}"
+                                    btn_key = f"btn_{act['id']}_{ev['id']}_{idx_ev}"
                                     if st.button(f"{act['icon']} {act['label']}", key=btn_key):
                                         st.session_state['triggered_action'] = {'itemId': ev['id'], 'actionId': act['id']}
 
