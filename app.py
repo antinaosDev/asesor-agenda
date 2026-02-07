@@ -69,7 +69,7 @@ load_dotenv()
 # --- Page Config ---
 st.set_page_config(
     page_title="Panel Ejecutivo AI",
-    page_icon="🗓️",
+    page_icon="logo_agent.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
