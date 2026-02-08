@@ -1002,7 +1002,11 @@ def check_event_exists(service, calendar_id, event_data):
         return False  # No duplicate
         
     except Exception as e:
-        # If check fails, allow creation (fail-open)
+        # If check fails (e.g. 404 Not Found due to invalid email), allow creation (fail-open)
+        if "404" in str(e) or "notFound" in str(e):
+             print(f"DEBUG: 404 in check_event_exists for {calendar_id}. Treating as no duplicate.")
+             return False
+
         st.warning(f"Error verificando duplicados: {e}")
         return False
 

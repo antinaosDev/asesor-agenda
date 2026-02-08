@@ -152,7 +152,7 @@ Tu prioridad ABSOLUTA es NO PERDER ningún compromiso, reunión o fecha importan
     "id": "email_id",
     "type": "event",
     "summary": "Título del Evento (Infiérelo si es necesario)",
-    "description": "Copia TODOS los detalles originales. No resumas.",
+    "description": "ESTE CAMPO ES CRÍTICO. DEBE INCLUIR TODOS LOS DETALLES DEL TEXTO ORIGINAL. Copia las reglas, instrucciones, agenda y cualquier contexto importante del correo. NO RESUMAS EXCESIVAMENTE.",
     "start_time": "YYYY-MM-DDTHH:MM:SS",
     "end_time": "YYYY-MM-DDTHH:MM:SS", 
     "colorId": "11"
@@ -162,6 +162,7 @@ Tu prioridad ABSOLUTA es NO PERDER ningún compromiso, reunión o fecha importan
 ⚠️ CRÍTICO:
 - Devuelve SOLO el JSON.
 - Si hay múltiples fechas, crea múltiples objetos EVENTO.
+- **IMPORTANTE**: La descripción debe capturar el espíritu completo del correo, incluyendo reglas de asistencia (ej: si asiste titular o subrogante), ubicación y agenda.
 """
 
 
@@ -198,7 +199,7 @@ CONTEXTO TEMPORAL:
   {{
     "type": "event",
     "summary": "Título Descriptivo (ej: Reunión Comité Capacitación)",
-    "description": "Detalle completo: agenda, lugar, participantes. Copia textual referencias importantes.",
+    "description": "ESTE CAMPO ES CRÍTICO. DEBE INCLUIR TODOS LOS DETALLES DEL TEXTO ORIGINAL. NO RESUMAS EXCESIVAMENTE. Incluye: Agenda, Reglas de asistencia (ej: titular/subrogante), Ubicación, Links, Notas importantes. Si es un correo, copia las instrucciones relevantes verbatim.",
     "start_time": "YYYY-MM-DDTHH:MM:SS",
     "end_time": "YYYY-MM-DDTHH:MM:SS",
     "colorId": "4"
@@ -210,6 +211,7 @@ CONTEXTO TEMPORAL:
 - SIEMPRE devuelve una lista `[...]`, aunque sea de un solo elemento.
 - NO omitas ningún ítem de una lista de fechas.
 - Si el título no es explícito en el ítem, usa el contexto del correo (ej: "Reunión Comité" para todas las fechas).
+- **IMPORTANTE**: La descripción debe ser RICA y DETALLADA. El usuario necesita saber reglas de asistencia, contexto y cualquier otra instrucción mencionada en el texto original.
 """
 
 PROMPT_PLANNING = """
