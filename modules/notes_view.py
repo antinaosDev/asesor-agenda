@@ -70,7 +70,7 @@ def view_notes_page():
         
         # Mode Selector
         mode = st.radio("Modo de Procesamiento:", 
-            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)", "📋 Actas de Reunión", "🏗️ Proyectos", "🎙️ Comandos"],
+            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)", "📋 Actas de Reunión", "🏗️ Proyectos"],
             horizontal=True,
             label_visibility="collapsed"
         )
@@ -202,72 +202,7 @@ def view_notes_page():
 
 
 
-        # --- VOICE ANALYST MODE ---
-        elif "Comandos" in mode:
-            st.info("Analista de Voz: Habla instrucciones complejas y la IA las ejecutará (Eventos, Tareas, Emails).")
-            
-            voice_command_audio = st.audio_input("Grabar Instrucción", key="voice_analyst_input")
-            
-            if voice_command_audio:
-                st.audio(voice_command_audio)
-                
-                if st.button("🧠 Analizar y Ejecutar", use_container_width=True, type="primary"):
-                    with st.spinner("🎧 Escuchando y Pensando..."):
-                        # 1. Transcribe
-                        text_cmd = ai_core.transcribe_audio_groq(voice_command_audio)
-                        if not text_cmd or "Error" in text_cmd:
-                            st.error(f"Error transcripción: {text_cmd}")
-                        else:
-                            st.info(f"🗣️ Dijiste: '{text_cmd}'")
-                            
-                            # 2. Analyze
-                            analysis = ai_core.analyze_voice_command(text_cmd)
-                            if "error" in analysis:
-                                st.error(f"Error Análisis: {analysis['error']}")
-                            else:
-                                actions = analysis.get('actions', [])
-                                if not actions:
-                                    st.warning("No se detectaron acciones ejecutables.")
-                                else:
-                                    st.subheader(f"✅ {len(actions)} Acciones Detectadas:")
-                                    
-                                    # Preview
-                                    for act in actions:
-                                        icon = "📅" if "event" in act['action'] else "✅" if "task" in act['action'] else "📧"
-                                        st.markdown(f"{icon} **{act['action']}**: {act['params']}")
-                                    
-                                    # Execute Loop (Automatic or require second confirmation? Let's do automatic for "Analizar y Ejecutar")
-                                    # User asked for "Execute All" button in plan, but here we can streamline.
-                                    # Let's add a secondary confirmation just to be safe/impressive.
-                                    st.session_state.temp_voice_actions = actions
-                                    st.rerun()
-            
-            # Execution State
-            if 'temp_voice_actions' in st.session_state:
-                st.divider()
-                st.write("¿Confirmas la ejecución de estas acciones?")
-                c_yes, c_no = st.columns(2)
-                with c_yes:
-                    if st.button("⚡ Ejecutar Todo", type="primary", use_container_width=True):
-                        results_log = []
-                        progress = st.progress(0)
-                        
-                        for i, action in enumerate(st.session_state.temp_voice_actions):
-                            ok, msg = google_services.execute_voice_action(action)
-                            icon = "✅" if ok else "❌"
-                            results_log.append(f"{icon} {msg}")
-                            progress.progress((i + 1) / len(st.session_state.temp_voice_actions))
-                        
-                        for log in results_log:
-                            st.write(log)
-                            
-                        st.success("Proceso finalizado.")
-                        del st.session_state.temp_voice_actions
-                        
-                with c_no:
-                    if st.button("Cancelar", use_container_width=True):
-                        del st.session_state.temp_voice_actions
-                        st.rerun()
+
 
         # --- OTHER MODES (Standard, Cornell, Flashcards) ---
         else: 
