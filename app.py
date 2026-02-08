@@ -1845,55 +1845,13 @@ def view_inbox():
             st.rerun()
         # --------------------------------
 
-        # --- CALENDAR SELECTOR (NEW) ---
-        c_cal_sel, _ = st.columns([2, 1])
-        with c_cal_sel:
-            # Fetch calendars
-            try:
-                cal_service = get_calendar_service()
-                if cal_service:
-                    from modules.google_services import get_calendar_list
-                    cals = get_calendar_list(cal_service)
-                    if cals:
-                        # Format for display: Create list of names to find index later
-                        cal_names = [f"{c['summary']} ({c['id']})" for c in cals]
-                        cal_opts = {name: c['id'] for name, c in zip(cal_names, cals)}
-                        
-                        # Find default index (Prioritize Configured Email -> Primary -> Index 0)
-                        def_idx = 0
-                        # Determine intended target: Configured > Connected > Empty
-                        target_conf = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', ''))
-                        
-                        # --- FORCE INCLUDE CONFIGURED CALENDAR ---
-                        # If the configured calendar (e.g. Service Account one) isn't in the user's list, add it manually.
-                        if target_conf and target_conf not in cal_opts.values():
-                            manual_name = f"🔧 Configurado ({target_conf})"
-                            cal_names.insert(0, manual_name)
-                            cal_opts[manual_name] = target_conf
-                        
-                        found_explicit = False
-                        
-                        # 1. Search for EXACT match with Configured Calendar
-                        if target_conf:
-                            for i, name in enumerate(cal_names):
-                                if cal_opts[name] == target_conf:
-                                    def_idx = i
-                                    found_explicit = True
-                                    break
-                        
-                        # 2. If no exact match (or email not set), fallback to Primary
-                        if not found_explicit:
-                            for i, c in enumerate(cals):
-                                if c.get('primary'):
-                                    def_idx = i
-                                    break
-                        
-                        sel_cal_name = st.selectbox("📅 Calendario Destino:", options=cal_names, index=def_idx, help="Elige en qué calendario guardar los eventos.")
-                        st.session_state.inbox_target_calendar_id = cal_opts[sel_cal_name]
-                    else:
-                        st.session_state.inbox_target_calendar_id = 'primary'
-            except:
-                st.session_state.inbox_target_calendar_id = 'primary'
+        # --- CALENDARIO OBJETIVO (Fixed/Configured) ---
+        # User requested to remove selector and ALWAYS use the configured one.
+        target_conf = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+        st.session_state.inbox_target_calendar_id = target_conf
+        
+        # Visual Confirmation Only
+        st.caption(f"📅 Destino: **{target_conf}** (Configurado)")
         # -------------------------------
 
         c_d1, c_d2 = st.columns(2)
@@ -2533,7 +2491,7 @@ def view_inbox():
             st.info(f"📨 Se leyeron {len(st.session_state.fetched_emails)} correos. Esperando análisis...")
 
 def view_optimize():
-    from modules.google_services import get_calendar_service, get_tasks_service, add_task_to_google, delete_events_bulk, delete_tasks_bulk, deduplicate_calendar_events, deduplicate_tasks
+    from modules.google_services import get_calendar_service, get_tasks_service, add_task_to_google, delete_events_bulk, delete_tasks_bulk, deduplicate_calendar_events, deduplicate_tasks, COLOR_MAP
     
     # Modern header with glassmorphism
     st.markdown("""
@@ -2801,6 +2759,14 @@ def view_optimize():
                         found = next((e for e in events if e['id'] == item_id), None)
                         if found: orig_summary = found.get('summary', '')
                         new_text = proposal.get('new_summary', '')
+                        
+                        # VISUALIZATION FIX: Show Color Change if Summary is same
+                        if not new_text and proposal.get('colorId'):
+                             cid = str(proposal['colorId'])
+                             c_raw = COLOR_MAP.get(cid, f"ID {cid}")
+                             # Clean name
+                             c_name = c_raw.split('(')[0].strip() if '(' in c_raw else c_raw
+                             new_text = f"🎨 Asignar: {c_name}"
                     else: # Task
                         found = next((t for t in tasks if t['id'] == item_id), None)
                         if found: orig_summary = f"📝 {found.get('title', '')}"

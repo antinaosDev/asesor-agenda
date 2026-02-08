@@ -132,8 +132,8 @@ def get_calendar_list(service):
                 break
         return calendar_list
     except Exception as e:
-        print(f"Error fetching calendar list: {e}")
-        return []
+        print(f"Error checking calendar access: {e}")
+        return False
 
 def get_tasks_service():
     """Authenticates and returns the Google Tasks service."""
@@ -174,6 +174,24 @@ def get_sheets_service():
             st.error(f"Failed to authenticate Sheets: {e}")
             return None
     return st.session_state.sheets_service
+
+def get_docs_service():
+    """Authenticates and returns the Google Docs service."""
+    if 'docs_service' not in st.session_state:
+        try:
+            # Reuse existing credentials logic
+            creds = _load_service_account_creds()
+            if not creds:
+                creds = get_gmail_credentials()
+                
+            if creds:
+                service = build('docs', 'v1', credentials=creds, cache_discovery=False)
+                st.session_state.docs_service = service
+                return service
+        except Exception as e:
+            st.error(f"Failed to authenticate Docs: {e}")
+            return None
+    return st.session_state.docs_service
 
 def get_gmail_credentials():
     """Handles OAuth 2.0 Flow for User Data Access."""
@@ -1238,6 +1256,146 @@ def deduplicate_tasks(service):
     except Exception as e:
         st.error(f"Error deduplicating tasks: {e}")
         return 0
+
+# --- DOCS GENERATION (ACTAS) ---
+
+def create_meeting_minutes_doc(title, data):
+    """
+    Creates a Google Doc with the specific Health Service Meeting Minutes format.
+    Args:
+        title (str): Document title
+        data (dict): JSON data from AI generation
+    Returns:
+        str: URL of the created document or None
+    """
+    service = get_docs_service()
+    if not service: return None
+    
+    try:
+        # 1. Create Blank Doc
+        doc = service.documents().create(body={'title': title}).execute()
+        doc_id = doc.get('documentId')
+        
+        requests = []
+        
+        # HEADER
+        header_text = f"IDENTIFICACIÓN DEL PRESTADOR\\nCENTRO DE SALUD: [Institución]\\nACTA DE REUNIÓN: {data.get('asunto', 'Sin Asunto')}\\nFECHA: {data.get('fecha', '')} | HORA: {data.get('hora_inicio')} - {data.get('hora_termino')}\\n________________________________________________________________________________\\n\\n"
+        
+        # 1. ANTECEDENTES
+        sec1_title = "1. ANTECEDENTES GENERALES\\n"
+        sec1_body = f"• ASUNTO: {data.get('asunto')}\\n• LUGAR: {data.get('lugar')}\\n\\n"
+        
+        # 2. ASISTENTES
+        sec2_title = "2. ASISTENTES\\n"
+        att_body = ""
+        for p in data.get('asistentes', []):
+            att_body += f"• {p}\\n"
+        att_body += "\\n"
+        
+        # 3. ORDEN DEL DÍA
+        sec3_title = "3. ORDEN DEL DÍA\\n"
+        points_body = ""
+        for i, p in enumerate(data.get('tabla_puntos', [])):
+            points_body += f"{i+1}. {p}\\n"
+        points_body += "\\n"
+        
+        # 4. DESARROLLO
+        sec4_title = "4. DESARROLLO DE LA SESIÓN\\n"
+        dev_body = f"{data.get('desarrollo', '')}\\n\\n"
+        
+        # 5. ACUERDOS
+        sec5_title = "5. ACUERDOS Y COMPROMISOS\\n"
+        ac_body = "ACUERDO | RESPONSABLE | PLAZO\\n"
+        ac_body += "--------------------------------------------------------\\n"
+        for ac in data.get('acuerdos', []):
+            ac_body += f"{ac.get('descripcion')} | {ac.get('responsable')} | {ac.get('plazo')}\\n"
+        ac_body += "--------------------------------------------------------\\n\\n"
+        
+        # 6. SIGNATURES
+        sig_body = "\\n\\n__________________________          __________________________\\nEncargado de Reunión                     Secretario de Actas\\n"
+        
+        # Concatenate All
+        full_text = header_text + sec1_title + sec1_body + sec2_title + att_body + sec3_title + points_body + sec4_title + dev_body + sec5_title + ac_body + sig_body
+        
+        # Insert All Text at Index 1
+        requests.append({'insertText': {'location': {'index': 1}, 'text': full_text}})
+        
+        # CALCULATE RANGES FOR STYLING (Sequential)
+        current_index = 1
+        
+        # Style Header (Bold)
+        len_header = len(header_text)
+        requests.append({
+            'updateTextStyle': {
+                'range': {'startIndex': current_index, 'endIndex': current_index + len_header},
+                'textStyle': {'bold': True, 'fontSize': {'magnitude': 10, 'unit': 'PT'}},
+                'fields': 'bold,fontSize'
+            }
+        })
+        current_index += len_header
+        
+        # Style Sec 1 Title (Bold + Color)
+        len_sec1_title = len(sec1_title)
+        requests.append({
+            'updateTextStyle': {
+                'range': {'startIndex': current_index, 'endIndex': current_index + len_sec1_title},
+                'textStyle': {'bold': True, 'foregroundColor': {'color': {'rgbColor': {'red': 0.1, 'green': 0.1, 'blue': 0.6}}}},
+                'fields': 'bold,foregroundColor'
+            }
+        })
+        current_index += len_sec1_title + len(sec1_body)
+        
+        # Style Sec 2 Title
+        len_sec2_title = len(sec2_title)
+        requests.append({
+            'updateTextStyle': {
+                'range': {'startIndex': current_index, 'endIndex': current_index + len_sec2_title},
+                'textStyle': {'bold': True},
+                'fields': 'bold'
+            }
+        })
+        current_index += len_sec2_title + len(att_body)
+
+        # Style Sec 3 Title
+        len_sec3_title = len(sec3_title)
+        requests.append({
+            'updateTextStyle': {
+                'range': {'startIndex': current_index, 'endIndex': current_index + len_sec3_title},
+                'textStyle': {'bold': True},
+                'fields': 'bold'
+            }
+        })
+        current_index += len_sec3_title + len(points_body)
+        
+        # Style Sec 4 Title
+        len_sec4_title = len(sec4_title)
+        requests.append({
+            'updateTextStyle': {
+                'range': {'startIndex': current_index, 'endIndex': current_index + len_sec4_title},
+                'textStyle': {'bold': True},
+                'fields': 'bold'
+            }
+        })
+        current_index += len_sec4_title + len(dev_body)
+        
+        # Style Sec 5 Title
+        len_sec5_title = len(sec5_title)
+        requests.append({
+            'updateTextStyle': {
+                'range': {'startIndex': current_index, 'endIndex': current_index + len_sec5_title},
+                'textStyle': {'bold': True},
+                'fields': 'bold'
+            }
+        })
+        
+        # EXECUTE BATCH
+        service.documents().batchUpdate(documentId=doc_id, body={'requests': requests}).execute()
+        
+        return f"https://docs.google.com/document/d/{doc_id}/edit"
+        
+    except Exception as e:
+        print(f"Error generating Doc: {e}")
+        return None
 
 
 # --- CALENDAR API: QUICK ADD & FREE/BUSY ---

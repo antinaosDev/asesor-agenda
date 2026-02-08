@@ -68,53 +68,103 @@ def view_notes_page():
         
         # Mode Selector
         mode = st.radio("Modo de Procesamiento:", 
-            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)"],
+            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)", "📋 Actas de Reunión"],
             horizontal=True,
             label_visibility="collapsed"
         )
         
-        new_note = st.text_area("¿Qué tienes en mente?", height=150, key="main_note_input", placeholder="Escribe o pega tu texto aquí...")
-        
-        c1, c2 = st.columns([1, 4])
-        with c1:
-            if st.button("✨ Procesar", type="primary", use_container_width=True):
-                if new_note.strip():
-                    with st.spinner("Analizando..."):
-                        if "Estándar" in mode:
-                            result = ai_core.process_brain_dump(new_note)
-                            _handle_ai_result(result, new_note)
-                        elif "Cornell" in mode:
-                            result = ai_core.process_study_notes(new_note, mode="cornell")
-                            st.session_state.temp_cornell_result = result
+        # --- ACTAS DE REUNIÓN MODE ---
+        if "Actas" in mode:
+            st.info("Generador de Actas (Norma Técnica Salud): Transforma notas/audio en documento formal.")
+            acta_title = st.text_input("Título de la Reunión (Opcional)", placeholder="Ej: Comité de Calidad - Agosto")
+            
+            tab_text, tab_audio = st.tabs(["📝 Texto / Pegar Acta", "🎙️ Audio (Beta)"])
+            
+            with tab_text:
+                acta_content = st.text_area("Contenido / Transcripción:", height=300, key="acta_text_input", placeholder="Pega aquí los apuntes brutos o la transcripción...")
+                if st.button("📄 Generar Acta en Docs", use_container_width=True, key="btn_gen_acta_txt"):
+                    if acta_content.strip():
+                        with st.spinner("🤖 Redactando Acta y Generando Doc..."):
+                            # 1. AI Analysis
+                            struct_data = ai_core.generate_meeting_minutes_ai(acta_content)
+                            if "error" in struct_data:
+                                st.error(f"Error AI: {struct_data['error']}")
+                            else:
+                                # 2. Doc Generation
+                                final_title = acta_title if acta_title else f"Acta_{datetime.datetime.now().strftime('%Y%m%d')}"
+                                doc_url = google_services.create_meeting_minutes_doc(final_title, struct_data)
+                                
+                                if doc_url:
+                                    st.success("✅ Acta creada exitosamente!")
+                                    st.markdown(f"### [📂 Abrir Documento en Google Docs]({doc_url})")
+                                    st.balloons()
+                                else:
+                                    st.error("Error creando el documento en Drive.")
+                    else:
+                        st.warning("El contenido está vacío.")
+
+            with tab_audio:
+                st.warning("⚠️ Nota: Audios largos (>25MB) pueden tardar. Usa archivos comprimidos (mp3/m4a).")
+                uploaded_file = st.file_uploader("Subir grabación:", type=["mp3", "wav", "m4a", "ogg"])
+                if uploaded_file is not None:
+                    if st.button("🎙️ Transcribir y Generar Acta", use_container_width=True, key="btn_gen_acta_audio"):
+                         with st.spinner("🎧 Transcribiendo audio (esto puede demorar)..."):
+                             # 1. Transcribe
+                             transcription = ai_core.transcribe_audio_groq(uploaded_file)
+                             if transcription:
+                                 st.success("✅ Transcripción completada.")
+                                 with st.expander("Ver Transcripción"):
+                                     st.write(transcription[:1000] + "...")
+                                     
+                                 with st.spinner("🤖 Redactando Acta y Generando Doc..."):
+                                     # 2. AI Structuring
+                                     struct_data = ai_core.generate_meeting_minutes_ai(transcription)
+                                     
+                                     # 3. Doc Generation
+                                     final_title = acta_title if acta_title else f"Acta_Audio_{datetime.datetime.now().strftime('%Y%m%d')}"
+                                     doc_url = google_services.create_meeting_minutes_doc(final_title, struct_data)
+                                     
+                                     if doc_url:
+                                         st.success("✅ Acta creada exitosamente!")
+                                         st.markdown(f"### [📂 Abrir Documento en Google Docs]({doc_url})")
+                                         st.balloons()
+                                     else:
+                                         st.error("Error creando documento.")
+                             else:
+                                 st.error("Falló la transcripción.")
+
+        # --- OTHER MODES (Standard, Cornell, Flashcards) ---
+        else: 
+            new_note = st.text_area("¿Qué tienes en mente?", height=150, key="main_note_input", placeholder="Escribe o pega tu texto aquí...")
+            
+            c1, c2 = st.columns([1, 4])
+            with c1:
+                if st.button("✨ Procesar", type="primary", use_container_width=True):
+                    if new_note.strip():
+                        with st.spinner("Analizando..."):
+                            if "Estándar" in mode:
+                                result = ai_core.process_brain_dump(new_note)
+                                _handle_ai_result(result, new_note)
+                            elif "Cornell" in mode:
+                                result = ai_core.process_study_notes(new_note, mode="cornell")
+                                st.session_state.temp_cornell_result = result
+                                st.rerun()
+                            elif "Flashcards" in mode:
+                                result = ai_core.process_study_notes(new_note, mode="flashcards")
+                                st.session_state.last_flashcards = result 
+                                st.rerun() 
+                                
+                    else:
+                        st.warning("El campo está vacío")
+            
+            # Save Button (Standard Mode Only)
+            with c2:
+                if st.button("💾 Solo Guardar", use_container_width=True):
+                    if new_note.strip():
+                        user_id = st.session_state.get('license_key', '')
+                        if notes_manager.create_note(new_note, source="main_view", user_id=user_id):
+                            st.success("Nota guardada en Inbox")
                             st.rerun()
-                        elif "Flashcards" in mode:
-                            result = ai_core.process_study_notes(new_note, mode="flashcards")
-                            st.session_state.last_flashcards = result # Save for rendering
-                            st.rerun() # Rerun to show flashcards below or in a clean state
-                            
-                else:
-                    st.warning("El campo está vacío")
-        
-        # Check if we have a temp cornell result to show
-        if 'temp_cornell_result' in st.session_state and st.session_state.temp_cornell_result:
-             st.markdown("### 📚 Notas Cornell Generadas")
-             st.markdown(st.session_state.temp_cornell_result, unsafe_allow_html=True)
-             if st.button("💾 Guardar en Notas"):
-                 user_id = st.session_state.get('license_key', '')
-                 if notes_manager.create_note(st.session_state.temp_cornell_result, source="cornell", tags="study", user_id=user_id):
-                     st.success("Guardado en referencias")
-                     del st.session_state.temp_cornell_result
-                     st.rerun()
-                 else:
-                     st.error("No se pudo guardar la nota")
-                     
-        with c2:
-            if st.button("💾 Solo Guardar", use_container_width=True):
-                if new_note.strip():
-                    user_id = st.session_state.get('license_key', '')
-                    if notes_manager.create_note(new_note, source="main_view", user_id=user_id):
-                        st.success("Nota guardada en Inbox")
-                        st.rerun()
 
     # Flashcard Renderer (if in session)
     if 'last_flashcards' in st.session_state and st.session_state.last_flashcards:

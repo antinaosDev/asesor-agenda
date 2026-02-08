@@ -23,14 +23,25 @@ def transcribe_audio_groq(audio_file):
     try:
         # Streamlit UploadedFile -> BytesIO
         # Groq client espera un archivo con nombre para detectar formato
-        completion = client.audio.transcriptions.create(
-            file=(audio_file.name, audio_file.getvalue()),
-            model="whisper-large-v3", # Multilingual, excellent for Spanish
-            response_format="json",
-            language="es", # Force Spanish for better accuracy
-            temperature=0.0
-        )
-        return completion.text
+        # Create a temporary file to write the audio content
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+            tmp_file.write(audio_file.getvalue())
+            tmp_path = tmp_file.name
+
+        # Now open the temporary file to pass it to the Groq client
+        with open(tmp_path, "rb") as file:
+            transcription = client.audio.transcriptions.create(
+                file=(tmp_path, file.read()), # Send tuple (filename, bytes) or just file object
+                model="whisper-large-v3-turbo", # Optimized for speed and cost ($0.04/hr)
+                response_format="json",
+                language="es", # Force Spanish for better results in this context
+                temperature=0.0
+            )
+        
+        # Clean up the temporary file
+        os.remove(tmp_path)
+
+        return transcription.text
     except Exception as e:
         return f"Error en transcripción: {str(e)}"
 
@@ -871,7 +882,7 @@ def analyze_agenda_ai(events_list, tasks_list=[]):
 def _call_agenda_ai_chunk(client, payload):
     """Helper to process one chunk with fallback logic"""
     system_prompt = """
-    You are an Elite Executive Assistant. Your job is to OPTIMIZE the user's agenda (Calendar + Tasks).
+    You are an Elite Executive Assistant. Your job is to OPTIMIZE the user's agenda (Calendar + Tasks) by CATEGORIZING items.
     
     VALID COLOR IDs (String 1-11) for EVENTS:
     - "1": Lavanda (Misc)
@@ -887,22 +898,24 @@ def _call_agenda_ai_chunk(client, payload):
     - "11": Tomate (Urgente/Rojo)
 
     GOALS:
-    1. EVENTS: Rewrite summaries to be professional/executive. Assign correct Color ID.
-    2. TASKS: Rewrite titles to be ACTIONABLE (Start with verb). Suggest 'new_due' ONLY if urgent/overdue context is obvious (otherwise keep same).
+    1. EVENTS: CATEGORIZE ONLY. Assign the correct "colorId".
+       - CRITICAL: DO NOT CHANGE THE SUMMARY (Title) OR DESCRIPTION. PRESERVE ORIGINAL TEXT EXACTLY.
+       - ONLY if the title is "Sin Título" or clearly broken, you may suggest a fix. Otherwise, keeping it identical is preferred.
+    2. TASKS: Rewrite titles to be ACTIONABLE (Start with verb). Suggest 'new_due' ONLY if urgent/overdue context is obvious.
     
     CRITICAL RULE - USE REAL IDs:
     - You will receive a JSON payload with events and/or tasks
     - Each event/task has an "id" field
     - In your output, you MUST use the EXACT SAME "id" values from the input
     - DO NOT generate fictional IDs like "event_id_1" or "task_id_1"
-    - ONLY include items in the output if they actually need optimization
-    - If an item is already well-written, SKIP it from the output
+    - ONLY include items in the output if they actually need optimization (e.g. missing color or tasks that need actionable verbs)
+    - If an event already has a correct color and title, SKIP it.
     
-    OUTPUT FORMAT (JSON):
+    JSON OUTPUT FORMAT (Object):
     {
         "optimization_plan": {
-            "<REAL_EVENT_ID_FROM_INPUT>": {"type": "event", "new_summary": "...", "colorId": "ID_STRING"},
-            "<REAL_TASK_ID_FROM_INPUT>":  {"type": "task",  "new_title": "...", "list_id": "...", "new_due": "YYYY-MM-DD (Optional)"}
+            "<REAL_EVENT_ID>": {"type": "event", "colorId": "7"}, // ONLY return fields that need update. OMIT "new_summary" to preserve original.
+            "<REAL_TASK_ID>":  {"type": "task",  "new_title": "Comprar pan", "list_id": "...", "new_due": "YYYY-MM-DD"}
         },
         "advisor_note": "Resumen estratégico de mejoras..."
     }
@@ -913,9 +926,9 @@ def _call_agenda_ai_chunk(client, payload):
     EXAMPLE OUTPUT (using REAL ID from input):
     {
         "optimization_plan": {
-            "abc123xyz": {"type": "event", "new_summary": "Reunión Estratégica del Equipo", "colorId": "4"}
+            "abc123xyz": {"type": "event", "colorId": "4"}
         },
-        "advisor_note": "Mejorado el profesionalismo del título del evento."
+        "advisor_note": "Asignado color Rosado a reunión de equipo interna."
     }
     
     LANGUAGE: SPANISH.
@@ -1043,8 +1056,8 @@ def generate_project_breakdown_ai(project_title, project_desc, start_date, end_d
             temperature=0.6, 
             max_tokens=4096
         )
-        content = _clean_json_output(completion.choices[0].message.content.strip())
-        return json.loads(content)
+        analysis = _clean_json_output(completion.choices[0].message.content)
+        return json.loads(analysis)
     except Exception as e:
         err_msg = str(e).lower()
         # Robust check for Rate Limits
@@ -1233,4 +1246,75 @@ def process_study_notes(text, mode="cornell"):
         return clean_html
         
     except Exception as e:
-        return f"Error: {e}"
+        return f"Error procesando estudio: {str(e)}"
+
+# --- MEETING MINUTES GENERATOR (ACTAS) ---
+
+def generate_meeting_minutes_ai(content_text):
+    """
+    Genera la estructura JSON de un Acta de Reunión a partir de texto/transcripción.
+    """
+    import datetime
+    import json
+    client = _get_groq_client()
+    
+    # NOTE: Llama 3.3 70B has 128k context window. 
+    # We remove the 30k char limit to support long meetings (5+ hours).
+    # If content is truly massive (>400k chars), it might still hit limits, 
+    # but 5 hours of speech is usually ~40k-60k words, well within limits.
+
+    curr_date = datetime.datetime.now().strftime("%d/%m/%Y")
+        
+    PROMPT_MEETING_MINUTES = f"""
+    Eres un Secretario Técnico experto en Gestión de Salud y Documentación Clínica (Norma Técnica Chilena).
+    Tu tarea es REDACTAR UN ACTA DE REUNIÓN FORMAL basada en el audio/texto proporcionado.
+
+    INPUT TRANSCRITO:
+    "{content_text}"
+
+    FECHA REAL: {curr_date}
+
+    OBJETIVO:
+    Generar un objeto JSON estructurado que llene los campos del "FORMATO OFICIAL DE ACTA INSTITUCIONAL DE REUNIÓN / COMITÉ".
+
+    REGLAS DE REDACCIÓN:
+    1. TIEMPO VERBAL: Pasado ("se acordó", "se analizó", "se determinó").
+    2. TONO: Técnico, objetivo, impersonal y formal. Sin juicios de valor.
+    3. ESTRUCTURA:
+       - Identificar ASUNTO principal.
+       - Extraer ASISTENTES (Si no están claros, poner "No especificados - Completar manualmente").
+       - Resumir el DESARROLLO en puntos clave.
+       - Extraer ACUERDOS CON RESPONSABLES y PLAZOS (Si no hay plazo, poner "Por definir").
+
+    FORMATO JSON ESPERADO (No inventes claves):
+    {{
+      "asunto": "Resumen breve del tema",
+      "fecha": "DD/MM/AAAA",
+      "hora_inicio": "HH:MM",
+      "hora_termino": "HH:MM",
+      "lugar": "Sala/Virtual",
+      "asistentes": ["Nombre 1 - Cargo", "Nombre 2 - Cargo"],
+      "tabla_puntos": ["Punto 1", "Punto 2"],
+      "desarrollo": "Texto narrativo formal describiendo la discusión...",
+      "acuerdos": [
+        {{"descripcion": "Acuerdo 1", "responsable": "Cargo/Nombre", "plazo": "Fecha"}},
+        {{"descripcion": "Acuerdo 2", "responsable": "Cargo/Nombre", "plazo": "Fecha"}}
+      ],
+      "proxima_reunion": "DD/MM/AAAA HH:MM"
+    }}
+    """
+    
+    try:
+        completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": PROMPT_MEETING_MINUTES}
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.1,
+            max_tokens=4000,
+            response_format={"type": "json_object"}
+        )
+        msg_content = completion.choices[0].message.content
+        return json.loads(msg_content)
+    except Exception as e:
+        return {"error": str(e)}
