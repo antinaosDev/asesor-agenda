@@ -45,18 +45,7 @@ def view_notes_page():
     # Ensure Sheets Service is Ready
     google_services.get_sheets_service()
     
-    # --- DEBUG SCOPES (Temporary) ---
-    with st.expander("🔍 Debug: Ver Scopes Actuales", expanded=False):
-        if 'google_token' in st.session_state:
-            creds = st.session_state.google_token
-            st.write(f"Válido: {creds.valid}")
-            st.write("Scopes Cargados:")
-            st.json(creds.scopes)
-            if st.button("Forzar Borrado Token Session"):
-                del st.session_state.google_token
-                st.rerun()
-        else:
-            st.warning("No hay token en memoria.")
+
     
     with st.expander("ℹ️ ¿Qué es el Brain Dump?", expanded=False):
         st.markdown("""
@@ -119,6 +108,8 @@ def view_notes_page():
                                             st.session_state.logout_google = True
                                             if 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
                                                 del st.session_state.user_data_full['cod_val']
+                                            if 'docs_service' in st.session_state:
+                                                del st.session_state.docs_service
                                             st.rerun()
                     else:
                         st.warning("El contenido está vacío.")
@@ -163,6 +154,8 @@ def view_notes_page():
                                                 st.session_state.logout_google = True
                                                 if 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
                                                     del st.session_state.user_data_full['cod_val']
+                                                if 'docs_service' in st.session_state:
+                                                    del st.session_state.docs_service
                                                 st.rerun()
                              else:
                                  st.error(f"Falló la transcripción: {transcription}")

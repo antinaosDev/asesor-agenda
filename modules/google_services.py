@@ -180,10 +180,12 @@ def get_docs_service():
     """Authenticates and returns the Google Docs service."""
     if 'docs_service' not in st.session_state:
         try:
-            # Reuse existing credentials logic
-            creds = _load_service_account_creds()
+            # 1. OAuth User (Prioritized for My Docs)
+            creds = get_gmail_credentials()
+            
+            # 2. Service Account (Fallback)
             if not creds:
-                creds = get_gmail_credentials()
+                creds = _load_service_account_creds()
                 
             if creds:
                 service = build('docs', 'v1', credentials=creds, cache_discovery=False)
