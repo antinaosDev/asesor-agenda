@@ -377,7 +377,7 @@ def view_dashboard():
     # ----------------------
 
     # Context Loading
-    calendar_id = 'primary' # FORCE PRIMARY to match OAuth Token User
+    calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
     if not calendar_id:
         st.info("⚠️ Por favor conecta tu Google Calendar en configuración para ver tu panel.")
         return

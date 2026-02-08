@@ -854,6 +854,12 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
         description = event_data.get('description', '')
         color_id = event_data.get('colorId')
 
+        # Check for nested start/end (Google API extraction format)
+        if not start_time and 'start' in event_data:
+             start_time = event_data['start'].get('dateTime', event_data['start'].get('date'))
+        if not end_time and 'end' in event_data:
+             end_time = event_data['end'].get('dateTime', event_data['end'].get('date'))
+
         if not start_time:
              # AUTO-FIX: Default to Tomorrow 9:00 AM if missing
              import datetime as dt
