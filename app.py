@@ -1860,12 +1860,19 @@ def view_inbox():
                         # Determine intended target: Configured > Connected > Empty
                         target_conf = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', ''))
                         
+                        # --- FORCE INCLUDE CONFIGURED CALENDAR ---
+                        # If the configured calendar (e.g. Service Account one) isn't in the user's list, add it manually.
+                        if target_conf and target_conf not in cal_opts.values():
+                            manual_name = f"🔧 Configurado ({target_conf})"
+                            cal_names.insert(0, manual_name)
+                            cal_opts[manual_name] = target_conf
+                        
                         found_explicit = False
                         
                         # 1. Search for EXACT match with Configured Calendar
                         if target_conf:
-                            for i, c in enumerate(cals):
-                                if c['id'] == target_conf:
+                            for i, name in enumerate(cal_names):
+                                if cal_opts[name] == target_conf:
                                     def_idx = i
                                     found_explicit = True
                                     break

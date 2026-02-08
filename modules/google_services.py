@@ -918,7 +918,23 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
         created_event = service.events().insert(calendarId=calendar_id, body=event_body).execute()
         event_id = created_event.get('id', '')
         return True, f"Evento creado. ID: {event_id}"
+
     except Exception as e:
+        # Fallback: Try with Service Account (Robot) if User fails (403/404)
+        error_str = str(e)
+        if "403" in error_str or "404" in error_str:
+            print(f"User auth failed for {calendar_id}. Retrying with Service Account...")
+            try:
+                # Force load SA
+                creds_sa = _load_service_account_creds()
+                if creds_sa:
+                    service_sa = build('calendar', 'v3', credentials=creds_sa, cache_discovery=False)
+                    created_event = service_sa.events().insert(calendarId=calendar_id, body=event_body).execute()
+                    event_id = created_event.get('id', '')
+                    return True, f"Evento creado (Robot). ID: {event_id}"
+            except Exception as e_sa:
+                return False, f"Fallo User y Robot: {e_sa}"
+        
         return False, str(e)
 
 
