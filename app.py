@@ -311,7 +311,8 @@ def render_login_page():
                     # AUTO-LOAD CALENDAR SESSION
                     saved_calendar = auth.load_calendar_session(u)
                     if saved_calendar:
-                        st.session_state.connected_email = saved_calendar
+                        st.session_state.conf_calendar_id = saved_calendar
+                        st.session_state.connected_email = saved_calendar # Initial state
                         st.toast(f"📅 Calendario cargado: {saved_calendar[:30]}...")
                     
                     st.rerun()
@@ -1856,14 +1857,15 @@ def view_inbox():
                         
                         # Find default index (Prioritize Configured Email -> Primary -> Index 0)
                         def_idx = 0
-                        current_email = st.session_state.get('connected_email', '')
+                        # Determine intended target: Configured > Connected > Empty
+                        target_conf = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', ''))
                         
                         found_explicit = False
                         
-                        # 1. Search for EXACT match with connected_email (Loaded from Sheet/Settings)
-                        if current_email:
+                        # 1. Search for EXACT match with Configured Calendar
+                        if target_conf:
                             for i, c in enumerate(cals):
-                                if c['id'] == current_email:
+                                if c['id'] == target_conf:
                                     def_idx = i
                                     found_explicit = True
                                     break
@@ -2542,7 +2544,7 @@ def view_optimize():
              "Úsalo al principio de la semana para asegurar tiempos de enfoque y evitar el agotamiento."
          ), unsafe_allow_html=True)
 
-    calendar_id = st.session_state.get('connected_email', '')
+    calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', ''))
     if not calendar_id:
         st.warning("⚠️  Configura tu ID de Calendario en la barra lateral.")
         return
@@ -3179,15 +3181,24 @@ def main_app():
         
         
         # Input de Calendar ID
-        current_calendar = st.session_state.get('connected_email', '')
-        new_calendar = st.text_input("ID Calendario", value=current_calendar, key='connected_email_input', 
+        # Input de Calendar ID
+        # Initialize if missing (Migration/Reload)
+        if 'conf_calendar_id' not in st.session_state:
+             saved = None
+             if 'license_key' in st.session_state:
+                 saved = auth.load_calendar_session(st.session_state.license_key)
+             # Fallback to connected_email if no saved config, or empty
+             st.session_state.conf_calendar_id = saved if saved else st.session_state.get('connected_email', '')
+
+        current_calendar = st.session_state.get('conf_calendar_id', '')
+        new_calendar = st.text_input("ID Calendario", value=current_calendar, key='conf_calendar_input_widget', 
                                      help="Ingresa tu email de Google Calendar")
 
         # Detectar cambio y guardar
         # CRITICAL: Only save if user is authenticated (has license_key)
         # This prevents saving during app logout when session states are being cleared
         if new_calendar != current_calendar and 'license_key' in st.session_state:
-            st.session_state.connected_email = new_calendar
+            st.session_state.conf_calendar_id = new_calendar
             # SIEMPRE guardar, incluso si está vacío
             auth.save_calendar_session(st.session_state.license_key, new_calendar)
             
@@ -3197,7 +3208,7 @@ def main_app():
             if 'c_events_cache_time' in st.session_state:
                 del st.session_state['c_events_cache_time']
             if new_calendar:
-                st.toast("🔄 Caché de eventos limpiado")
+                st.toast("🔄 Configuración guardada")
             else:
                 st.toast("📅 Sesión de calendario cerrada")
 
