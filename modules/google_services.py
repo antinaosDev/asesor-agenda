@@ -15,7 +15,8 @@ SCOPES = [
     'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/tasks',
-    'https://www.googleapis.com/auth/spreadsheets'
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/documents'
 ]
 
 # Google Calendar Color IDs
@@ -1391,11 +1392,11 @@ def create_meeting_minutes_doc(title, data):
         # EXECUTE BATCH
         service.documents().batchUpdate(documentId=doc_id, body={'requests': requests}).execute()
         
-        return f"https://docs.google.com/document/d/{doc_id}/edit"
+        return f"https://docs.google.com/document/d/{doc_id}/edit", None
         
     except Exception as e:
         print(f"Error generating Doc: {e}")
-        return None
+        return None, str(e)
 
 
 # --- VOICE ANALYST EXECUTION ---

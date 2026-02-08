@@ -92,14 +92,14 @@ def view_notes_page():
                             else:
                                 # 2. Doc Generation
                                 final_title = acta_title if acta_title else f"Acta_{datetime.datetime.now().strftime('%Y%m%d')}"
-                                doc_url = google_services.create_meeting_minutes_doc(final_title, struct_data)
+                                doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data)
                                 
                                 if doc_url:
                                     st.success("✅ Acta creada exitosamente!")
                                     st.markdown(f"### [📂 Abrir Documento en Google Docs]({doc_url})")
                                     st.balloons()
                                 else:
-                                    st.error("Error creando el documento en Drive.")
+                                    st.error(f"Error creando el documento: {error_msg}")
                     else:
                         st.warning("El contenido está vacío.")
 
@@ -129,14 +129,14 @@ def view_notes_page():
                                      
                                      # 3. Doc Generation
                                      final_title = acta_title if acta_title else f"Acta_Audio_{datetime.datetime.now().strftime('%Y%m%d')}"
-                                     doc_url = google_services.create_meeting_minutes_doc(final_title, struct_data)
+                                     doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data)
                                      
                                      if doc_url:
                                          st.success("✅ Acta creada exitosamente!")
                                          st.markdown(f"### [📂 Abrir Documento en Google Docs]({doc_url})")
                                          st.balloons()
                                      else:
-                                         st.error("Error creando documento.")
+                                         st.error(f"Error creando documento: {error_msg}")
                              else:
                                  st.error(f"Falló la transcripción: {transcription}")
 
