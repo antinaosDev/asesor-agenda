@@ -20,6 +20,8 @@ def transcribe_audio_groq(audio_file):
     Soporta input directo de st.audio_input (UploadedFile).
     """
     client = _get_groq_client()
+    import tempfile
+    import os
     try:
         # Streamlit UploadedFile -> BytesIO
         # Groq client espera un archivo con nombre para detectar formato
