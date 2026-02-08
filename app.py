@@ -417,9 +417,28 @@ def view_dashboard():
             ).execute()
             current_events = events_result.get('items', [])
             events_hash = hash(str([e.get('id') for e in current_events]))
-        except:
-            current_events = []
-            events_hash = 0
+        except Exception as e:
+            # 404 Handling: If calendar not found/authorized, treat as empty or try primary
+            err_str = str(e)
+            if "404" in err_str or "notFound" in err_str:
+                print(f"DEBUG: Dashboard 404 for {calendar_id}. Trying fallback.")
+                try:
+                     # Try primary as fallback
+                     events_result = cal_svc.events().list(
+                        calendarId='primary',
+                        timeMin=today_start.isoformat() + 'Z',
+                        timeMax=today_end.isoformat() + 'Z',
+                        singleEvents=True,
+                        orderBy='startTime'
+                    ).execute()
+                     current_events = events_result.get('items', [])
+                     events_hash = hash(str([e.get('id') for e in current_events]))
+                except:
+                     current_events = []
+                     events_hash = 0
+            else:
+                current_events = []
+                events_hash = 0
 
         # Verificar cache
         cache_valid = False
@@ -536,6 +555,9 @@ def view_dashboard():
     except Exception as e:
         # Fallback: If 404 (Not Found) or 403 (Forbidden), it might be that User doesn't have access but Robot does.
         error_str = str(e)
+        if "404" in error_str or "notFound" in error_str or "403" in error_str:
+             # Silently swallow 404 for dashboard to prevent huge error blocks
+             pass
         if "404" in error_str or "notFound" in error_str or "403" in error_str:
             try:
                 # Retry with Robot (Service Account)
