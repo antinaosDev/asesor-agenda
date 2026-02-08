@@ -1850,12 +1850,23 @@ def view_inbox():
                     from modules.google_services import get_calendar_list
                     cals = get_calendar_list(cal_service)
                     if cals:
-                        # Format for display
-                        cal_opts = {f"{c['summary']} ({c['id']})": c['id'] for c in cals}
-                        # Default to primary or previous selection
-                        def_idx = 0
+                        # Format for display: Create list of names to find index later
+                        cal_names = [f"{c['summary']} ({c['id']})" for c in cals]
+                        cal_opts = {name: c['id'] for name, c in zip(cal_names, cals)}
                         
-                        sel_cal_name = st.selectbox("📅 Calendario Destino:", options=list(cal_opts.keys()), index=def_idx, help="Elige en qué calendario guardar los eventos.")
+                        # Find default index (Primary or Current Email)
+                        def_idx = 0
+                        current_email = st.session_state.get('connected_email', '')
+                        
+                        for i, c in enumerate(cals):
+                            if c.get('primary'):
+                                def_idx = i
+                                break
+                            elif current_email and c['id'] == current_email:
+                                def_idx = i
+                                break
+                        
+                        sel_cal_name = st.selectbox("📅 Calendario Destino:", options=cal_names, index=def_idx, help="Elige en qué calendario guardar los eventos.")
                         st.session_state.inbox_target_calendar_id = cal_opts[sel_cal_name]
                     else:
                         st.session_state.inbox_target_calendar_id = 'primary'
