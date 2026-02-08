@@ -2045,15 +2045,16 @@ def view_inbox():
                                                 'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'America/Santiago'},
                                                 'end': {'dateTime': end_dt.isoformat(), 'timeZone': 'America/Santiago'},
                                             }
-                                            try:
-                                                svc_cal.events().insert(calendarId=cid, body=body).execute()
+                                            from modules.google_services import add_event_to_calendar
+                                            # Use wrapper for SA Fallback
+                                            res, msg = add_event_to_calendar(svc_cal, body, cid)
+                                            if res:
                                                 st.toast("✅ Evento creado exitosamente.")
                                                 st.session_state[f"show_hist_cal_{idx}"] = False
-                                                # Optional: Don't rerun immediately if not needed, or rerun to close form
                                                 time.sleep(1)
                                                 st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Error: {e}")
+                                            else:
+                                                st.error(f"Error: {msg}")
 
                     with tab_ht:
                         try:
