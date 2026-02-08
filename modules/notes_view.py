@@ -45,6 +45,19 @@ def view_notes_page():
     # Ensure Sheets Service is Ready
     google_services.get_sheets_service()
     
+    # --- DEBUG SCOPES (Temporary) ---
+    with st.expander("🔍 Debug: Ver Scopes Actuales", expanded=False):
+        if 'google_token' in st.session_state:
+            creds = st.session_state.google_token
+            st.write(f"Válido: {creds.valid}")
+            st.write("Scopes Cargados:")
+            st.json(creds.scopes)
+            if st.button("Forzar Borrado Token Session"):
+                del st.session_state.google_token
+                st.rerun()
+        else:
+            st.warning("No hay token en memoria.")
+    
     with st.expander("ℹ️ ¿Qué es el Brain Dump?", expanded=False):
         st.markdown("""
         **Brain Dump** (Vaciado Mental) es una técnica de productividad para **sacar todo lo que tienes en la cabeza** y guardarlo en un sistema confiable.
@@ -100,6 +113,13 @@ def view_notes_page():
                                     st.balloons()
                                 else:
                                     st.error(f"Error creando el documento: {error_msg}")
+                                    if "403" in str(error_msg) or "permission" in str(error_msg).lower():
+                                        st.warning("⚠️ Parece que faltan permisos para Google Docs.")
+                                        if st.button("🔄 Actualizar Permisos (Re-conectar)", key="fix_perms_txt"):
+                                            st.session_state.logout_google = True
+                                            if 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
+                                                del st.session_state.user_data_full['cod_val']
+                                            st.rerun()
                     else:
                         st.warning("El contenido está vacío.")
 
@@ -137,9 +157,14 @@ def view_notes_page():
                                          st.balloons()
                                      else:
                                          st.error(f"Error creando documento: {error_msg}")
+                                         if "403" in str(error_msg) or "permission" in str(error_msg).lower():
+                                            st.warning("⚠️ Parece que faltan permisos para Google Docs.")
+                                            if st.button("🔄 Actualizar Permisos (Re-conectar)", key="fix_perms_audio"):
+                                                st.session_state.logout_google = True
+                                                if 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
+                                                    del st.session_state.user_data_full['cod_val']
+                                                st.rerun()
                              else:
-                                 st.error(f"Falló la transcripción: {transcription}")
-
                                  st.error(f"Falló la transcripción: {transcription}")
 
         # --- PROJECT BREAKDOWN MODE ---
@@ -182,10 +207,7 @@ def view_notes_page():
                     time.sleep(1)
                     st.rerun()
 
-                    st.success(f"¡{created_count} tareas creadas exitosamente!")
-                    del st.session_state.temp_project_plan
-                    time.sleep(1)
-                    st.rerun()
+
 
         # --- VOICE ANALYST MODE ---
         elif "Comandos" in mode:
