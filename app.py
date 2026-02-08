@@ -3223,6 +3223,41 @@ def main_app():
             else:
                 st.toast("📅 Sesión de calendario cerrada")
 
+        # --- SERVICE ACCOUNT HELP & DIAGNOSTICS ---
+        with st.expander("🔧 Ayuda de Conexión (Robot)", expanded=False):
+            st.caption("Si tienes problemas (Error 404/403), asegúrate de compartir tu calendario con el Robot.")
+            
+            # Load SA to get email
+            from modules.google_services import _load_service_account_creds, get_calendar_service
+            sa_creds = _load_service_account_creds()
+            
+            if sa_creds:
+                 sa_email = sa_creds.service_account_email
+                 st.markdown(f"**Correo del Robot:**")
+                 st.code(sa_email, language="text")
+                 st.markdown("""
+                 1. Ve a Google Calendar > Configuración.
+                 2. Selecciona tu calendario.
+                 3. En "Compartir con personas", añade el correo de arriba.
+                 4. Permiso: **"Hacer cambios en eventos"**.
+                 """)
+                 
+                 if st.button("🔍 Verificar Permisos Robot"):
+                     try:
+                         # Test SA Access
+                         svc_sa = get_calendar_service(force_service_account=True)
+                         if svc_sa and current_calendar:
+                             svc_sa.events().list(calendarId=current_calendar, maxResults=1).execute()
+                             st.success(f"✅ ¡Conexión Exitosa con {current_calendar}!")
+                         else:
+                             st.error("No se pudo iniciar el Robot o falta ID Calendario.")
+                     except Exception as e:
+                         st.error(f"❌ Falló: {e}")
+                         if "404" in str(e): st.warning("El Robot no encuentra el calendario. ¿Lo compartiste?")
+                         if "403" in str(e): st.warning("El Robot no tiene permiso de escritura.")
+            else:
+                 st.error("❌ No se detectaron credenciales del Robot (Service Account).")
+
         # Botones de control
         col_cal_1, col_cal_2 = st.columns(2)
         with col_cal_1:
