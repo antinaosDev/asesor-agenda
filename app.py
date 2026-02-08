@@ -1854,17 +1854,26 @@ def view_inbox():
                         cal_names = [f"{c['summary']} ({c['id']})" for c in cals]
                         cal_opts = {name: c['id'] for name, c in zip(cal_names, cals)}
                         
-                        # Find default index (Primary or Current Email)
+                        # Find default index (Prioritize Configured Email -> Primary -> Index 0)
                         def_idx = 0
                         current_email = st.session_state.get('connected_email', '')
                         
-                        for i, c in enumerate(cals):
-                            if c.get('primary'):
-                                def_idx = i
-                                break
-                            elif current_email and c['id'] == current_email:
-                                def_idx = i
-                                break
+                        found_explicit = False
+                        
+                        # 1. Search for EXACT match with connected_email (Loaded from Sheet/Settings)
+                        if current_email:
+                            for i, c in enumerate(cals):
+                                if c['id'] == current_email:
+                                    def_idx = i
+                                    found_explicit = True
+                                    break
+                        
+                        # 2. If no exact match (or email not set), fallback to Primary
+                        if not found_explicit:
+                            for i, c in enumerate(cals):
+                                if c.get('primary'):
+                                    def_idx = i
+                                    break
                         
                         sel_cal_name = st.selectbox("📅 Calendario Destino:", options=cal_names, index=def_idx, help="Elige en qué calendario guardar los eventos.")
                         st.session_state.inbox_target_calendar_id = cal_opts[sel_cal_name]
