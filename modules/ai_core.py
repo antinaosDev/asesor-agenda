@@ -1318,3 +1318,99 @@ def generate_meeting_minutes_ai(content_text):
         return json.loads(msg_content)
     except Exception as e:
         return {"error": str(e)}
+
+# --- PROJECT BREAKDOWN (DESGLOSE) ---
+
+def generate_project_breakdown(project_text):
+    """
+    Breaks down a project into actionable subtasks using AI.
+    """
+    import datetime
+    import json
+    client = _get_groq_client()
+    
+    curr_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    PROMPT_PROJECT_BREAKDOWN = f"""
+    Eres un Project Manager experto.
+    TU OBJETIVO: Desglosar el siguiente PROYECTO o TAREA COMPLEJA en una lista de subtareas accionables.
+    
+    PROYECTO: "{project_text}"
+    HOY ES: {curr_date}
+    
+    REGLAS:
+    1. Genera entre 5 y 15 subtareas lógicas y secuenciales.
+    2. Asigna una fecha de vencimiento ("due") estimada para cada una, comenzando desde HOY.
+    3. Distribuye las tareas en el tiempo de forma realista.
+    
+    FORMATO JSON OBLIGATORIO:
+    {{
+      "project_name": "Nombre refinado del proyecto",
+      "tasks": [
+        {{"title": "Verbo + Acción específica 1", "due": "YYYY-MM-DD"}},
+        {{"title": "Verbo + Acción específica 2", "due": "YYYY-MM-DD"}}
+      ]
+    }}
+    """
+    
+    try:
+        completion = client.chat.completions.create(
+            messages=[{"role": "system", "content": PROMPT_PROJECT_BREAKDOWN}],
+            model="llama-3.3-70b-versatile",
+            temperature=0.1,
+            max_tokens=2000,
+            response_format={"type": "json_object"}
+        )
+        return json.loads(completion.choices[0].message.content)
+    except Exception as e:
+        return {"error": str(e)}
+
+# --- VOICE ANALYST (COMANDOS) ---
+
+def analyze_voice_command(text_command):
+    """
+    Analyzes a voice command and returns a list of executable actions.
+    """
+    import datetime
+    import json
+    client = _get_groq_client()
+    
+    curr_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    PROMPT_VOICE_ANALYST = f"""
+    Eres un Asistente Ejecutivo de alto nivel.
+    TU OBJETIVO: Analizar el comando de voz del usuario y extraer una LISTA DE ACCIONES EJECUTABLES.
+    
+    COMANDO: "{text_command}"
+    FECHA ACTUAL: {curr_date}
+    
+    REGLAS:
+    1. Detecta múltiples intenciones (ej: "Agenda reunión Y envía correo").
+    2. Extrae fechas relativas ("mañana a las 3", "el viernes") a ISO 8601.
+    3. Si falta información (ej: duración), asume valores por defecto lógicos (1 hora).
+    
+    ACCIONES SOPORTADAS:
+    - "create_event": {{ "summary": "...", "start_time": "ISO", "end_time": "ISO", "description": "..." }}
+    - "create_task": {{ "title": "...", "due_date": "YYYY-MM-DD" }}
+    - "draft_email": {{ "recipient": "email@...", "subject": "...", "body": "..." }}
+    
+    FORMATO JSON OBLIGATORIO:
+    {{
+      "actions": [
+        {{ "action": "create_event", "params": {{ ... }} }},
+        {{ "action": "draft_email", "params": {{ ... }} }}
+      ]
+    }}
+    """
+    
+    try:
+        completion = client.chat.completions.create(
+            messages=[{"role": "system", "content": PROMPT_VOICE_ANALYST}],
+            model="llama-3.3-70b-versatile",
+            temperature=0.1,
+            max_tokens=2000,
+            response_format={"type": "json_object"}
+        )
+        return json.loads(completion.choices[0].message.content)
+    except Exception as e:
+        return {"error": str(e)}

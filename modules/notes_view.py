@@ -68,17 +68,17 @@ def view_notes_page():
         
         # Mode Selector
         mode = st.radio("Modo de Procesamiento:", 
-            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)", "📋 Actas de Reunión"],
+            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)", "📋 Actas de Reunión", "🏗️ Proyectos", "🎙️ Comandos"],
             horizontal=True,
             label_visibility="collapsed"
         )
         
-        # --- ACTAS DE REUNIÓN MODE ---
+        # --- GENERADOR DE ACTAS MODE (RENAMED) ---
         if "Actas" in mode:
-            st.info("Generador de Actas (Norma Técnica Salud): Transforma notas/audio en documento formal.")
+            st.info("Generador de Actas: Transforma notas o grabaciones en vivo en documentos formales.")
             acta_title = st.text_input("Título de la Reunión (Opcional)", placeholder="Ej: Comité de Calidad - Agosto")
             
-            tab_text, tab_audio = st.tabs(["📝 Texto / Pegar Acta", "🎙️ Audio (Beta)"])
+            tab_text, tab_audio = st.tabs(["📝 Texto / Pegar Acta", "🎙️ Grabación en Vivo (Beta)"])
             
             with tab_text:
                 acta_content = st.text_area("Contenido / Transcripción:", height=300, key="acta_text_input", placeholder="Pega aquí los apuntes brutos o la transcripción...")
@@ -104,14 +104,21 @@ def view_notes_page():
                         st.warning("El contenido está vacío.")
 
             with tab_audio:
-                st.warning("⚠️ Nota: Audios largos (>25MB) pueden tardar. Usa archivos comprimidos (mp3/m4a).")
-                uploaded_file = st.file_uploader("Subir grabación:", type=["mp3", "wav", "m4a", "ogg"])
-                if uploaded_file is not None:
+                st.warning("⚠️ Nota: La grabación se guarda en la memoria del navegador. Si cierras la pestaña, se pierde. Para reuniones de >3 horas, asegúrate de tener suficiente RAM.")
+                
+                # NEW: LIVE RECORDING INPUT
+                audio_value = st.audio_input("Grabar reunión ahora")
+                
+                if audio_value is not None:
+                    # Show player for review
+                    st.audio(audio_value)
+                    
                     if st.button("🎙️ Transcribir y Generar Acta", use_container_width=True, key="btn_gen_acta_audio"):
                          with st.spinner("🎧 Transcribiendo audio (esto puede demorar)..."):
-                             # 1. Transcribe
-                             transcription = ai_core.transcribe_audio_groq(uploaded_file)
-                             if transcription:
+                             # 1. Transcribe (works with file-like object from audio_input)
+                             transcription = ai_core.transcribe_audio_groq(audio_value)
+                             
+                             if transcription and "Error" not in transcription:
                                  st.success("✅ Transcripción completada.")
                                  with st.expander("Ver Transcripción"):
                                      st.write(transcription[:1000] + "...")
@@ -131,7 +138,121 @@ def view_notes_page():
                                      else:
                                          st.error("Error creando documento.")
                              else:
-                                 st.error("Falló la transcripción.")
+                                 st.error(f"Falló la transcripción: {transcription}")
+
+                                 st.error(f"Falló la transcripción: {transcription}")
+
+        # --- PROJECT BREAKDOWN MODE ---
+        elif "Proyectos" in mode:
+            st.info("Desglose de Proyectos: Convierte una idea compleja en una lista de tareas ejecutables.")
+            project_input = st.text_area("Descripción del Proyecto:", height=100, placeholder="Ej: Organizar la fiesta de fin de año para 50 personas...")
+            
+            if st.button("🚀 Generar Plan de Trabajo", use_container_width=True):
+                if project_input.strip():
+                    with st.spinner("🧠 Analizando y desglosando proyecto..."):
+                        plan = ai_core.generate_project_breakdown(project_input)
+                        if "error" in plan:
+                            st.error(f"Error AI: {plan['error']}")
+                        else:
+                            st.session_state.temp_project_plan = plan
+                            st.rerun()
+            
+            # Display Generated Plan
+            if 'temp_project_plan' in st.session_state:
+                plan = st.session_state.temp_project_plan
+                st.subheader(f"Plan: {plan.get('project_name')}")
+                
+                # Editable Dataframe or List? Let's use clean expanders for V1
+                tasks_to_create = plan.get('tasks', [])
+                for t in tasks_to_create:
+                    st.markdown(f"- **{t['due']}**: {t['title']}")
+                
+                if st.button("✅ Crear todas las tareas en Google Tasks", type="primary"):
+                    progress_bar = st.progress(0)
+                    created_count = 0
+                    
+                    for i, task in enumerate(tasks_to_create):
+                        # Create Task
+                        google_services.create_task(task['title'], due=task['due'])
+                        created_count += 1
+                        progress_bar.progress((i + 1) / len(tasks_to_create))
+                        
+                    st.success(f"¡{created_count} tareas creadas exitosamente!")
+                    del st.session_state.temp_project_plan
+                    time.sleep(1)
+                    st.rerun()
+
+                    st.success(f"¡{created_count} tareas creadas exitosamente!")
+                    del st.session_state.temp_project_plan
+                    time.sleep(1)
+                    st.rerun()
+
+        # --- VOICE ANALYST MODE ---
+        elif "Comandos" in mode:
+            st.info("Analista de Voz: Habla instrucciones complejas y la IA las ejecutará (Eventos, Tareas, Emails).")
+            
+            voice_command_audio = st.audio_input("Grabar Instrucción", key="voice_analyst_input")
+            
+            if voice_command_audio:
+                st.audio(voice_command_audio)
+                
+                if st.button("🧠 Analizar y Ejecutar", use_container_width=True, type="primary"):
+                    with st.spinner("🎧 Escuchando y Pensando..."):
+                        # 1. Transcribe
+                        text_cmd = ai_core.transcribe_audio_groq(voice_command_audio)
+                        if not text_cmd or "Error" in text_cmd:
+                            st.error(f"Error transcripción: {text_cmd}")
+                        else:
+                            st.info(f"🗣️ Dijiste: '{text_cmd}'")
+                            
+                            # 2. Analyze
+                            analysis = ai_core.analyze_voice_command(text_cmd)
+                            if "error" in analysis:
+                                st.error(f"Error Análisis: {analysis['error']}")
+                            else:
+                                actions = analysis.get('actions', [])
+                                if not actions:
+                                    st.warning("No se detectaron acciones ejecutables.")
+                                else:
+                                    st.subheader(f"✅ {len(actions)} Acciones Detectadas:")
+                                    
+                                    # Preview
+                                    for act in actions:
+                                        icon = "📅" if "event" in act['action'] else "✅" if "task" in act['action'] else "📧"
+                                        st.markdown(f"{icon} **{act['action']}**: {act['params']}")
+                                    
+                                    # Execute Loop (Automatic or require second confirmation? Let's do automatic for "Analizar y Ejecutar")
+                                    # User asked for "Execute All" button in plan, but here we can streamline.
+                                    # Let's add a secondary confirmation just to be safe/impressive.
+                                    st.session_state.temp_voice_actions = actions
+                                    st.rerun()
+            
+            # Execution State
+            if 'temp_voice_actions' in st.session_state:
+                st.divider()
+                st.write("¿Confirmas la ejecución de estas acciones?")
+                c_yes, c_no = st.columns(2)
+                with c_yes:
+                    if st.button("⚡ Ejecutar Todo", type="primary", use_container_width=True):
+                        results_log = []
+                        progress = st.progress(0)
+                        
+                        for i, action in enumerate(st.session_state.temp_voice_actions):
+                            ok, msg = google_services.execute_voice_action(action)
+                            icon = "✅" if ok else "❌"
+                            results_log.append(f"{icon} {msg}")
+                            progress.progress((i + 1) / len(st.session_state.temp_voice_actions))
+                        
+                        for log in results_log:
+                            st.write(log)
+                            
+                        st.success("Proceso finalizado.")
+                        del st.session_state.temp_voice_actions
+                        
+                with c_no:
+                    if st.button("Cancelar", use_container_width=True):
+                        del st.session_state.temp_voice_actions
+                        st.rerun()
 
         # --- OTHER MODES (Standard, Cornell, Flashcards) ---
         else: 

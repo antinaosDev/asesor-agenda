@@ -1398,6 +1398,92 @@ def create_meeting_minutes_doc(title, data):
         return None
 
 
+# --- VOICE ANALYST EXECUTION ---
+
+def execute_voice_action(action_data):
+    """
+    Executes a single action defined by the Voice Analyst AI.
+    Args:
+        action_data (dict): {'action': '...', 'params': {...}}
+    Returns:
+        tuple: (bool success, str message)
+    """
+    action = action_data.get('action')
+    params = action_data.get('params', {})
+    
+    try:
+        if action == "create_event":
+            # Map params to function args
+            # add_event_to_calendar expects: service, summary, start_time, end_time, description=None
+            # We need to get service here or passed? 
+            # Better to use the wrapper that handles auth internally if possible, 
+            # but add_event_to_calendar takes 'service' as arg.
+            
+            calendar_service = get_calendar_service()
+            if not calendar_service: return False, "Error de autenticación Calendario"
+            
+            # Extract
+            summary = params.get('summary')
+            start = params.get('start_time')
+            end = params.get('end_time')
+            desc = params.get('description', '')
+            
+            # Default to 1 hour if end missing
+            if start and not end:
+                # Logic handled inside? No, let's parse.
+                # Actually, add_event_to_calendar handles ISO strings.
+                pass 
+                
+            # Call
+            created_event = add_event_to_calendar(calendar_service, summary, start, end, desc)
+            if created_event:
+                return True, f"Evento creado: {summary}"
+            else:
+                return False, "Falló la creación del evento"
+
+        elif action == "create_task":
+            # create_task(title, notes=None, due=None)
+            title = params.get('title')
+            due = params.get('due_date')
+            
+            res = create_task(title, due=due) # notes? 
+            if res: return True, f"Tarea creada: {title}"
+            else: return False, "Falló la creación de tarea"
+            
+        elif action == "draft_email":
+            # create_draft(service, user_id, message_body) -> needs MIME construction
+            # We have 'create_draft' in this file?
+            # Let's check...
+            # We NEED a 'create_draft_simple' helper if not exists or use existing.
+            
+            gmail_service = get_gmail_service()
+            if not gmail_service: return False, "Error autenticación Gmail"
+            
+            to = params.get('recipient', '')
+            subject = params.get('subject', '(Sin Asunto)')
+            body = params.get('body', '')
+            
+            # Construct message
+            from email.mime.text import MIMEText
+            import base64
+            
+            message = MIMEText(body)
+            message['to'] = to
+            message['subject'] = subject
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            
+            try:
+                draft = gmail_service.users().drafts().create(userId='me', body={'message': {'raw': raw}}).execute()
+                return True, f"Borrador guardado: {subject}"
+            except Exception as e:
+                return False, str(e)
+
+        return False, f"Acción desconocida: {action}"
+        
+    except Exception as e:
+        return False, f"Error ejecución: {str(e)}"
+
+
 # --- CALENDAR API: QUICK ADD & FREE/BUSY ---
 
 def quick_add_event(service, text, calendar_id='primary'):
