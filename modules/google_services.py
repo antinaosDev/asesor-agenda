@@ -114,6 +114,27 @@ def get_calendar_service(force_service_account=False):
             return None
     return st.session_state.calendar_service
 
+def get_calendar_list(service):
+    """Returns a list of calendars (id, summary, primary)."""
+    try:
+        page_token = None
+        calendar_list = []
+        while True:
+            calendar_list_entry = service.calendarList().list(pageToken=page_token).execute()
+            for calendar_list_entry_item in calendar_list_entry['items']:
+                calendar_list.append({
+                    'id': calendar_list_entry_item['id'],
+                    'summary': calendar_list_entry_item['summary'],
+                    'primary': calendar_list_entry_item.get('primary', False)
+                })
+            page_token = calendar_list_entry.get('nextPageToken')
+            if not page_token:
+                break
+        return calendar_list
+    except Exception as e:
+        print(f"Error fetching calendar list: {e}")
+        return []
+
 def get_tasks_service():
     """Authenticates and returns the Google Tasks service."""
     if 'tasks_service' not in st.session_state:

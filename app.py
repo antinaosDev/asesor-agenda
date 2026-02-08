@@ -376,7 +376,7 @@ def view_dashboard():
     # ----------------------
 
     # Context Loading
-    calendar_id = st.session_state.get('connected_email', '')
+    calendar_id = 'primary' # FORCE PRIMARY to match OAuth Token User
     if not calendar_id:
         st.info("⚠️ Por favor conecta tu Google Calendar en configuración para ver tu panel.")
         return
@@ -1608,7 +1608,7 @@ def view_planner():
     if st.session_state.get('trigger_manager_search') or True: # Always show or trigger
         cal_svc = get_calendar_service()
         tasks_svc = get_tasks_service()
-        cal_id = st.session_state.get('connected_email', 'primary')
+        cal_id = 'primary' # FORCE PRIMARY
 
         st.markdown("#### 📅 Eventos de Calendario")
         if cal_svc:
@@ -1822,7 +1822,7 @@ def view_inbox():
                 auth.update_user_field(user, 'COD_VAL', '')
 
             # 2. Clear Local Session State (UI Reset)
-            keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'user_data_full']
+            keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'user_data_full', 'inbox_target_calendar_id']
             for k in keys_to_clear:
                 if k in st.session_state:
                     del st.session_state[k]
@@ -1839,6 +1839,29 @@ def view_inbox():
             st.session_state.logout_google = True
             st.rerun()
         # --------------------------------
+
+        # --- CALENDAR SELECTOR (NEW) ---
+        c_cal_sel, _ = st.columns([2, 1])
+        with c_cal_sel:
+            # Fetch calendars
+            try:
+                cal_service = get_calendar_service()
+                if cal_service:
+                    from modules.google_services import get_calendar_list
+                    cals = get_calendar_list(cal_service)
+                    if cals:
+                        # Format for display
+                        cal_opts = {f"{c['summary']} ({c['id']})": c['id'] for c in cals}
+                        # Default to primary or previous selection
+                        def_idx = 0
+                        
+                        sel_cal_name = st.selectbox("📅 Calendario Destino:", options=list(cal_opts.keys()), index=def_idx, help="Elige en qué calendario guardar los eventos.")
+                        st.session_state.inbox_target_calendar_id = cal_opts[sel_cal_name]
+                    else:
+                        st.session_state.inbox_target_calendar_id = 'primary'
+            except:
+                st.session_state.inbox_target_calendar_id = 'primary'
+        # -------------------------------
 
         c_d1, c_d2 = st.columns(2)
         with c_d1:
@@ -1979,7 +2002,7 @@ def view_inbox():
                                     
                                     if st.form_submit_button("Confirmar Agendar"):
                                         svc_cal = get_calendar_service()
-                                        cid = st.session_state.get('connected_email', 'primary')
+                                        cid = st.session_state.get('inbox_target_calendar_id', 'primary') # Use Selected
                                         if svc_cal:
                                             start_dt = datetime.datetime.combine(new_date, new_time)
                                             end_dt = start_dt + datetime.timedelta(hours=1)
@@ -2250,7 +2273,10 @@ def view_inbox():
                     # Prepare V2 Items
                     v2_events = []
                     from modules.google_services import check_event_exists, get_calendar_service, add_event_to_calendar
-                    cal_id = st.session_state.get('connected_email', 'primary')
+                    
+                    # Use Selected Calendar from Session State
+                    cal_id = st.session_state.get('inbox_target_calendar_id', 'primary')
+                    
                     service_cal = get_calendar_service()
 
                     for ev in events:
