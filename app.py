@@ -2035,7 +2035,7 @@ def view_inbox():
                                     
                                     if st.form_submit_button("Confirmar Agendar"):
                                         svc_cal = get_calendar_service()
-                                        cid = st.session_state.get('inbox_target_calendar_id', 'primary') # Use Selected
+                                        cid = st.session_state.get('inbox_target_calendar_id', st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))) # Use Selected or Fallback
                                         if svc_cal:
                                             start_dt = datetime.datetime.combine(new_date, new_time)
                                             end_dt = start_dt + datetime.timedelta(hours=1)
@@ -2307,8 +2307,8 @@ def view_inbox():
                     v2_events = []
                     from modules.google_services import check_event_exists, get_calendar_service, add_event_to_calendar
                     
-                    # Use Selected Calendar from Session State
-                    cal_id = st.session_state.get('inbox_target_calendar_id', 'primary')
+                    # Use Selected Calendar from Session State (with robust fallback)
+                    cal_id = st.session_state.get('inbox_target_calendar_id', st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary')))
                     
                     service_cal = get_calendar_service()
 
@@ -2475,9 +2475,9 @@ def view_inbox():
                             # Option 1: Calendar Block (Focus)
                             with c_task1:
                                 if st.button(f"⏱️ Bloquear (Focus)", key=f"btn_blk_tk_{i}", use_container_width=True):
-                                     cal_id = st.session_state.get('connected_email')
+                                     cal_id = st.session_state.get('inbox_target_calendar_id', st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary')))
                                      svc_cal = get_calendar_service()
-                                     if svc_cal and cal_id:
+                                     if svc_cal:
                                          # Create Block Event
                                          blk_ev = {
                                              'summary': f"Focus: {t.get('summary')}",
@@ -2486,7 +2486,7 @@ def view_inbox():
                                              'colorId': "7" # Peacock
                                          }
                                          res, msg = add_event_to_calendar(svc_cal, blk_ev, cal_id)
-                                         if res: st.success("¡Tiempo Bloqueado!")
+                                         if res: st.success(f"¡Tiempo Bloqueado en {cal_id}!")
                                          else: st.error(msg)
                             
                             # Option 2: Google Task with List Selection
