@@ -1458,3 +1458,42 @@ def save_draft_from_ai(service, email_data, intent="Confirmar recepción", user_
     except Exception as e:
         st.error(f"Error generando borrador con IA: {e}")
         return None
+
+def quick_add_event(service, text, calendarId='primary'):
+    """
+    Agrega un evento rápido usando procesamiento de lenguaje natural de Google.
+    
+    Args:
+        service: Servicio de Google Calendar
+        text: Texto del evento (ej: 'Reunión mañana a las 3pm')
+        calendarId: ID del calendario destino (default: 'primary')
+        
+    Returns:
+        dict: Objeto del evento creado o None si falla
+    """
+    try:
+        created_event = service.events().quickAdd(
+            calendarId=calendarId,
+            text=text
+        ).execute()
+        return created_event
+    except Exception as e:
+        # Fallback Service Account
+        error_str = str(e)
+        if "403" in error_str or "404" in error_str:
+            print(f"QuickAdd failed for {calendarId}. Retrying with Service Account...")
+            try:
+                # Force load SA
+                creds_sa = _load_service_account_creds()
+                if creds_sa:
+                    from googleapiclient.discovery import build
+                    service_sa = build('calendar', 'v3', credentials=creds_sa, cache_discovery=False)
+                    created_event = service_sa.events().quickAdd(
+                        calendarId=calendarId,
+                        text=text
+                    ).execute()
+                    return created_event
+            except: pass
+            
+        print(f"Error quick_add: {e}")
+        return None

@@ -930,14 +930,15 @@ def view_create():
                     try:
                         service = get_calendar_service()
                         if service:
+                            # Use Configured Calendar
+                            target_cal = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+                            
                             # Create RRULE
                             # Map days to RRULE format (MO, TU, WE, TH, FR)
                             day_map = {"Lunes": "MO", "Martes": "TU", "Miércoles": "WE", "Jueves": "TH", "Viernes": "FR"}
                             rrule_days = ",".join([day_map[d] for d in av_days])
                             
-                            # Calculate Start DT (Next occurrence of first day?) 
-                            # Simplification: Today + Time, let google handle recurrence start or specific logic
-                            # Better: Start 'Tomorrow' to avoid past issues, or 'Today' if time hasn't passed.
+                            # Calculate Start DT
                             today = datetime.date.today()
                             start_dt = datetime.datetime.combine(today, av_start)
                             end_dt = datetime.datetime.combine(today, av_end)
@@ -952,7 +953,7 @@ def view_create():
                                 "recurrence": [f"RRULE:FREQ=WEEKLY;BYDAY={rrule_days}"]
                             }
                             
-                            success, msg = add_event_to_calendar(service, event_data)
+                            success, msg = add_event_to_calendar(service, event_data, calendar_id=target_cal)
                             if success:
                                 st.success(f"✅ Disponibilidad creada: {msg}")
                                 time.sleep(2)
@@ -993,8 +994,11 @@ Saludos."""
                     st.error("Conecta tu calendario primero.")
                 else:
                     from modules.google_services import quick_add_event
+                    # Use Configured Calendar
+                    target_cal = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+                    
                     with st.spinner("Creando evento rápido..."):
-                        event = quick_add_event(cal_svc, quick_text)
+                        event = quick_add_event(cal_svc, quick_text, calendarId=target_cal)
                         if event:
                             st.success(f"✅ Evento creado: **{event.get('summary', 'Evento')}**")
                             st.caption(f"📅 {event.get('start', {}).get('dateTime', 'Fecha no disponible')}")
@@ -1107,7 +1111,7 @@ Saludos."""
                      
                      with c_t2:
                          if st.button(f"⏱️ Bloquear Tiempo (Focus)", key=f"btn_block_{i}", use_container_width=True):
-                             cal_id = st.session_state.get('connected_email')
+                             cal_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email'))
                              if not cal_id: st.error("Conecta tu email.")
                              else:
                                  # Create Event Wrapper
@@ -1128,7 +1132,7 @@ Saludos."""
 
                 else:
                     if st.button(f"📅 Confirmar y Agendar '{summary}'", key=f"btn_add_{i}"):
-                        cal_id = st.session_state.get('connected_email')
+                        cal_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email'))
                         if not cal_id: st.error("Por favor conecta tu email primero.")
                         else:
                             svc = get_calendar_service()
