@@ -1276,60 +1276,66 @@ def generate_meeting_minutes_ai(content_text):
     curr_date = datetime.datetime.now().strftime("%d/%m/%Y")
         
     PROMPT_MEETING_MINUTES = f"""
-    Eres un Secretario Técnico experto en Gestión de Salud y Documentación Clínica (Norma Técnica Chilena).
-    Tu tarea es REDACTAR UN ACTA DE REUNIÓN FORMAL Y EXHAUSTIVA basada en el audio/texto proporcionado.
+    Eres un Secretario Técnico experto en Gestión de Salud y Documentación Institucional (Norma Técnica Chilena).
+    Tu tarea es PROCESAR la información de una reunión y REDACTAR UN ACTA FORMAL, EXHAUSTIVA Y PROFESIONAL.
 
-    INPUT TRANSCRITO:
+    INPUT (Transcripción/Notas de la reunión):
     "{content_text}"
 
     FECHA REAL: {curr_date}
 
     OBJETIVO:
-    Generar un objeto JSON estructurado que llene los campos del "FORMATO OFICIAL DE ACTA INSTITUCIONAL DE REUNIÓN / COMITÉ".
+    Generar un ACTA DE REUNIÓN INSTITUCIONAL completa en formato JSON estructurado.
     
-    ⚠️ CRÍTICO - NIVEL DE DETALLE MÁXIMO:
-    - NO resumas. TRANSCRIBE la discusión de forma EXHAUSTIVA.
-    - Captura TODOS los puntos discutidos, argumentos, propuestas y contraargumentos.
-    - Incluye nombres de quién dijo qué cuando esté disponible.
-    - Cada tema debe desarrollarse en párrafos completos, no en viñetas resumidas.
-    - Si se mencionan datos, cifras, fechas, plazos o métricas, inclúyelos TEXTUALMENTE.
-    - Preserva el contexto y las relaciones entre temas.
-    - El campo "desarrollo" debe ser TAN EXTENSO como sea necesario para capturar TODO el contenido.
-
-    REGLAS DE REDACCIÓN:
-    1. TIEMPO VERBAL: Pasado ("se acordó", "se analizó", "se determinó", "se indicó", "se propuso").
-    2. TONO: Técnico, objetivo, impersonal y formal. Sin juicios de valor.
-    3. ESTRUCTURA DEL DESARROLLO:
-       - Organizar por temas/puntos tratados.
-       - Para cada tema: contexto, discusión detallada, posiciones expresadas, conclusiones.
-       - Incluir citas textuales relevantes cuando aporten valor (ej: "La Dra. X indicó textualmente que...").
-       - Describir las intervenciones de cada participante cuando corresponda.
-    4. ACUERDOS:
-       - Extraer TODOS los compromisos mencionados, explícitos o implícitos.
-       - Cada acuerdo debe incluir: descripción detallada, responsable(s), plazo.
-       - Si no hay plazo explícito, indicar "Por definir".
+    ⚠️ INSTRUCCIONES CRÍTICAS - PROCESAMIENTO INTELIGENTE:
+    
+    1. NO RESUMAS: El acta debe abordar TODA la información relevante, esencial y los detalles importantes.
+    2. NO TRANSCRIBAS LITERALMENTE: Procesa y redacta de forma formal y coherente, no copies el texto tal cual.
+    3. PROCESA EXHAUSTIVAMENTE: Transforma el contenido informal/coloquial en redacción técnica y profesional.
+    4. CAPTURA TODO LO RELEVANTE:
+       - Todos los temas discutidos con su desarrollo completo
+       - Argumentos, propuestas, objeciones y resoluciones
+       - Datos, cifras, fechas, plazos y métricas mencionadas
+       - Intervenciones significativas de los participantes
+       - Contexto y antecedentes de cada tema
+       - Conclusiones y decisiones tomadas
+    
+    REGLAS DE REDACCIÓN FORMAL:
+    1. TIEMPO VERBAL: Pasado impersonal ("se acordó", "se analizó", "se determinó", "se expuso", "se planteó").
+    2. TONO: Técnico, objetivo, impersonal y formal. Sin juicios de valor ni lenguaje coloquial.
+    3. ESTRUCTURA DEL DESARROLLO (Campo más importante del acta):
+       - El "desarrollo" debe ser un TEXTO NARRATIVO EXTENSO Y FORMAL.
+       - Organizar por TEMAS/PUNTOS tratados, cada uno en su propio párrafo o sección.
+       - Para CADA tema incluir: antecedentes, análisis realizado, posiciones expresadas, datos relevantes, y conclusiones.
+       - Redactar en prosa técnica formal, NO en viñetas ni listas.
+       - Incluir referencias a quién expresó qué cuando sea relevante ("El/La [cargo] indicó que...").
+       - Este campo debe ser tan extenso como sea necesario para documentar TODO el contenido de la reunión.
+    4. ACUERDOS Y COMPROMISOS:
+       - Extraer TODOS los compromisos, explícitos o implícitos.
+       - Redacción clara y específica de cada acuerdo.
+       - Incluir responsable(s) y plazo (si no hay, indicar "Por definir").
     5. ASISTENTES:
-       - Listar TODOS los nombres y cargos mencionados.
-       - Si no están claros, poner "No especificados - Completar manualmente".
+       - Listar nombres y cargos mencionados.
+       - Si no están claros, indicar "Completar manualmente".
 
-    FORMATO JSON ESPERADO (El "desarrollo" debe ser EXTENSO y DETALLADO):
+    FORMATO JSON ESPERADO:
     {{
-      "asunto": "Título descriptivo y completo del tema principal de la reunión",
+      "asunto": "Título formal y descriptivo del tema principal de la reunión",
       "fecha": "DD/MM/AAAA",
       "hora_inicio": "HH:MM",
       "hora_termino": "HH:MM",
-      "lugar": "Sala/Virtual",
-      "asistentes": ["Nombre 1 - Cargo", "Nombre 2 - Cargo"],
-      "tabla_puntos": ["Punto 1", "Punto 2", "Punto 3"],
-      "desarrollo": "TEXTO NARRATIVO EXTENSO Y DETALLADO. Debe capturar TODO el contenido de la reunión, organizado por temas. Incluir: antecedentes presentados, análisis realizados, opiniones expresadas por los participantes, datos y cifras mencionados, propuestas discutidas, objeciones planteadas, y resoluciones adoptadas. Usar múltiples párrafos para cada sección temática. Este campo debe ser lo más largo y completo posible.",
+      "lugar": "Sala/Plataforma Virtual",
+      "asistentes": ["Nombre - Cargo", "Nombre - Cargo"],
+      "tabla_puntos": ["Punto 1 tratado", "Punto 2 tratado", "Punto 3 tratado"],
+      "desarrollo": "TEXTO NARRATIVO FORMAL Y EXTENSO. Redactar en prosa técnica profesional, organizado por temas. Desarrollar cada punto exhaustivamente: antecedentes presentados, análisis efectuado, intervenciones relevantes, datos y cifras discutidos, propuestas planteadas, objeciones formuladas, y resoluciones adoptadas. Cada tema debe ocupar uno o más párrafos completos. El objetivo es que cualquier persona que lea el acta comprenda TODO lo que se discutió y decidió en la reunión, sin necesidad de haber asistido.",
       "acuerdos": [
-        {{"descripcion": "Descripción detallada y específica del acuerdo 1, incluyendo contexto y alcance", "responsable": "Cargo/Nombre", "plazo": "Fecha o 'Por definir'"}},
-        {{"descripcion": "Descripción detallada y específica del acuerdo 2", "responsable": "Cargo/Nombre", "plazo": "Fecha"}}
+        {{"descripcion": "Descripción formal y completa del compromiso, incluyendo alcance y contexto", "responsable": "Nombre/Cargo", "plazo": "DD/MM/AAAA o 'Por definir'"}},
+        {{"descripcion": "Segundo acuerdo con todos sus detalles", "responsable": "Nombre/Cargo", "plazo": "DD/MM/AAAA"}}
       ],
       "proxima_reunion": "DD/MM/AAAA HH:MM o 'Por definir'"
     }}
     
-    RECUERDA: Prioriza la COMPLETITUD sobre la brevedad. El usuario necesita un registro exhaustivo de todo lo discutido.
+    RECUERDA: El acta debe ser un documento FORMAL, EXHAUSTIVO y PROFESIONAL. Procesa la información de manera inteligente para generar un registro institucional completo y de alta calidad.
     """
     
     try:
