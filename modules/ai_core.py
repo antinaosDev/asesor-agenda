@@ -1277,7 +1277,7 @@ def generate_meeting_minutes_ai(content_text):
         
     PROMPT_MEETING_MINUTES = f"""
     Eres un Secretario Técnico experto en Gestión de Salud y Documentación Clínica (Norma Técnica Chilena).
-    Tu tarea es REDACTAR UN ACTA DE REUNIÓN FORMAL basada en el audio/texto proporcionado.
+    Tu tarea es REDACTAR UN ACTA DE REUNIÓN FORMAL Y EXHAUSTIVA basada en el audio/texto proporcionado.
 
     INPUT TRANSCRITO:
     "{content_text}"
@@ -1286,32 +1286,50 @@ def generate_meeting_minutes_ai(content_text):
 
     OBJETIVO:
     Generar un objeto JSON estructurado que llene los campos del "FORMATO OFICIAL DE ACTA INSTITUCIONAL DE REUNIÓN / COMITÉ".
+    
+    ⚠️ CRÍTICO - NIVEL DE DETALLE MÁXIMO:
+    - NO resumas. TRANSCRIBE la discusión de forma EXHAUSTIVA.
+    - Captura TODOS los puntos discutidos, argumentos, propuestas y contraargumentos.
+    - Incluye nombres de quién dijo qué cuando esté disponible.
+    - Cada tema debe desarrollarse en párrafos completos, no en viñetas resumidas.
+    - Si se mencionan datos, cifras, fechas, plazos o métricas, inclúyelos TEXTUALMENTE.
+    - Preserva el contexto y las relaciones entre temas.
+    - El campo "desarrollo" debe ser TAN EXTENSO como sea necesario para capturar TODO el contenido.
 
     REGLAS DE REDACCIÓN:
-    1. TIEMPO VERBAL: Pasado ("se acordó", "se analizó", "se determinó").
+    1. TIEMPO VERBAL: Pasado ("se acordó", "se analizó", "se determinó", "se indicó", "se propuso").
     2. TONO: Técnico, objetivo, impersonal y formal. Sin juicios de valor.
-    3. ESTRUCTURA:
-       - Identificar ASUNTO principal.
-       - Extraer ASISTENTES (Si no están claros, poner "No especificados - Completar manualmente").
-       - Resumir el DESARROLLO en puntos clave.
-       - Extraer ACUERDOS CON RESPONSABLES y PLAZOS (Si no hay plazo, poner "Por definir").
+    3. ESTRUCTURA DEL DESARROLLO:
+       - Organizar por temas/puntos tratados.
+       - Para cada tema: contexto, discusión detallada, posiciones expresadas, conclusiones.
+       - Incluir citas textuales relevantes cuando aporten valor (ej: "La Dra. X indicó textualmente que...").
+       - Describir las intervenciones de cada participante cuando corresponda.
+    4. ACUERDOS:
+       - Extraer TODOS los compromisos mencionados, explícitos o implícitos.
+       - Cada acuerdo debe incluir: descripción detallada, responsable(s), plazo.
+       - Si no hay plazo explícito, indicar "Por definir".
+    5. ASISTENTES:
+       - Listar TODOS los nombres y cargos mencionados.
+       - Si no están claros, poner "No especificados - Completar manualmente".
 
-    FORMATO JSON ESPERADO (No inventes claves):
+    FORMATO JSON ESPERADO (El "desarrollo" debe ser EXTENSO y DETALLADO):
     {{
-      "asunto": "Resumen breve del tema",
+      "asunto": "Título descriptivo y completo del tema principal de la reunión",
       "fecha": "DD/MM/AAAA",
       "hora_inicio": "HH:MM",
       "hora_termino": "HH:MM",
       "lugar": "Sala/Virtual",
       "asistentes": ["Nombre 1 - Cargo", "Nombre 2 - Cargo"],
-      "tabla_puntos": ["Punto 1", "Punto 2"],
-      "desarrollo": "Texto narrativo formal describiendo la discusión...",
+      "tabla_puntos": ["Punto 1", "Punto 2", "Punto 3"],
+      "desarrollo": "TEXTO NARRATIVO EXTENSO Y DETALLADO. Debe capturar TODO el contenido de la reunión, organizado por temas. Incluir: antecedentes presentados, análisis realizados, opiniones expresadas por los participantes, datos y cifras mencionados, propuestas discutidas, objeciones planteadas, y resoluciones adoptadas. Usar múltiples párrafos para cada sección temática. Este campo debe ser lo más largo y completo posible.",
       "acuerdos": [
-        {{"descripcion": "Acuerdo 1", "responsable": "Cargo/Nombre", "plazo": "Fecha"}},
-        {{"descripcion": "Acuerdo 2", "responsable": "Cargo/Nombre", "plazo": "Fecha"}}
+        {{"descripcion": "Descripción detallada y específica del acuerdo 1, incluyendo contexto y alcance", "responsable": "Cargo/Nombre", "plazo": "Fecha o 'Por definir'"}},
+        {{"descripcion": "Descripción detallada y específica del acuerdo 2", "responsable": "Cargo/Nombre", "plazo": "Fecha"}}
       ],
-      "proxima_reunion": "DD/MM/AAAA HH:MM"
+      "proxima_reunion": "DD/MM/AAAA HH:MM o 'Por definir'"
     }}
+    
+    RECUERDA: Prioriza la COMPLETITUD sobre la brevedad. El usuario necesita un registro exhaustivo de todo lo discutido.
     """
     
     try:
@@ -1321,7 +1339,7 @@ def generate_meeting_minutes_ai(content_text):
             ],
             model="llama-3.3-70b-versatile",
             temperature=0.1,
-            max_tokens=4000,
+            max_tokens=8000,
             response_format={"type": "json_object"}
         )
         msg_content = completion.choices[0].message.content
