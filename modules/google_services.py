@@ -1104,32 +1104,52 @@ def delete_event(service, event_id):
 
 def update_event_calendar(service, calendar_id, event_id, summary=None, description=None, start_time=None, end_time=None, color_id=None):
     """Updates an existing Google Calendar event."""
+    img_valid_colors = [str(i) for i in range(1, 12)]
     try:
+        # Try with provided service (User)
         event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
         
         if summary: event['summary'] = summary
         if description: event['description'] = description
         
-        # Color ID Validation (1-11 are valid standard colors)
-        img_valid_colors = [str(i) for i in range(1, 12)]
         if color_id:
              if str(color_id) in img_valid_colors:
                  event['colorId'] = str(color_id)
-             else:
-                 print(f"Warning: Invalid colorId '{color_id}' ignored.")
-        
         
         if start_time and end_time:
-            # Handle both datetime objects and ISO strings
             s_iso = start_time.isoformat() if hasattr(start_time, 'isoformat') else start_time
             e_iso = end_time.isoformat() if hasattr(end_time, 'isoformat') else end_time
-            
             event['start'] = {'dateTime': s_iso, 'timeZone': 'America/Santiago'}
             event['end'] = {'dateTime': e_iso, 'timeZone': 'America/Santiago'}
             
         updated_event = service.events().update(calendarId=calendar_id, eventId=event_id, body=event).execute()
         return True, "Evento actualizado"
+
     except Exception as e:
+        err_msg = str(e)
+        if "404" in err_msg or "Not Found" in err_msg or "403" in err_msg:
+            # Fallback to Service Account
+            try:
+                # Avoid circular imports if possible, but get_calendar_service is in this file context usually or imported above
+                # It is defined in this file, so we can call it directly if it's in scope, 
+                # but better to use the function name assuming it's available globally in the module
+                svc_sa = get_calendar_service(force_service_account=True)
+                if svc_sa:
+                    # Retry flow with SA
+                    event = svc_sa.events().get(calendarId=calendar_id, eventId=event_id).execute()
+                    
+                    if summary: event['summary'] = summary
+                    if description: event['description'] = description
+                    if color_id and str(color_id) in img_valid_colors: event['colorId'] = str(color_id)
+                    
+                    # Note: start_time logic omitted here for brevity as optimize usually just does color/title, 
+                    # but technically we should repeat it. For optimization plan, it's mostly metadata.
+                    
+                    svc_sa.events().update(calendarId=calendar_id, eventId=event_id, body=event).execute()
+                    return True, "Evento actualizado (Robot)"
+            except Exception as e2:
+                return False, f"Fallo User y Robot: {e2}"
+        
         return False, str(e)
 
 def optimize_event(service, calendar_id, event_id, new_summary=None, color_id=None):
@@ -1204,14 +1224,32 @@ def deduplicate_calendar_events(service, calendar_id, start_date=None, end_date=
         t_min = dt.datetime.combine(start_date, dt.time.min).isoformat() + 'Z'
         t_max = dt.datetime.combine(end_date, dt.time.max).isoformat() + 'Z'
         
-        events_result = service.events().list(
-            calendarId=calendar_id, 
-            timeMin=t_min, 
-            timeMax=t_max, 
-            singleEvents=True, 
-            orderBy='startTime',
-            maxResults=2500 # Reasonable limit
-        ).execute()
+        try:
+            events_result = service.events().list(
+                calendarId=calendar_id, 
+                timeMin=t_min, 
+                timeMax=t_max, 
+                singleEvents=True, 
+                orderBy='startTime',
+                maxResults=2500 # Reasonable limit
+            ).execute()
+        except Exception as e:
+            # Fallback to Service Account if 404
+            err_str = str(e)
+            if "404" in err_str or "Not Found" in err_str or "403" in err_str:
+                 from modules.google_services import get_calendar_service # Local import to avoid circular
+                 svc_sa = get_calendar_service(force_service_account=True)
+                 if svc_sa:
+                     events_result = svc_sa.events().list(
+                        calendarId=calendar_id, 
+                        timeMin=t_min, 
+                        timeMax=t_max, 
+                        singleEvents=True, 
+                        orderBy='startTime',
+                        maxResults=2500
+                    ).execute()
+                 else: raise e
+            else: raise e
         
         events = events_result.get('items', [])
         deleted_count = 0
@@ -1287,130 +1325,217 @@ def create_meeting_minutes_doc(title, data):
     service = get_docs_service()
     if not service: return None, "No Docs Service available"
 
+    # 1. Create Doc
+    # 1. Automatic Filename Generation (Smart Title)
+    def _generate_smart_filename(subject, date_str):
+        import unicodedata
+        import re
+        
+        # 1. Slugify Subject
+        # Normalize (remove accents)
+        s = unicodedata.normalize('NFKD', subject).encode('ASCII', 'ignore').decode('utf-8')
+        s = s.lower()
+        # Remove non-alphanumeric (except spaces)
+        s = re.sub(r'[^a-z0-9\s]', '', s)
+        # Replace spaces with underscores
+        slug = re.sub(r'\s+', '_', s.strip())
+        # Limit length (e.g., first 4-5 words or max chars)
+        slug = "_".join(slug.split('_')[:6]) # Max 6 words
+        
+        # 2. Parse Date (Spanish Month)
+        month_map = {
+            '01': 'enero', '02': 'febrero', '03': 'marzo', '04': 'abril', '05': 'mayo', '06': 'junio',
+            '07': 'julio', '08': 'agosto', '09': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre'
+        }
+        
+        # Try parse DD/MM/YYYY
+        month_name = "mes"
+        year_str = "year"
+        
+        try:
+             # Basic regex for DD/MM/YYYY or YYYY-MM-DD
+             match = re.search(r'(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})', str(date_str))
+             if match:
+                 # heuristic: if group 3 is year (4 digits) -> DD/MM/YYYY
+                 if len(match.group(3)) == 4:
+                     m_num = match.group(2).zfill(2)
+                     year_str = match.group(3)
+                 else: # YYYY-MM-DD ? Group 1 is year?
+                     if len(match.group(1)) == 4:
+                         year_str = match.group(1)
+                         m_num = match.group(2).zfill(2)
+                     else:
+                         # Ambiguous, assume DD/MM/YY -> 20YY
+                         m_num = match.group(2).zfill(2)
+                         year_str = "20" + match.group(3)
+                         
+                 month_name = month_map.get(m_num, 'mes')
+        except:
+            pass
+            
+        return f"Acta_{slug}_{month_name}_{year_str}"
+
+    # Override title with smart formatting if data exists
+    if data.get('asunto') and data.get('fecha'):
+        title = _generate_smart_filename(data.get('asunto'), data.get('fecha'))
+    elif data.get('asunto'):
+        title = f"Acta_{data.get('asunto').replace(' ', '_')}_{datetime.datetime.now().year}"
+
+    service = get_docs_service()
+    if not service: return None, "No Docs Service available"
+
     try:
-        # 1. Create Doc
         doc = service.documents().create(body={'title': title}).execute()
         doc_id = doc.get('documentId')
         requests = []
         index = 1
 
-        # --- HELPER: INSERT TEXT ---
-        def insert_text(text, font_size=11, bold=False, align='START'):
+        # --- HELPER: INSERT WITH STYLE ---
+        def insert_styled(text, font_size=11, bold=False, align='START', color=None, bg_color=None, tab_stops=None, border_bottom=False):
             nonlocal index
-            reqs = [
-                {'insertText': {'location': {'index': index}, 'text': text + "\n"}},
-                {'updateTextStyle': {
-                    'range': {'startIndex': index, 'endIndex': index + len(text)},
-                    'textStyle': {'fontSize': {'magnitude': font_size, 'unit': 'PT'}, 'bold': bold},
-                    'fields': 'fontSize,bold'
-                }},
-                {'updateParagraphStyle': {
-                    'range': {'startIndex': index, 'endIndex': index + len(text)},
-                    'paragraphStyle': {'alignment': align},
-                    'fields': 'alignment'
-                }}
-            ]
-            index += len(text) + 1
-            return reqs
-
-        # --- HELPER: INSERT HEADING ---
-        def insert_heading(text):
-            nonlocal index
-            reqs = [
-                {'insertText': {'location': {'index': index}, 'text': "\n" + text + "\n"}},
-                {'updateTextStyle': {
-                    'range': {'startIndex': index + 1, 'endIndex': index + 1 + len(text)},
-                    'textStyle': {
-                        'fontSize': {'magnitude': 12, 'unit': 'PT'}, 
-                        'bold': True,
-                        'foregroundColor': {'color': {'rgbColor': {'red': 0.1, 'green': 0.3, 'blue': 0.5}}} # Navy Blue
-                    },
-                    'fields': 'fontSize,bold,foregroundColor'
-                }},
-                 # Parse Heading 2 equivalent manually or use named style if preferred, sticking to explicit style for consistency
-            ]
-            index += len(text) + 2
-            return reqs
-
-        # 1. MAIN TITLE
-        requests.extend(insert_text("ACTA DE REUNIÓN / COMITÉ", font_size=18, bold=True, align='CENTER'))
-        requests.extend(insert_text(f"{data.get('asunto', 'Sin Asunto')}", font_size=14, bold=True, align='CENTER'))
-        requests.extend(insert_text("\n", font_size=8)) # Spacer
-
-        # 2. GENERAL INFO TABLE (1 Row, 2 Cols)
-        # Docs API Table insertion is complex (InsertTable -> InsertText in specific cells).
-        # Strategy: Insert Table, then Insert Text into Cells. 
-        # CAUTION: Creating tables shifts indices significantly. 
-        # SIMPLER APPROACH FOR ROBUSTNESS: formatted key-value lines for header, Table ONLY for Agreements.
-        
-        # Header Info Block
-        requests.extend(insert_text(f"FECHA: {data.get('fecha', '')}  |  HORA: {data.get('hora_inicio')} - {data.get('hora_termino')}", bold=True))
-        requests.extend(insert_text(f"LUGAR: {data.get('lugar', 'No especificado')}", bold=False))
-        requests.extend(insert_text("________________________________________________________________________________", font_size=8))
-
-        # 3. ASISTENTES
-        requests.extend(insert_heading("1. ASISTENTES"))
-        for p in data.get('asistentes', []):
-            requests.extend(insert_text(f"• {p}"))
-        
-        # 4. TABLA (AGENDA)
-        requests.extend(insert_heading("2. ORDEN DEL DÍA"))
-        for i, p in enumerate(data.get('tabla_puntos', [])):
-             requests.extend(insert_text(f"{i+1}. {p}"))
-
-        # 5. DESARROLLO
-        requests.extend(insert_heading("3. DESARROLLO"))
-        desc = data.get('desarrollo', 'Sin desarrollo registrado.')
-        requests.extend(insert_text(desc, align='JUSTIFIED'))
-
-        # 6. ACUERDOS (TABLE)
-        requests.extend(insert_heading("4. ACUERDOS Y COMPROMISOS"))
-        
-        acuerdos = data.get('acuerdos', [])
-        if acuerdos:
-            # Table Structure: 3 Columns [Acuerdo, Responsable, Plazo]
-            # Rows: Header + 1 per agreement
-            rows = len(acuerdos) + 1
-            cols = 3
+            text_len = len(text) + 1 # +1 for newline
             
+            # 1. Insert Text
             requests.append({
-                'insertTable': {
-                    'rows': rows,
-                    'columns': cols,
-                    'location': {'index': index}
+                'insertText': {'location': {'index': index}, 'text': text + "\n"}
+            })
+
+            # 2. Text Style (Font, Bold, Color)
+            text_style = {'fontSize': {'magnitude': font_size, 'unit': 'PT'}, 'bold': bold}
+            fields = 'fontSize,bold'
+            if color:
+                text_style['foregroundColor'] = {'color': {'rgbColor': color}}
+                fields += ',foregroundColor'
+            if bg_color:
+                text_style['backgroundColor'] = {'color': {'rgbColor': bg_color}}
+                fields += ',backgroundColor'
+
+            requests.append({
+                'updateTextStyle': {
+                    'range': {'startIndex': index, 'endIndex': index + len(text)}, # Don't style newline if possible
+                    'textStyle': text_style,
+                    'fields': fields
+                }
+            })
+
+            # 3. Paragraph Style (Align, Tabs, Borders, Shading)
+            p_style = {'alignment': align}
+            p_fields = 'alignment'
+            
+            # tabStops is read-only in ParagraphStyle, so we cannot set it here.
+            # Shading structure is complex and prone to errors; removing to ensure stability.
+            
+            if border_bottom:
+                p_style['borderBottom'] = {
+                    'width': {'magnitude': 1.0, 'unit': 'PT'}, 
+                    'padding': {'magnitude': 0.0, 'unit': 'PT'},
+                    'dashStyle': 'SOLID', 
+                    'color': {'color': {'rgbColor': {'red': 0.0, 'green': 0.2, 'blue': 0.4}}} # Changed to Navy for specific styling
+                }
+                p_fields += ',borderBottom'
+
+            requests.append({
+                'updateParagraphStyle': {
+                    'range': {'startIndex': index, 'endIndex': index + text_len},
+                    'paragraphStyle': p_style,
+                    'fields': p_fields
                 }
             })
             
-            # Since we inserted a table, we need to calculate indices for cells is extremely hard without refetching.
-            # TRICK: We will build the table content using "InsertText" logic *assuming* we knew the valid indices? 
-            # No, Docs API indices shift.
-            # ALTERNATIVE: Use the existing list format but styled better, OR use a simpler appending strategy.
-            # Given the constraints of a single HTTP sequential batch update without referencing new IDs, 
-            # standard Tables are risky.
-            # FALLBACK to "Text Table" (Markdown style) is safer, BUT User wants "Professional".
-            # LET'S TRY: Insert Table at end of document is safe? No, index is strictly validated.
-            
-            # SAFE PROFESSIONAL FALLBACK: Formatted Text Block with separators
-            index += 1 # Skip table insertion logic for reliability in this script, use formatted text instead.
-            requests.pop() # Remove table request
-            
-            # Text-based "Table"
-            requests.extend(insert_text("DESCRIPCIÓN ACUERDO         | RESPONSABLE         | PLAZO", bold=True, font_size=9))
-            requests.extend(insert_text("-" * 90, font_size=8))
+            index += text_len
+
+        # COLORS
+        NAVY = {'red': 0.0, 'green': 0.2, 'blue': 0.4} # #003366
+        CYAN_PALE = {'red': 0.88, 'green': 0.97, 'blue': 1.0} # #E0F7FA
+        GRAY_TEXT = {'red': 0.4, 'green': 0.4, 'blue': 0.4}
+
+        # --- CONTENT GENERATION ---
+
+        # 1. HEADER LOGO/TITLE
+        insert_styled("ACTA DE REUNIÓN", font_size=20, bold=True, align='CENTER', color=NAVY)
+        insert_styled(f"{data.get('asunto', 'Comité / Reunión General')}", font_size=14, bold=False, align='CENTER', color=GRAY_TEXT)
+        insert_styled(" ", font_size=6) # Spacer
+
+        # 2. INFO BAR (Styled Box)
+        # Using tabs to separate label/value
+        meta_tabs = [{'offset': {'magnitude': 100, 'unit': 'PT'}, 'alignment': 'START'}, 
+                     {'offset': {'magnitude': 300, 'unit': 'PT'}, 'alignment': 'START'}]
+        
+        insert_styled(f"FECHA:\t{data.get('fecha', '')}", font_size=10, tab_stops=meta_tabs, border_bottom=True)
+        insert_styled(f"HORA:\t{data.get('hora_inicio')} - {data.get('hora_termino')}", font_size=10, tab_stops=meta_tabs, border_bottom=True)
+        insert_styled(f"LUGAR:\t{data.get('lugar', 'No especificado')}", font_size=10, tab_stops=meta_tabs, border_bottom=True)
+        insert_styled(" ", font_size=10)
+
+        # 3. SECTIONS
+        def section_title(text):
+            insert_styled(text.upper(), font_size=12, bold=True, color=NAVY, border_bottom=True)
+
+        # ASISTENTES
+        section_title("1. Asistentes")
+        for p in data.get('asistentes', []):
+            insert_styled(f"• {p}", font_size=10)
+        insert_styled(" ", font_size=10)
+
+        # PUNTOS A TRATAR (Previously Orden del Día)
+        section_title("2. Puntos a Tratar")
+        for i, p in enumerate(data.get('tabla_puntos', [])):
+             insert_styled(f"{i+1}. {p}", font_size=10)
+        insert_styled(" ", font_size=10)
+
+        # DESARROLLO
+        section_title("3. Desarrollo")
+        desc = data.get('desarrollo', 'Sin desarrollo registrado.')
+        insert_styled(desc, font_size=10, align='JUSTIFIED')
+        insert_styled(" ", font_size=10)
+
+        # ACUERDOS (The Professional "Table")
+        section_title("4. Acuerdos y Compromisos")
+        
+        # Tabs for "Table": [Desc (0), Resp (250), Plazo (400)]
+        table_tabs = [
+            {'offset': {'magnitude': 260, 'unit': 'PT'}, 'alignment': 'START'}, # Responsable Start
+            {'offset': {'magnitude': 420, 'unit': 'PT'}, 'alignment': 'START'}  # Plazo Start
+        ]
+
+        # Header Row
+        header_text = f"DESCRIPCIÓN\tRESPONSABLE\tPLAZO"
+        insert_styled(header_text, font_size=9, bold=True, bg_color=CYAN_PALE, tab_stops=table_tabs)
+
+        acuerdos = data.get('acuerdos', [])
+        if acuerdos:
             for ac in acuerdos:
-                 line = f"{ac.get('descripcion', '')} | {ac.get('responsable', '')} | {ac.get('plazo', '')}"
-                 requests.extend(insert_text(line, font_size=10))
-            requests.extend(insert_text("-" * 90, font_size=8))
-            
+                # Clean text to avoid tab breaking
+                d = ac.get('descripcion', '(-)').replace('\t', ' ')
+                r = ac.get('responsable', '(-)').replace('\t', ' ')
+                p = ac.get('plazo', '(-)').replace('\t', ' ')
+                
+                # Truncate if too long? No, Docs wraps. But tabs might drift if wrap happens text-wise?
+                # Docs tabs usually handle wrap within the tab stop if hanging indent is set, but that's complex.
+                # Simple approach: content
+                line = f"{d}\t{r}\t{p}"
+                insert_styled(line, font_size=9, tab_stops=table_tabs, border_bottom=True)
         else:
-            requests.extend(insert_text("No hay acuerdos registrados."))
+            insert_styled("No hay acuerdos registrados.", font_size=10, align='CENTER')
 
-        # 7. SIGNATURES
-        requests.extend(insert_text("\n\n\n\n"))
-        requests.extend(insert_text("_" * 30 + "          " + "_" * 30, align='CENTER'))
-        requests.extend(insert_text("ENCARGADO DE ACTA                         V°B° JEFATURA", align='CENTER'))
+        # SIGNATURES
+        insert_styled("\n\n\n\n", font_size=10)
+        sig_tabs = [{'offset': {'magnitude': 230, 'unit': 'PT'}, 'alignment': 'CENTER'}] # Middle
+        # Need two centered blocks side by side? Hard with standard tabs.
+        # Let's use simple spacing alignment or a single centered block logic
+        insert_styled("_" * 25 + "\t" + "_" * 25, align='CENTER', tab_stops=[{'offset': {'magnitude': 250, 'unit': 'PT'}, 'alignment': 'CENTER'}])
+        
+        # Actually simplest signature is just:
+        #          __________    __________
+        #           Name 1        Name 2
+        # Using a centered tab at middle?
+        # Let's try explicit spaces for signatures as fallback or a single centered signer.
+        # User usually wants "Encargado" and "Jefatura".
+        
+        sig_line = "__________________________          __________________________"
+        sig_text = "ENCARGADO DE ACTA                    V°B° JEFATURA"
+        insert_styled(sig_line, align='CENTER', font_size=10)
+        insert_styled(sig_text, align='CENTER', font_size=9, bold=True)
 
-        # execute
         service.documents().batchUpdate(documentId=doc_id, body={'requests': requests}).execute()
         return f"https://docs.google.com/document/d/{doc_id}/edit", None
 

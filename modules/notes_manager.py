@@ -12,41 +12,52 @@ NOTES_COLUMNS = ["id", "created_at", "content", "status", "tags", "source", "lin
 
 def _get_notes_data(service, spreadsheet_id):
     """Fetches all notes from the 'notes' tab."""
-    try:
-        sheet = service.spreadsheets()
-        result = sheet.values().get(
-            spreadsheetId=spreadsheet_id, 
-            range=f"{NOTES_SHEET_NAME}!A:H"
-        ).execute()
-        rows = result.get('values', [])
-        
-        if not rows:
-            return []
+    import time
+    retries = 3
+    for attempt in range(retries):
+        try:
+            sheet = service.spreadsheets()
+            result = sheet.values().get(
+                spreadsheetId=spreadsheet_id, 
+                range=f"{NOTES_SHEET_NAME}!A:H"
+            ).execute()
+            rows = result.get('values', [])
             
-        # Assuming header row is present
-        headers = rows[0]
-        data = []
-        for row in rows[1:]:
-            # Pad row if missing columns
-            while len(row) < len(NOTES_COLUMNS):
-                row.append("")
+            if not rows:
+                return []
+                
+            # Assuming header row is present
+            headers = rows[0]
+            data = []
+            for row in rows[1:]:
+                # Pad row if missing columns
+                while len(row) < len(NOTES_COLUMNS):
+                    row.append("")
+                
+                note = {
+                    "id": row[0],
+                    "created_at": row[1],
+                    "content": row[2],
+                    "status": row[3],
+                    "tags": row[4],
+                    "source": row[5],
+                    "linked_event_id": row[6],
+                    "user_id": row[7]
+                }
+                data.append(note)
+                
+            return data
+        except Exception as e:
+            err_str = str(e).lower()
+            if "ssl" in err_str or "decryption" in err_str or "connection" in err_str or "broken pipe" in err_str or "version" in err_str or "time out" in err_str:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
             
-            note = {
-                "id": row[0],
-                "created_at": row[1],
-                "content": row[2],
-                "status": row[3],
-                "tags": row[4],
-                "source": row[5],
-                "linked_event_id": row[6],
-                "user_id": row[7]
-            }
-            data.append(note)
-            
-        return data
-    except Exception as e:
-        print(f"Error getting notes: {e}")
-        return []
+            if attempt == retries - 1:
+                print(f"Error getting notes (Attempt {attempt+1}): {e}")
+                return []
+    return []
 
 def ensure_notes_tab_exists(service, spreadsheet_id):
     """Checks if 'notes' tab exists, creates if not."""

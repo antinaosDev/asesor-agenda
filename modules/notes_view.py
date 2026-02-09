@@ -70,7 +70,7 @@ def view_notes_page():
         
         # Mode Selector
         mode = st.radio("Modo de Procesamiento:", 
-            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)", "📋 Actas de Reunión", "🏗️ Proyectos"],
+            ["⚡ Estándar (Eventos/Tareas)", "📚 Cornell (Estudio)", "🧠 Flashcards (Memorizar)", "📋 Actas de Reunión"],
             horizontal=True,
             label_visibility="collapsed"
         )
@@ -160,45 +160,7 @@ def view_notes_page():
                              else:
                                  st.error(f"Falló la transcripción: {transcription}")
 
-        # --- PROJECT BREAKDOWN MODE ---
-        elif "Proyectos" in mode:
-            st.info("Desglose de Proyectos: Convierte una idea compleja en una lista de tareas ejecutables.")
-            project_input = st.text_area("Descripción del Proyecto:", height=100, placeholder="Ej: Organizar la fiesta de fin de año para 50 personas...")
-            
-            if st.button("🚀 Generar Plan de Trabajo", use_container_width=True):
-                if project_input.strip():
-                    with st.spinner("🧠 Analizando y desglosando proyecto..."):
-                        plan = ai_core.generate_project_breakdown(project_input)
-                        if "error" in plan:
-                            st.error(f"Error AI: {plan['error']}")
-                        else:
-                            st.session_state.temp_project_plan = plan
-                            st.rerun()
-            
-            # Display Generated Plan
-            if 'temp_project_plan' in st.session_state:
-                plan = st.session_state.temp_project_plan
-                st.subheader(f"Plan: {plan.get('project_name')}")
-                
-                # Editable Dataframe or List? Let's use clean expanders for V1
-                tasks_to_create = plan.get('tasks', [])
-                for t in tasks_to_create:
-                    st.markdown(f"- **{t['due']}**: {t['title']}")
-                
-                if st.button("✅ Crear todas las tareas en Google Tasks", type="primary"):
-                    progress_bar = st.progress(0)
-                    created_count = 0
-                    
-                    for i, task in enumerate(tasks_to_create):
-                        # Create Task
-                        google_services.create_task(task['title'], due=task['due'])
-                        created_count += 1
-                        progress_bar.progress((i + 1) / len(tasks_to_create))
-                        
-                    st.success(f"¡{created_count} tareas creadas exitosamente!")
-                    del st.session_state.temp_project_plan
-                    time.sleep(1)
-                    st.rerun()
+
 
 
 

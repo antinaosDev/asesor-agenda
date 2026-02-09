@@ -164,7 +164,9 @@ def render_chat_view():
                                 else:
                                     svc = gs.get_calendar_service()
                                     if svc:
-                                        ok, msg = gs.add_event_to_calendar(svc, params)
+                                        # Use Configured Calendar ID (Priority: Config > Connected > Primary)
+                                        target_cal = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+                                        ok, msg = gs.add_event_to_calendar(svc, params, calendar_id=target_cal)
                                         if ok: 
                                             result_msg = f"✅ Evento creado: {params.get('summary')}"
                                             action_executed = True

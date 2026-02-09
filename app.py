@@ -1173,7 +1173,8 @@ def view_planner():
          ), unsafe_allow_html=True)
 
     calendar_context_str = ""
-    calendar_id = st.session_state.get('connected_email', '')
+    # Use Configured Calendar ID (Priority: Config > Connected)
+    calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', ''))
 
     # Common Calendar Fetch (Optimized with TTL)
     if 'c_events_cache' not in st.session_state:
@@ -1827,7 +1828,7 @@ def view_inbox():
                 auth.update_user_field(user, 'COD_VAL', '')
 
             # 2. Clear Local Session State (UI Reset)
-            keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'user_data_full', 'inbox_target_calendar_id']
+            keys_to_clear = ['connected_email', 'google_token', 'calendar_service', 'tasks_service', 'sheets_service', 'docs_service', 'gmail_service', 'user_data_full', 'inbox_target_calendar_id']
             for k in keys_to_clear:
                 if k in st.session_state:
                     del st.session_state[k]
@@ -2552,7 +2553,35 @@ def view_optimize():
                 else:
                     st.success(f"Cargados {len(st.session_state.opt_events)} eventos.")
             except Exception as e:
-                st.error(f"Error cargando calendario: {e}")
+                err_msg = str(e)
+                fallback_success = False
+
+                # --- FALLBACK: TRY SERVICE ACCOUNT (ROBOT) ---
+                if "404" in err_msg or "Not Found" in err_msg:
+                    try:
+                        svc_sa = get_calendar_service(force_service_account=True)
+                        if svc_sa:
+                            res = svc_sa.events().list(
+                                calendarId=calendar_id, 
+                                timeMin=t_min, 
+                                timeMax=t_max, 
+                                singleEvents=True, 
+                                orderBy='startTime',
+                                maxResults=250
+                            ).execute()
+                            st.session_state.opt_events = res.get('items', [])
+                            fallback_success = True
+                            st.toast(f"🤖 Usando cuenta Robot para ver {calendar_id}")
+                            st.success(f"Cargados {len(st.session_state.opt_events)} eventos (vía Robot).")
+                    except:
+                        pass
+
+                if not fallback_success:
+                    if "404" in err_msg or "Not Found" in err_msg:
+                         st.error(f"Error 404: No tienes permiso para ver el calendario {calendar_id}.")
+                         st.info("💡 Solución: Comparte el calendario con tu email o con la cuenta de servicio (Robot) en Google Calendar.")
+                    else:
+                        st.error(f"Error cargando calendario: {e}")
 
     st.divider()
     st.markdown("### 🧹 Limpieza de Duplicados")
@@ -2700,8 +2729,34 @@ def view_optimize():
                          events_to_optimize = st.session_state.opt_events
                          st.toast(f"✅ Datos actualizados: {len(events_to_optimize)} eventos", icon="✅")
                      except Exception as e:
-                         st.error(f"Error actualizando datos: {e}")
-                         events_to_optimize = []
+                         err_msg = str(e)
+                         fallback_success = False
+
+                         # --- FALLBACK: TRY SERVICE ACCOUNT (ROBOT) ---
+                         if "404" in err_msg or "Not Found" in err_msg:
+                             try:
+                                 svc_sa = get_calendar_service(force_service_account=True)
+                                 if svc_sa:
+                                     res = svc_sa.events().list(
+                                         calendarId=calendar_id, 
+                                         timeMin=t_min, 
+                                         timeMax=t_max, 
+                                         singleEvents=True, 
+                                         orderBy='startTime',
+                                         maxResults=250
+                                     ).execute()
+                                     st.session_state.opt_events = res.get('items', [])
+                                     events_to_optimize = st.session_state.opt_events
+                                     fallback_success = True
+                                     st.toast(f"🤖 Usando Robot para actualizar {calendar_id}")
+                             except: pass
+
+                         if not fallback_success:
+                             if "404" in err_msg or "Not Found" in err_msg:
+                                 st.error(f"Error 404: No tienes permiso para ver el calendario {calendar_id}.")
+                             else:
+                                 st.error(f"Error actualizando datos: {e}")
+                             events_to_optimize = []
                  else:
                      events_to_optimize = []
                  
@@ -2948,7 +3003,8 @@ def view_time_insights():
         with st.spinner("📊 Analizando 7 días de calendario..."):
             # Obtener eventos de últimos 7 días
             cal_svc = get_calendar_service()
-            calendar_id = st.session_state.get('connected_email', 'primary')
+            # Use Configured Calendar ID (Priority: Config > Connected)
+            calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
             end_date = datetime.now()
             start_date = end_date - timedelta(days=7)
 
@@ -2959,11 +3015,30 @@ def view_time_insights():
                     timeMax=end_date.isoformat() + 'Z',
                     singleEvents=True
                 ).execute()
-
                 events = events_result.get('items', [])
             except Exception as e:
-                st.error(f"Error obteniendo eventos: {e}")
-                return
+                # Disable fallback return - try robot
+                err_msg = str(e)
+                fallback_success = False
+
+                if "404" in err_msg or "Not Found" in err_msg:
+                    try:
+                        svc_sa = get_calendar_service(force_service_account=True)
+                        if svc_sa:
+                            events_result = svc_sa.events().list(
+                                calendarId=calendar_id,
+                                timeMin=start_date.isoformat() + 'Z',
+                                timeMax=end_date.isoformat() + 'Z',
+                                singleEvents=True
+                            ).execute()
+                            events = events_result.get('items', [])
+                            fallback_success = True
+                            st.toast(f"🤖 Insights usando Robot para {calendar_id}")
+                    except: pass
+                
+                if not fallback_success:
+                    st.error(f"Error obteniendo eventos ({calendar_id}): {e}")
+                    return
 
             if len(events) < 3:
                 st.warning("⚠️ Muy pocos eventos para análisis significativo (mínimo 3 requeridos)")
@@ -3268,7 +3343,7 @@ def main_app():
 
             # Clear Local Session State ONLY (UI Reset)
             keys_to_clear = ['connected_email', 'connected_email_input', 'google_token',
-                             'calendar_service', 'tasks_service', 'sheets_service',
+                             'calendar_service', 'tasks_service', 'sheets_service', 'docs_service', 'gmail_service',
                              'authenticated', 'user_data_full', 'license_key',
                              'c_events_cache', 'c_events_cache_time',
                              'last_flashcards', 'temp_cornell_result', 'processing_note_id',

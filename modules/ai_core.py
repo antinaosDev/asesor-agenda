@@ -117,7 +117,15 @@ IMPORTANTE: NO devuelvas `{{ "draft_email": ... }}`. SIEMPRE usa `{{ "action": "
     
     # Add history (should be already limited by caller)
     for msg in history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
+        content = msg["content"]
+        if msg["role"] == "assistant":
+            # Strip JSON blocks to prevent repetition
+            # 1. Code blocks
+            content = re.sub(r'```json\s*([\[\{].*?[\]\}])\s*```', '[Acción registrada]', content, flags=re.DOTALL)
+            # 2. Raw JSON at end
+            content = re.sub(r'([\[\{][\s\n]*"action".*?[\]\}])\s*$', '[Acción registrada]', content, flags=re.DOTALL)
+            
+        messages.append({"role": msg["role"], "content": content})
         
     # Add current user input if not already in history (caller handles append Usually, but safe check)
     if history and history[-1]["content"] != user_input:
