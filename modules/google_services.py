@@ -1318,9 +1318,10 @@ def deduplicate_tasks(service):
 
 # --- DOCS GENERATION (ACTAS) ---
 
-def create_meeting_minutes_doc(title, data):
+def create_meeting_minutes_doc(title, data, raw_transcription=None):
     """
     Creates a Google Doc with a Professional Corporate Format (Tables + Styling).
+    Optionally appends raw transcription at the end as an annex.
     """
     service = get_docs_service()
     if not service: return None, "No Docs Service available"
@@ -1516,6 +1517,22 @@ def create_meeting_minutes_doc(title, data):
                 insert_styled(line, font_size=9, tab_stops=table_tabs, border_bottom=True)
         else:
             insert_styled("No hay acuerdos registrados.", font_size=10, align='CENTER')
+
+        # --- ANEXO: TRANSCRIPCIÓN COMPLETA (if provided) ---
+        if raw_transcription and raw_transcription.strip():
+            insert_styled("\n\n\n", font_size=10)  # Page break effect
+            section_title("ANEXO: TRANSCRIPCIÓN COMPLETA")
+            insert_styled("El siguiente texto corresponde a la transcripción literal del audio de la reunión, sin procesar:", font_size=9, color=GRAY_TEXT)
+            insert_styled(" ", font_size=6)
+            
+            # Split transcription into chunks to avoid API issues with very long text
+            # Google Docs API can handle long text, but we format it nicely
+            transcription_text = raw_transcription.strip()
+            
+            # Insert transcription with slightly smaller font and justified alignment
+            insert_styled(transcription_text, font_size=9, align='JUSTIFIED')
+            insert_styled(" ", font_size=10)
+            insert_styled("--- Fin de la Transcripción ---", font_size=9, align='CENTER', color=GRAY_TEXT)
 
         # SIGNATURES
         insert_styled("\n\n\n\n", font_size=10)

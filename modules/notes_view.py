@@ -94,7 +94,7 @@ def view_notes_page():
                             else:
                                 # 2. Doc Generation
                                 final_title = acta_title if acta_title else f"Acta_{datetime.datetime.now().strftime('%Y%m%d')}"
-                                doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data)
+                                doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data, acta_content)
                                 
                                 if doc_url:
                                     st.success("✅ Acta creada exitosamente!")
@@ -140,7 +140,7 @@ def view_notes_page():
                                      
                                      # 3. Doc Generation
                                      final_title = acta_title if acta_title else f"Acta_Audio_{datetime.datetime.now().strftime('%Y%m%d')}"
-                                     doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data)
+                                     doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data, transcription)
                                      
                                      if doc_url:
                                          st.success("✅ Acta creada exitosamente!")
