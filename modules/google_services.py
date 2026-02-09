@@ -1536,18 +1536,8 @@ def create_meeting_minutes_doc(title, data, raw_transcription=None):
 
         # SIGNATURES
         insert_styled("\n\n\n\n", font_size=10)
-        sig_tabs = [{'offset': {'magnitude': 230, 'unit': 'PT'}, 'alignment': 'CENTER'}] # Middle
-        # Need two centered blocks side by side? Hard with standard tabs.
-        # Let's use simple spacing alignment or a single centered block logic
-        insert_styled("_" * 25 + "\t" + "_" * 25, align='CENTER', tab_stops=[{'offset': {'magnitude': 250, 'unit': 'PT'}, 'alignment': 'CENTER'}])
         
-        # Actually simplest signature is just:
-        #          __________    __________
-        #           Name 1        Name 2
-        # Using a centered tab at middle?
-        # Let's try explicit spaces for signatures as fallback or a single centered signer.
-        # User usually wants "Encargado" and "Jefatura".
-        
+        # Signature lines and labels
         sig_line = "__________________________          __________________________"
         sig_text = "ENCARGADO DE ACTA                    V°B° JEFATURA"
         insert_styled(sig_line, align='CENTER', font_size=10)
