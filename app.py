@@ -257,11 +257,98 @@ def card_metric(label, value, icon, subtext=""):
             <div style="color: white; font-size: 2rem; font-weight: 700; text-shadow: 0 0 15px rgba(13,215,242,0.2);">{value}</div>
             <div style="color: #6b7280; font-size: 0.75rem; margin-top: 4px;">{subtext}</div>
         </div>
+
+    <div class="glass-panel" style="padding: 1.2rem; display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <span style="color: #9cb6ba; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">{label}</span>
+            <span class="material-symbols-outlined" style="color: #0dd7f2;">{icon}</span>
+        </div>
+        <div style="margin-top: 1rem;">
+            <div style="color: white; font-size: 2rem; font-weight: 700; text-shadow: 0 0 15px rgba(13,215,242,0.2);">{value}</div>
+            <div style="color: #6b7280; font-size: 0.75rem; margin-top: 4px;">{subtext}</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
+def render_admin_panel():
+    st.markdown("## 🛡️ Panel de Administración")
+    
+    tabs = st.tabs(["👥 Crear Usuario", "📋 Lista de Usuarios (Solo Lectura)"])
+
+    with tabs[0]:
+        st.markdown("### Crear Nuevo Usuario")
+        
+        with st.form("create_user_form"):
+            c1, c2 = st.columns(2)
+            with c1:
+                new_user = st.text_input("Usuario (User)", placeholder="ej. nuevo_usuario")
+                new_pass = st.text_input("Contraseña (Pass)", type="password")
+                new_rol = st.selectbox("Rol", ["USUARIO", "ADMIN"], index=0)
+                new_email = st.text_input("Email (Envío)", placeholder="user@gmail.com")
+            
+            with c2:
+                new_sistema = st.selectbox("Sistema", ["Pago Anual", "Suscripción", "Gratuito"], index=0)
+                new_estado = st.selectbox("Estado", ["ACTIVO", "INACTIVO"], index=0)
+                new_pago = st.selectbox("Estado Pago", ["AL DIA", "PENDIENTE", "VENCIDO"], index=0)
+            
+            c3, c4 = st.columns(2)
+            with c3:
+                f_susc = st.date_input("Fecha Suscripción", datetime.date.today())
+            with c4:
+                f_pago = st.date_input("Fecha Pago", datetime.date.today())
+
+            st.markdown("---")
+            st.markdown("#### ⚙️ Configuración Técnica (Defaults)")
+            with st.expander("Ver/Editar Credenciales Base", expanded=False):
+                creds_admin = st.text_area("Clave Cuenta Servicio Admin", value='"{...}" (Hardcoded Default)')
+                id_client = st.text_input("ID Cliente Auth", value="493881032521-...")
+                secret_client = st.text_input("Secreto Cliente Auth", value="GOCSPX-...")
+            
+            if st.form_submit_button("Crear Usuario", type="primary"):
+                if not new_user or not new_pass:
+                    st.error("Usuario y Contraseña son obligatorios.")
+                else:
+                    # Construct Data Dict
+                    # Default huge blocks
+                        # Defaults from Secrets or Empty
+                        'clave_cuenta_servicio_admin': st.secrets.get("GCP_SERVICE_ACCOUNT", ""),
+                        'id_cliente_auth': st.secrets.get("OAUTH_CLIENT_ID", ""),
+                        'secreto_cliente_auth': st.secrets.get("OAUTH_CLIENT_SECRET", ""),
+                        'credenciales_auth_user': st.secrets.get("OAUTH_CLIENT_JSON", ""),
+                        'credenciales_groq': st.secrets.get("GROQ_API_KEY", ""),
+                        'notification_api_client': st.secrets.get("NOTIFICATION_API_CLIENT", ""),
+                        'notification_api_secret': st.secrets.get("NOTIFICATION_API_SECRET", ""),
+                        'modelo_ia': "11" # Default model
+                    }
+                    
+                    with st.spinner("Creando usuario..."):
+                        success, message = auth.create_user(user_dict)
+                        if success:
+                            st.success(message)
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(message)
+
+    with tabs[1]:
+        st.info("Lista de usuarios detectados (Vista rápida)")
+        users = auth.get_all_users()
+        if users:
+            df_u = pd.DataFrame(users)
+            # Filter sensitive columns
+            safe_cols = [c for c in df_u.columns if 'pass' not in c and 'key' not in c]
+            st.dataframe(df_u[safe_cols], hide_index=True)
+
+
+
+# ---
+
+# --- MAIN VIEWS ---
+
+
+# === FORCED INSERTION OF MISSING FUNCTION ===
 def render_login_page():
-    # Similar to previous version but refined styling
+    # Minimal Login Page
     st.markdown("""
     <style>
         [data-testid="stSidebar"] {display: none;}
@@ -280,14 +367,10 @@ def render_login_page():
     c1, c2, c3 = st.columns([1, 1.2, 1])
     with c2:
         st.markdown('<br>', unsafe_allow_html=True)
-
-        # Centered logo with optimized size
-        c_img1, c_img2, c_img3 = st.columns([1, 1, 1])
-        with c_img2:
-            try:
-                st.image("logo_agent.png", width=150)
-            except:
-                st.markdown("<h1 style='text-align: center;'>🗓️</h1>", unsafe_allow_html=True)
+        try:
+            st.image("logo_agent.png", width=150)
+        except:
+            st.markdown("<h1 style='text-align: center;'>🗓️</h1>", unsafe_allow_html=True)
 
         st.markdown("""
         <div class="login-box" style="text-align: center;">
@@ -295,8 +378,6 @@ def render_login_page():
              <p style="color: #0dd7f2; margin-bottom: 2rem; font-size: 0.95rem;">🔐 Acceso Seguro</p>
         </div>
         """, unsafe_allow_html=True)
-
-        # Removed redundant st.image and markdown text below box to clean up UI as requested
 
         with st.form("login"):
             u = st.text_input("Usuario", placeholder="admin")
@@ -307,19 +388,14 @@ def render_login_page():
                     st.session_state.authenticated = True
                     st.session_state.user_data_full = data
                     st.session_state.license_key = u
-                    
-                    # AUTO-LOAD CALENDAR SESSION
-                    saved_calendar = auth.load_calendar_session(u)
-                    if saved_calendar:
-                        st.session_state.conf_calendar_id = saved_calendar
-                        st.session_state.connected_email = saved_calendar # Initial state
-                        st.toast(f"📅 Calendario cargado: {saved_calendar[:30]}...")
-                    
+                    try:
+                        saved = auth.load_calendar_session(u)
+                        if saved:
+                            st.session_state.conf_calendar_id = saved
+                    except: pass
                     st.rerun()
                 else:
                     st.error("Acceso Denegado")
-
-# --- MAIN VIEWS ---
 
 def view_dashboard():
     # --- WEATHER & CONTEXT ---
@@ -3148,6 +3224,19 @@ def view_time_insights():
 # --- NAVIGATION CONTROLLER ---
 
 def main_app():
+    # --- ROLE DETECTION (Hoisted) ---
+    user_role = "User"
+    if 'user_data_full' in st.session_state:
+        # Robust extraction: try 'rol', 'role', 'ROL', etc.
+        ud = st.session_state.user_data_full
+        # The keys are lowercased in auth.py, but let's be safe
+        raw_role = ud.get('rol', ud.get('role', ud.get('ROL', 'User')))
+        user_role = str(raw_role).strip()
+
+    # --- FALLBACK / OVERRIDE FOR SPECIFIC ADMIN ---
+    if st.session_state.get('license_key') == 'adm_alain':
+        user_role = 'ADMIN'
+
     # Sidebar Navigation mimicking the "Rail"
     with st.sidebar:
         st.markdown("<div style='text-align: center; margin-bottom: 25px; padding-top: 10px;'>", unsafe_allow_html=True)
@@ -3226,6 +3315,10 @@ def main_app():
             "Insights": "📉 Insights",
             "Account": "⚙️ Mi Cuenta"
         }
+
+        # --- ADMIN NAVIGATION ---
+        if user_role.upper() == 'ADMIN':
+             nav_options["Admin"] = "🛡️ Panel Admin"
 
         selection = st.radio("Navegación", list(nav_options.keys()), format_func=lambda x: nav_options[x], label_visibility="collapsed")
 
@@ -3368,21 +3461,9 @@ def main_app():
             st.session_state.logout_google = True
             st.rerun()
 
-        # --- ADMIN PANEL ---
-        user_role = "User"
-        if 'user_data_full' in st.session_state:
-            # Robust extraction: try 'rol', 'role', 'ROL', etc.
-            ud = st.session_state.user_data_full
-            # The keys are lowercased in auth.py, but let's be safe
-            raw_role = ud.get('rol', ud.get('role', ud.get('ROL', 'User')))
-            user_role = str(raw_role).strip()
-
-        # --- FALLBACK / OVERRIDE FOR SPECIFIC ADMIN ---
-        if st.session_state.get('license_key') == 'adm_alain':
-            user_role = 'ADMIN'
-
+        # --- ADMIN SIDEBAR (Quick Edit) ---
         if user_role.upper() == 'ADMIN':
-            with st.expander("🛠️ Panel Admin"):
+            with st.expander("🛠️ Gestión Rápida"):
                 st.write(f"Rol Activo: {user_role}") 
 
                 # --- USER MANAGEMENT ---
@@ -3453,6 +3534,7 @@ def main_app():
     # Main Router
     if selection == "Dashboard": view_dashboard()
     elif selection == "Chat": chat_view.render_chat_view() # NEW ROUTE
+    elif selection == "Admin": render_admin_panel() # NEW ADMIN ROUTE
     elif selection == "Create": view_create()
     elif selection == "Planner": view_planner()
     elif selection == "Inbox": view_inbox()

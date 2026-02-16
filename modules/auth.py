@@ -829,6 +829,81 @@ def update_history_and_quota(username, new_history_items, quota_amount):
         st.error(f"Error guardando datos: {e}")
         return False
 
+def create_user(user_data):
+    """
+    Crea un nuevo usuario en Google Sheets.
+    user_data: dict con las claves 'rol', 'user', 'pass', 'sistema', etc.
+    Retorna: (bool, mensaje)
+    """
+    try:
+        from streamlit_gsheets import GSheetsConnection
+        import pandas as pd
+        import streamlit as st
+
+        if "private_sheet_url" in st.secrets:
+            sheet_url = st.secrets["private_sheet_url"]
+        else:
+             sheet_url = "https://docs.google.com/spreadsheets/d/1DB2whTniVqxaom6x-lPMempJozLnky1c0GTzX2R2-jQ/edit?gid=0#gid=0"
+
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df_read = conn.read(spreadsheet=sheet_url, ttl=0)
+        
+        # Copia para trabajar
+        df = df_read.copy()
+        
+        # Normalizar columnas para búsqueda
+        df.columns = df.columns.str.lower().str.strip()
+
+        # Validar usuario existente
+        new_user = user_data.get('user', '').strip()
+        if not new_user:
+            return False, "El nombre de usuario es obligatorio."
+
+        if 'user' in df.columns:
+            if not df[df['user'].astype(str).str.strip() == new_user].empty:
+                return False, f"El usuario '{new_user}' ya existe."
+        
+        # Preparar nueva fila
+        new_row = {}
+        
+        # Mapping directo
+        fields = [
+            'rol', 'user', 'pass', 'sistema', 'fecha_suscripcion', 'fecha_pago', 'pago', 'estado', 'email_send',
+            'clave_cuenta_servicio_admin', 'id_cliente_auth', 'secreto_cliente_auth', 
+            'credenciales_auth_user', 'credenciales_groq', 'notification_api_client', 
+            'notification_api_secret', 'modelo_ia'
+        ]
+
+        # Asegurar columnas en DF y llenar row
+        for f in fields:
+            # Buscar columna real en el DF original si existe (p.ej. ROL vs rol)
+            # Para simplificar, asumimos que columns ya son lower
+            if f not in df.columns:
+                df[f] = ""
+            new_row[f] = user_data.get(f, '')
+
+        # Defaults adicionales para evitar NaN
+        defaults = ['cod_val', 'cant_corr', 'uso_hoy', 'fecha_uso', 'proxima_renovacion', 
+                    'lectura_mail', 'lectura_tareas', 'lectura_etiquetas', 'registro_opti', 
+                    'analisis_doc', 'usos_analisis', 'fecha_analisis', 'sesion_calendar', 'notas']
+        
+        for d in defaults:
+            if d not in df.columns:
+                df[d] = ""
+            new_row[d] = ""
+        
+        # Convertir a DataFrame y concatenar
+        new_df = pd.DataFrame([new_row])
+        final_df = pd.concat([df, new_df], ignore_index=True)
+        
+        # Guardar
+        conn.update(spreadsheet=sheet_url, data=final_df)
+        
+        return True, f"Usuario '{new_user}' creado exitosamente."
+
+    except Exception as e:
+        return False, f"Error al crear usuario: {str(e)}"
+
 def check_and_update_doc_analysis_quota(username, requested_amount=0):
     """
     Gestiona la cuota diaria de ANALISIS DE DOCUMENTOS (PDF/IMG).
