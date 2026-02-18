@@ -308,8 +308,16 @@ def render_admin_panel():
                 if not new_user or not new_pass:
                     st.error("Usuario y Contraseña son obligatorios.")
                 else:
-                    # Construct Data Dict
-                    # Default huge blocks
+                    user_dict = {
+                        'user': new_user,
+                        'pass': new_pass,
+                        'rol': new_rol,
+                        'email_send': new_email,
+                        'sistema': new_sistema,
+                        'estado': new_estado,
+                        'pago': new_pago,
+                        'fecha_suscripcion': str(f_susc),
+                        'fecha_pago': str(f_pago),
                         # Defaults from Secrets or Empty
                         'clave_cuenta_servicio_admin': st.secrets.get("GCP_SERVICE_ACCOUNT", ""),
                         'id_cliente_auth': st.secrets.get("OAUTH_CLIENT_ID", ""),
