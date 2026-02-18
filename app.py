@@ -258,16 +258,6 @@ def card_metric(label, value, icon, subtext=""):
             <div style="color: #6b7280; font-size: 0.75rem; margin-top: 4px;">{subtext}</div>
         </div>
 
-    <div class="glass-panel" style="padding: 1.2rem; display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: start;">
-            <span style="color: #9cb6ba; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">{label}</span>
-            <span class="material-symbols-outlined" style="color: #0dd7f2;">{icon}</span>
-        </div>
-        <div style="margin-top: 1rem;">
-            <div style="color: white; font-size: 2rem; font-weight: 700; text-shadow: 0 0 15px rgba(13,215,242,0.2);">{value}</div>
-            <div style="color: #6b7280; font-size: 0.75rem; margin-top: 4px;">{subtext}</div>
-        </div>
-    </div>
     """, unsafe_allow_html=True)
 
 def render_admin_panel():
