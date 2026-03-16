@@ -327,11 +327,17 @@ def get_gmail_credentials():
             return None
 
         # Build Flow
-        flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob' 
+        if 'oauth_flow' not in st.session_state:
+            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+            flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+            auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
+            st.session_state.oauth_flow = flow
+            st.session_state.oauth_auth_url = auth_url
+        else:
+            flow = st.session_state.oauth_flow
+            auth_url = st.session_state.oauth_auth_url
 
         st.warning("⚠️ **Autenticación requerida** (Para leer tu correo)")
-        auth_url, _ = flow.authorization_url(prompt='consent')
         
         st.markdown(f"""
         1. [Haz clic aquí para autorizar en Google]({auth_url})
@@ -346,6 +352,12 @@ def get_gmail_credentials():
                 flow.fetch_token(code=code)
                 creds = flow.credentials
                 st.session_state.google_token = creds
+                
+                # Clean up flow from session state
+                if 'oauth_flow' in st.session_state:
+                    del st.session_state.oauth_flow
+                if 'oauth_auth_url' in st.session_state:
+                    del st.session_state.oauth_auth_url
                 
                 # --- AUTO SAVE TO SHEET ---
                 if 'license_key' in st.session_state:
@@ -1391,71 +1403,93 @@ def create_meeting_minutes_doc(title, data, raw_transcription=None):
         requests = []
         index = 1
 
-        # --- HELPER: INSERT WITH STYLE ---
+        # --- HELPER: INSERT WITH STYLE (ROBUST CHUNKING) ---
         def insert_styled(text, font_size=11, bold=False, align='START', color=None, bg_color=None, tab_stops=None, border_bottom=False):
             nonlocal index
-            text_len = len(text) + 1 # +1 for newline
+            if text is None: text = ""
+            if not isinstance(text, str):
+                text = str(text)
             
-            # 1. Insert Text
-            requests.append({
-                'insertText': {'location': {'index': index}, 'text': text + "\n"}
-            })
-
-            # 2. Text Style (Font, Bold, Color)
-            text_style = {'fontSize': {'magnitude': font_size, 'unit': 'PT'}, 'bold': bold}
-            fields = 'fontSize,bold'
-            if color:
-                text_style['foregroundColor'] = {'color': {'rgbColor': color}}
-                fields += ',foregroundColor'
-            if bg_color:
-                text_style['backgroundColor'] = {'color': {'rgbColor': bg_color}}
-                fields += ',backgroundColor'
-
-            requests.append({
-                'updateTextStyle': {
-                    'range': {'startIndex': index, 'endIndex': index + len(text)}, # Don't style newline if possible
-                    'textStyle': text_style,
-                    'fields': fields
-                }
-            })
-
-            # 3. Paragraph Style (Align, Tabs, Borders, Shading)
-            p_style = {'alignment': align}
-            p_fields = 'alignment'
+            # Use smaller chunks for extreme safety (10k chars)
+            CHUNK_SIZE_LIMIT = 10000
+            text_lines = text.split('\n')
             
-            # tabStops is read-only in ParagraphStyle, so we cannot set it here.
-            # Shading structure is complex and prone to errors; removing to ensure stability.
-            
-            if border_bottom:
-                p_style['borderBottom'] = {
-                    'width': {'magnitude': 1.0, 'unit': 'PT'}, 
-                    'padding': {'magnitude': 0.0, 'unit': 'PT'},
-                    'dashStyle': 'SOLID', 
-                    'color': {'color': {'rgbColor': {'red': 0.0, 'green': 0.2, 'blue': 0.4}}} # Changed to Navy for specific styling
-                }
-                p_fields += ',borderBottom'
+            for line_idx, raw_line in enumerate(text_lines):
+                # Ensure each line is managed (it might be empty)
+                line = raw_line or " "
+                
+                # Split extremely long lines if they exist
+                line_chunks = [line[i:i+CHUNK_SIZE_LIMIT] for i in range(0, len(line), CHUNK_SIZE_LIMIT)]
+                
+                for chunk_idx, chunk in enumerate(line_chunks):
+                    # Only add newline if it was originally there or it's the end of our artificial split
+                    is_last_chunk_of_line = (chunk_idx == len(line_chunks) - 1)
+                    is_last_line = (line_idx == len(text_lines) - 1)
+                    
+                    # We add a newline for EVERY original line except maybe the very last one? 
+                    # Google Docs insertText at index 1 usually wants a newline to handle paragraph styles properly.
+                    current_text = chunk
+                    if is_last_chunk_of_line and not is_last_line:
+                        current_text += "\n"
+                    elif is_last_chunk_of_line and is_last_line:
+                        current_text += "\n" # Add terminal newline
+                    
+                    curr_len = len(current_text)
+                    requests.append({
+                        'insertText': {'location': {'index': index}, 'text': current_text}
+                    })
+                    
+                    # Apply Character Styles
+                    text_style = {'fontSize': {'magnitude': font_size, 'unit': 'PT'}, 'bold': bold}
+                    fields = 'fontSize,bold'
+                    if color:
+                        text_style['foregroundColor'] = {'color': {'rgbColor': color}}
+                        fields += ',foregroundColor'
+                    if bg_color:
+                        text_style['backgroundColor'] = {'color': {'rgbColor': bg_color}}
+                        fields += ',backgroundColor'
 
-            requests.append({
-                'updateParagraphStyle': {
-                    'range': {'startIndex': index, 'endIndex': index + text_len},
-                    'paragraphStyle': p_style,
-                    'fields': p_fields
-                }
-            })
-            
-            index += text_len
+                    requests.append({
+                        'updateTextStyle': {
+                            'range': {'startIndex': index, 'endIndex': index + len(chunk)},
+                            'textStyle': text_style,
+                            'fields': fields
+                        }
+                    })
+
+                    # Apply Paragraph Styles (only if we have a newline or it's the end of a line)
+                    if "\n" in current_text:
+                        p_style = {'alignment': align}
+                        p_fields = 'alignment'
+                        if border_bottom:
+                            # Borders are expensive in batch, only add if requested
+                            p_style['borderBottom'] = {
+                                'width': {'magnitude': 1.0, 'unit': 'PT'}, 
+                                'padding': {'magnitude': 1.0, 'unit': 'PT'},
+                                'dashStyle': 'SOLID', 
+                                'color': {'color': {'rgbColor': NAVY}}
+                            }
+                            p_fields += ',borderBottom'
+                        
+                        requests.append({
+                            'updateParagraphStyle': {
+                                'range': {'startIndex': index, 'endIndex': index + curr_len},
+                                'paragraphStyle': p_style,
+                                'fields': p_fields
+                            }
+                        })
+
+                    index += curr_len
 
         # COLORS
-        NAVY = {'red': 0.0, 'green': 0.2, 'blue': 0.4} # #003366
-        CYAN_PALE = {'red': 0.88, 'green': 0.97, 'blue': 1.0} # #E0F7FA
+        NAVY = {'red': 0.0, 'green': 0.2, 'blue': 0.4} 
+        CYAN_PALE = {'red': 0.88, 'green': 0.97, 'blue': 1.0} 
         GRAY_TEXT = {'red': 0.4, 'green': 0.4, 'blue': 0.4}
 
         # --- CONTENT GENERATION ---
-
-        # 1. HEADER LOGO/TITLE
         insert_styled("ACTA DE REUNIÓN", font_size=20, bold=True, align='CENTER', color=NAVY)
         insert_styled(f"{data.get('asunto', 'Comité / Reunión General')}", font_size=14, bold=False, align='CENTER', color=GRAY_TEXT)
-        insert_styled(" ", font_size=6) # Spacer
+        insert_styled(" ", font_size=6) 
 
         # 2. INFO BAR (Styled Box)
         # Using tabs to separate label/value
@@ -1486,6 +1520,16 @@ def create_meeting_minutes_doc(title, data, raw_transcription=None):
         # DESARROLLO
         section_title("3. Desarrollo")
         desc = data.get('desarrollo', 'Sin desarrollo registrado.')
+        
+        # If development is a list/dict (AI being too organized), convert to professional string
+        if isinstance(desc, list):
+            desc = "\n\n".join([str(item) for item in desc])
+        elif isinstance(desc, dict):
+            new_desc = ""
+            for key, val in desc.items():
+                new_desc += f"{key.upper()}:\n{val}\n\n"
+            desc = new_desc.strip()
+            
         insert_styled(desc, font_size=10, align='JUSTIFIED')
         insert_styled(" ", font_size=10)
 
@@ -1543,7 +1587,29 @@ def create_meeting_minutes_doc(title, data, raw_transcription=None):
         insert_styled(sig_line, align='CENTER', font_size=10)
         insert_styled(sig_text, align='CENTER', font_size=9, bold=True)
 
-        service.documents().batchUpdate(documentId=doc_id, body={'requests': requests}).execute()
+        # --- BATCH EXECUTION (SPLIT TO AVOID PAYLOAD LIMITS + RETRY LOGIC) ---
+        # Execute in chunks of 25 requests to avoid SSL/Timeout issues with massive docs
+        CHUNK_SIZE = 25
+        import time
+        
+        for i in range(0, len(requests), CHUNK_SIZE):
+            chunk = requests[i:i + CHUNK_SIZE]
+            
+            # Retry mechanism for each batch chunk
+            last_error = None
+            for attempt in range(3):
+                try:
+                    service.documents().batchUpdate(documentId=doc_id, body={'requests': chunk}).execute()
+                    break # Success
+                except Exception as batch_err:
+                    last_error = batch_err
+                    time.sleep(1) # Wait a bit before retry
+                    continue
+            else:
+                # If we exhausted retries for a chunk
+                print(f"Failed to execute batch chunk at offset {i} after 3 attempts: {last_error}")
+                # We continue to try next chunks so user gets at least part of the doc
+
         return f"https://docs.google.com/document/d/{doc_id}/edit", None
 
     except Exception as e:

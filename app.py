@@ -48,6 +48,12 @@ import modules.auth as auth
 import modules.notifications as notif
 import modules.chat_view as chat_view # NEW CHAT MODULE
 import modules.notes_view as notes_view # NEW NOTES MODULE
+import modules.ai_core as ai_core
+import modules.google_services as google_services
+import importlib
+importlib.reload(notes_view)
+importlib.reload(ai_core)
+importlib.reload(google_services)
 
 from modules.google_services import (
     get_calendar_service, get_tasks_service, get_sheets_service, get_gmail_credentials,
@@ -380,7 +386,7 @@ def render_login_page():
         with st.form("login"):
             u = st.text_input("Usuario", placeholder="admin")
             p = st.text_input("Contraseña", type="password", placeholder="••••••")
-            if st.form_submit_button("Autenticar", type="primary", width="stretch"):
+            if st.form_submit_button("Autenticar", type="primary", use_container_width=True):
                 valid, data = auth.login_user(u, p)
                 if valid:
                     st.session_state.authenticated = True
@@ -531,7 +537,7 @@ def view_dashboard():
         # Botón con estado dinámico
         button_label = "🔄 Regenerar Resumen" if cache_valid else "🎧 Generar Resumen de Voz"
 
-        if st.button(button_label, width="stretch", type="primary", key="btn_briefing"):
+        if st.button(button_label, use_container_width=True, type="primary", key="btn_briefing"):
             with st.spinner("🧠 Creando tu resumen personalizado..."):
                 from modules.ai_core import generate_daily_briefing
                 from modules.tts_service import text_to_speech
@@ -756,7 +762,7 @@ def view_dashboard():
                     margin=dict(l=10, r=10, t=10, b=10),
                     height=300
                 )
-                st.plotly_chart(fig, width="stretch", key="timeline_chart")
+                st.plotly_chart(fig, use_container_width=True, key="timeline_chart")
             else:
                 st.info("No hay eventos en la línea de tiempo.")
 
@@ -773,7 +779,7 @@ def view_dashboard():
                     df_ev_counts = df_ev.groupby('Color').count().reset_index()
                     fig_pie = px.pie(df_ev_counts, values='Count', names='Color', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
                     fig_pie.update_layout(height=250, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_pie, width="stretch", key="events_pie")
+                    st.plotly_chart(fig_pie, use_container_width=True, key="events_pie")
             else:
                 st.caption("Sin datos de eventos.")
 
@@ -792,7 +798,7 @@ def view_dashboard():
                 df_tasks = pd.DataFrame([{'Type': 'Pendientes', 'Count': total_t}, {'Type': 'Completadas (Hoy)', 'Count': 0}]) # API limitation
                 fig_bar = px.bar(df_tasks, x='Type', y='Count', color='Type', color_discrete_sequence=['#ef4444', '#22c55e'])
                 fig_bar.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor='rgba(0,0,0,0)', showlegend=False)
-                st.plotly_chart(fig_bar, width="stretch", key="tasks_bar")
+                st.plotly_chart(fig_bar, use_container_width=True, key="tasks_bar")
             else:
                 st.caption("Sin datos de tareas.")
 
@@ -830,7 +836,7 @@ def view_dashboard():
                     table_data.append({"Hora": time_str, "Evento": summ, "Duración": dur_str})
 
                 df_detail = pd.DataFrame(table_data)
-                st.dataframe(df_detail, width="stretch", hide_index=True)
+                st.dataframe(df_detail, use_container_width=True, hide_index=True)
             else:
                 st.info("Agenda libre.")
 
@@ -855,7 +861,7 @@ def view_dashboard():
                 fig_load.update_layout(height=200, margin=dict(l=0, r=0, t=0, b=0), 
                                      paper_bgcolor='rgba(0,0,0,0)', showlegend=False,
                                      xaxis=dict(showgrid=False), yaxis=dict(showticklabels=False))
-                st.plotly_chart(fig_load, width="stretch", key="load_chart")
+                st.plotly_chart(fig_load, use_container_width=True, key="load_chart")
             else:
                 st.caption("Sin datos de carga.")
 
@@ -894,7 +900,7 @@ def view_dashboard():
                     button_key = f"enrich_{event_id}_{idx}"
                     button_label = "🔄 Actualizar" if '🕵️ CONTEXTO' in event_desc else "🔍 Buscar Contexto"
 
-                    if st.button(button_label, key=button_key, width="stretch"):
+                    if st.button(button_label, key=button_key, use_container_width=True):
                         with st.spinner("🌐 Buscando información en la web..."):
                             from modules.web_search import enrich_event_with_free_context
 
@@ -1500,7 +1506,7 @@ def view_planner():
         #     except Exception as e:
         #         st.error(f"Error leyendo archivo: {e}")
 
-        if st.button("Desglosar", type="primary", width="stretch"):
+        if st.button("Desglosar", type="primary", use_container_width=True):
             if selected_proj:
                 with st.spinner("Generando Roadmap..."):
                     # Parse Title and Date from string "Title | Date"
@@ -3021,7 +3027,7 @@ def view_account():
         new_pass = st.text_input("Nueva Contraseña", type="password", placeholder="Mínimo 6 caracteres")
         confirm_pass = st.text_input("Confirmar Nueva Contraseña", type="password", placeholder="••••••")
 
-        submitted = st.form_submit_button("Cambiar Contraseña", type="primary", width="stretch")
+        submitted = st.form_submit_button("Cambiar Contraseña", type="primary", use_container_width=True)
 
         if submitted:
             # Validations
@@ -3073,7 +3079,7 @@ def view_time_insights():
     st.markdown("🕵️ Analizamos los últimos 7 días de tu calendario para identificar oportunidades de optimización.")
     st.divider()
 
-    if st.button("🔍 Analizar Última Semana", width="stretch", type="primary"):
+    if st.button("🔍 Analizar Última Semana", use_container_width=True, type="primary"):
         with st.spinner("📊 Analizando 7 días de calendario..."):
             # Obtener eventos de últimos 7 días
             cal_svc = get_calendar_service()
@@ -3160,7 +3166,7 @@ def view_time_insights():
                     plot_bgcolor='rgba(0,0,0,0)',
                     font=dict(color='#FAFAFA')
                 )
-                st.plotly_chart(fig_pie, width="stretch")
+                st.plotly_chart(fig_pie, use_container_width=True)
 
             with col_bar:
                 st.markdown("**Comparativa**")
@@ -3181,7 +3187,7 @@ def view_time_insights():
                     plot_bgcolor='rgba(0,0,0,0)',
                     font=dict(color='#FAFAFA')
                 )
-                st.plotly_chart(fig_bar, width="stretch")
+                st.plotly_chart(fig_bar, use_container_width=True)
 
             st.divider()
 
@@ -3427,7 +3433,7 @@ def main_app():
                 st.rerun()
 
         st.markdown("<br><br>", unsafe_allow_html=True)
-        if st.button("🔐 Cerrar Sesión App", key="btn_logout_sidebar", width="stretch"):
+        if st.button("🔐 Cerrar Sesión App", key="btn_logout_sidebar", use_container_width=True):
             # IMPORTANTE: NO borrar COD_VAL (token Google OAuth)
             # El token debe persistir en Google Sheets para evitar re-autenticación
             # Solo se borra si el usuario hace clic en "Cambiar Cuenta / Salir"

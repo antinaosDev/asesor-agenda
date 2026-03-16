@@ -16,34 +16,91 @@ def _get_groq_client():
 
 def transcribe_audio_groq(audio_file):
     """
-    Transcribe audio usando Groq Whisper (Whisper-large-v3).
-    Soporta input directo de st.audio_input (UploadedFile).
+    Transcribe audio usando Groq Whisper. SOPORTA ARCHIVOS LARGOS (>25MB) mediante chunking con pydub.
     """
     client = _get_groq_client()
     import tempfile
     import os
+    
+    # Intentar importar pydub. Fallback si no está instalado.
     try:
-        # Streamlit UploadedFile -> BytesIO
-        # Groq client espera un archivo con nombre para detectar formato
-        # Create a temporary file to write the audio content
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
-            tmp_file.write(audio_file.getvalue())
+        from pydub import AudioSegment
+        import math
+        # Hardcode FFMPEG/FFPROBE paths since they're not in the system PATH of the running Streamlit process
+        ffmpeg_bin_dir = r"C:\Users\alain\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0.1-full_build\bin"
+        AudioSegment.converter = fr"{ffmpeg_bin_dir}\ffmpeg.exe"
+        AudioSegment.ffmpeg = fr"{ffmpeg_bin_dir}\ffmpeg.exe"
+        
+        # Pydub also requires ffprobe to read files
+        import pydub.utils
+        pydub.utils.get_prober_name = lambda: fr"{ffmpeg_bin_dir}\ffprobe.exe"
+    except ImportError:
+        AudioSegment = None
+        st.warning("Dependencia 'pydub' o 'ffmpeg' no encontrada. La app intentará transcribir sin dividir el archivo (puede fallar para archivos >25MB).")
+
+    try:
+        file_bytes = audio_file.getvalue()
+        file_size_mb = len(file_bytes) / (1024 * 1024)
+        MAX_MB = 23.0 # Límite seguro < 25MB de Groq
+
+        # Identificar la extensión original o default .m4a
+        orig_name = getattr(audio_file, 'name', 'audio.m4a')
+        ext = os.path.splitext(orig_name)[1].lower() if '.' in orig_name else '.m4a'
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
+            tmp_file.write(file_bytes)
             tmp_path = tmp_file.name
 
-        # Now open the temporary file to pass it to the Groq client
-        with open(tmp_path, "rb") as file:
-            transcription = client.audio.transcriptions.create(
-                file=(tmp_path, file.read()), # Send tuple (filename, bytes) or just file object
-                model="whisper-large-v3-turbo", # Optimized for speed and cost ($0.04/hr)
-                response_format="json",
-                language="es", # Force Spanish for better results in this context
-                temperature=0.0
-            )
-        
-        # Clean up the temporary file
-        os.remove(tmp_path)
+        full_transcription = ""
 
-        return transcription.text
+        if file_size_mb > MAX_MB and AudioSegment:
+            with st.spinner(f"El archivo es grande ({file_size_mb:.1f}MB). Preparando fragmentación de audio..."):
+                try:
+                    audio = AudioSegment.from_file(tmp_path)
+                    
+                    # Estimate duration based on size ratio (rough approximation for chunking)
+                    # 23MB is roughly X ms depending on bitrate. Let's just chunk by a safe time limit.
+                    # Whisper max is roughly 25MB. A safe chunk size is 10-15 minutos (600,000 - 900,000 ms)
+                    chunk_length_ms = 10 * 60 * 1000 # 10 minutos
+                    
+                    chunks = [audio[i:i+chunk_length_ms] for i in range(0, len(audio), chunk_length_ms)]
+                    
+                    st.info(f"Dividido en {len(chunks)} partes para procesamiento.")
+                    
+                    for i, chunk in enumerate(chunks):
+                        with st.spinner(f"Transcribiendo parte {i+1} de {len(chunks)}..."):
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as chunk_file:
+                                chunk.export(chunk_file.name, format="mp3", parameters=["-q:a", "5"]) # compress slightly
+                                chunk_path = chunk_file.name
+                            
+                            with open(chunk_path, "rb") as c_file:
+                                res = client.audio.transcriptions.create(
+                                    file=(f"chunk_{i}.mp3", c_file.read()),
+                                    model="whisper-large-v3-turbo",
+                                    response_format="json",
+                                    language="es",
+                                    temperature=0.0
+                                )
+                                full_transcription += res.text + " "
+                            os.remove(chunk_path)
+                except Exception as chunk_err:
+                     st.error(f"Error procesando audio grande: {chunk_err}. Verifica que FFMPEG esté instalado en tu sistema Windows.")
+                     return f"Error en fragmentación: {chunk_err}"
+        else:
+            # Archivo pequeño, directo a Groq
+            with open(tmp_path, "rb") as file:
+                transcription = client.audio.transcriptions.create(
+                    file=(orig_name, file.read()),
+                    model="whisper-large-v3-turbo",
+                    response_format="json",
+                    language="es",
+                    temperature=0.0
+                )
+            full_transcription = transcription.text
+
+        os.remove(tmp_path)
+        return full_transcription.strip()
+        
     except Exception as e:
         return f"Error en transcripción: {str(e)}"
 
@@ -1276,76 +1333,47 @@ def generate_meeting_minutes_ai(content_text):
     curr_date = datetime.datetime.now().strftime("%d/%m/%Y")
         
     PROMPT_MEETING_MINUTES = f"""
-    Eres un Secretario Técnico experto en Gestión de Salud y Documentación Institucional (Norma Técnica Chilena).
-    Tu tarea es PROCESAR la información de una reunión y REDACTAR UN ACTA FORMAL, EXHAUSTIVA Y PROFESIONAL.
+    Eres un Secretario Ejecutivo Senior experto en Redacción Jurídica e Institucional de Alta Precisión.
+    Tu misión es procesar una transcripción extensa y redactar un ACTA DE REUNIÓN DEFINITIVA que no pierda NINGÚN detalle relevante.
+    
+    ⚠️ MANDATO DE VOLUMEN Y DETALLE:
+    - Esta es una reunión larga (18 páginas). El campo "desarrollo" DEBE ser masivo.
+    - Prohibido resumir en párrafos genéricos. 
+    - Por cada punto de la tabla, debes redactar una crónica detallada: quién propuso qué, qué cifras se dieron, qué dudas surgieron y cómo se resolvieron.
+    - Si la transcripción tiene 18 páginas de contenido, el acta debe reflejar esa riqueza de información, no reducirla a 1 párrafo.
 
-    INPUT (Transcripción/Notas de la reunión):
+    INPUT (Transcripción):
     "{content_text}"
 
     FECHA REAL: {curr_date}
 
-    OBJETIVO:
-    Generar un ACTA DE REUNIÓN INSTITUCIONAL completa en formato JSON estructurado.
-    
-    ⚠️ INSTRUCCIONES CRÍTICAS - PROCESAMIENTO INTELIGENTE:
-    
-    1. NO RESUMAS: El acta debe abordar TODA la información relevante, esencial y los detalles importantes.
-    2. NO TRANSCRIBAS LITERALMENTE: Procesa y redacta de forma formal y coherente, no copies el texto tal cual.
-    3. PROCESA EXHAUSTIVAMENTE: Transforma el contenido informal/coloquial en redacción técnica y profesional.
-    4. CAPTURA TODO LO RELEVANTE:
-       - Todos los temas discutidos con su desarrollo completo
-       - Argumentos, propuestas, objeciones y resoluciones
-       - Datos, cifras, fechas, plazos y métricas mencionadas
-       - Intervenciones significativas de los participantes
-       - Contexto y antecedentes de cada tema
-       - Conclusiones y decisiones tomadas
-    
-    REGLAS DE REDACCIÓN FORMAL:
-    1. TIEMPO VERBAL: Pasado impersonal ("se acordó", "se analizó", "se determinó", "se expuso", "se planteó").
-    2. TONO: Técnico, objetivo, impersonal y formal. Sin juicios de valor ni lenguaje coloquial.
-    3. ESTRUCTURA DEL DESARROLLO (Campo más importante del acta):
-       - El "desarrollo" debe ser un TEXTO NARRATIVO EXTENSO Y FORMAL.
-       - Organizar por TEMAS/PUNTOS tratados, cada uno en su propio párrafo o sección.
-       - Para CADA tema incluir: antecedentes, análisis realizado, posiciones expresadas, datos relevantes, y conclusiones.
-       - Redactar en prosa técnica formal, NO en viñetas ni listas.
-       - Incluir referencias a quién expresó qué cuando sea relevante ("El/La [cargo] indicó que...").
-       - Este campo debe ser tan extenso como sea necesario para documentar TODO el contenido de la reunión.
-    4. ACUERDOS Y COMPROMISOS:
-       - Extraer TODOS los compromisos, explícitos o implícitos.
-       - Redacción clara y específica de cada acuerdo.
-       - Incluir responsable(s) y plazo (si no hay, indicar "Por definir").
-    5. ASISTENTES:
-       - Listar nombres y cargos mencionados.
-       - Si no están claros, indicar "Completar manualmente".
+    ESTRUCTURA DEL CONTENIDO (JSON):
+    1. "asunto": Título institucional jerárquico.
+    2. "asistentes": Lista completa con cargos.
+    3. "tabla_puntos": Índice de temas tratados.
+    4. "desarrollo": [CRÍTICO] Narrativa extensa dividida por temas. IMPORTANTE: Este campo debe ser UN ÚNICO STRING LARGO de texto narrativo formal, NO un objeto ni una lista. Cada tema debe tener:
+       - Contexto Inicial: Por qué se trata el tema.
+       - Discusión Granular: Crónica de las intervenciones, datos técnicos presentados y debates.
+       - Acciones: Qué se decidió específicamente.
+    5. "acuerdos": Lista exhaustiva de compromisos.
 
-    FORMATO JSON ESPERADO:
-    {{
-      "asunto": "Título formal y descriptivo del tema principal de la reunión",
-      "fecha": "DD/MM/AAAA",
-      "hora_inicio": "HH:MM",
-      "hora_termino": "HH:MM",
-      "lugar": "Sala/Plataforma Virtual",
-      "asistentes": ["Nombre - Cargo", "Nombre - Cargo"],
-      "tabla_puntos": ["Punto 1 tratado", "Punto 2 tratado", "Punto 3 tratado"],
-      "desarrollo": "TEXTO NARRATIVO FORMAL Y EXTENSO. Redactar en prosa técnica profesional, organizado por temas. Desarrollar cada punto exhaustivamente: antecedentes presentados, análisis efectuado, intervenciones relevantes, datos y cifras discutidos, propuestas planteadas, objeciones formuladas, y resoluciones adoptadas. Cada tema debe ocupar uno o más párrafos completos. El objetivo es que cualquier persona que lea el acta comprenda TODO lo que se discutió y decidió en la reunión, sin necesidad de haber asistido.",
-      "acuerdos": [
-        {{"descripcion": "Descripción formal y completa del compromiso, incluyendo alcance y contexto", "responsable": "Nombre/Cargo", "plazo": "DD/MM/AAAA o 'Por definir'"}},
-        {{"descripcion": "Segundo acuerdo con todos sus detalles", "responsable": "Nombre/Cargo", "plazo": "DD/MM/AAAA"}}
-      ],
-      "proxima_reunion": "DD/MM/AAAA HH:MM o 'Por definir'"
-    }}
-    
-    RECUERDA: El acta debe ser un documento FORMAL, EXHAUSTIVO y PROFESIONAL. Procesa la información de manera inteligente para generar un registro institucional completo y de alta calidad.
+    REGLAS DE ORO:
+    - Usa lenguaje técnico-administrativo formal (pasado impersonal).
+    - Si se mencionan nombres de leyes, artículos, montos de dinero o plazos, DEBEN figurar en el acta.
+    - El resultado debe ser un documento que permita a alguien que no asistió entender la PROFUNDIDAD de la discusión.
+
+    RESPONDE EXCLUSIVAMENTE EN FORMATO JSON.
     """
     
     try:
         completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": PROMPT_MEETING_MINUTES}
+                {"role": "system", "content": PROMPT_MEETING_MINUTES},
+                {"role": "user", "content": "Genera el acta exhaustiva ahora."}
             ],
             model="llama-3.3-70b-versatile",
-            temperature=0.1,
-            max_tokens=8000,
+            temperature=0.2,
+            max_tokens=12000, 
             response_format={"type": "json_object"}
         )
         msg_content = completion.choices[0].message.content

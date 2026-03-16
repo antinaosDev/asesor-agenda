@@ -77,10 +77,10 @@ def view_notes_page():
         
         # --- GENERADOR DE ACTAS MODE (RENAMED) ---
         if "Actas" in mode:
-            st.info("Generador de Actas: Transforma notas o grabaciones en vivo en documentos formales.")
+            st.info("Generador de Actas: Transforma notas o archivos de audio en documentos formales.")
             acta_title = st.text_input("Título de la Reunión (Opcional)", placeholder="Ej: Comité de Calidad - Agosto")
             
-            tab_text, tab_audio = st.tabs(["📝 Texto / Pegar Acta", "🎙️ Grabación en Vivo (Beta)"])
+            tab_text, tab_audio = st.tabs(["📝 Texto / Pegar Acta", "🎙️ Subir Audio"])
             
             with tab_text:
                 acta_content = st.text_area("Contenido / Transcripción:", height=300, key="acta_text_input", placeholder="Pega aquí los apuntes brutos o la transcripción...")
@@ -115,19 +115,19 @@ def view_notes_page():
                         st.warning("El contenido está vacío.")
 
             with tab_audio:
-                st.warning("⚠️ Nota: La grabación se guarda en la memoria del navegador. Si cierras la pestaña, se pierde. Para reuniones de >3 horas, asegúrate de tener suficiente RAM.")
+                st.info("🎙️ Sube un archivo de audio para transcribir y generar el acta.")
                 
-                # NEW: LIVE RECORDING INPUT
-                audio_value = st.audio_input("Grabar reunión ahora")
+                # Input methods: File Upload only (removed live recording per user request)
+                audio_to_process = st.file_uploader("Sube tu archivo (MP3, WAV, M4A, OGG, FLAC)", type=["mp3", "wav", "m4a", "ogg", "flac"])
                 
-                if audio_value is not None:
+                if audio_to_process is not None:
                     # Show player for review
-                    st.audio(audio_value)
+                    st.audio(audio_to_process)
                     
                     if st.button("🎙️ Transcribir y Generar Acta", use_container_width=True, key="btn_gen_acta_audio"):
-                         with st.spinner("🎧 Transcribiendo audio (esto puede demorar)..."):
-                             # 1. Transcribe (works with file-like object from audio_input)
-                             transcription = ai_core.transcribe_audio_groq(audio_value)
+                         with st.spinner("🎧 Transcribiendo audio (esto puede demorar dependiendo del tamaño)..."):
+                             # 1. Transcribe (works with file-like object from st.file_uploader)
+                             transcription = ai_core.transcribe_audio_groq(audio_to_process)
                              
                              if transcription and "Error" not in transcription:
                                  st.success("✅ Transcripción completada.")
@@ -138,25 +138,39 @@ def view_notes_page():
                                      # 2. AI Structuring
                                      struct_data = ai_core.generate_meeting_minutes_ai(transcription)
                                      
-                                     # 3. Doc Generation
-                                     final_title = acta_title if acta_title else f"Acta_Audio_{datetime.datetime.now().strftime('%Y%m%d')}"
-                                     doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data, transcription)
+                                     # Verify that struct_data is a valid dictionary
+                                     if isinstance(struct_data, str):
+                                         try:
+                                             import json
+                                             struct_data = json.loads(struct_data)
+                                         except:
+                                             st.error("Error: La IA no generó un formato válido de acta. Inténtalo de nuevo.")
+                                             struct_data = {"error": "Invalid output format"}
                                      
-                                     if doc_url:
-                                         st.success("✅ Acta creada exitosamente!")
-                                         st.markdown(f"### [📂 Abrir Documento en Google Docs]({doc_url})")
-                                         st.balloons()
+                                     if isinstance(struct_data, dict) and struct_data.get("error"):
+                                         st.error(f"Error AI: {struct_data['error']}")
+                                     elif not isinstance(struct_data, dict):
+                                         st.error("Error: La respuesta de la IA no es un objeto válido.")
                                      else:
-                                         st.error(f"Error creando documento: {error_msg}")
-                                         if "403" in str(error_msg) or "permission" in str(error_msg).lower():
-                                            st.warning("⚠️ Parece que faltan permisos para Google Docs.")
-                                            if st.button("🔄 Actualizar Permisos (Re-conectar)", key="fix_perms_audio"):
-                                                st.session_state.logout_google = True
-                                                if 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
-                                                    del st.session_state.user_data_full['cod_val']
-                                                if 'docs_service' in st.session_state:
-                                                    del st.session_state.docs_service
-                                                st.rerun()
+                                         # 3. Doc Generation
+                                         final_title = acta_title if acta_title else f"Acta_Audio_{datetime.datetime.now().strftime('%Y%m%d')}"
+                                         doc_url, error_msg = google_services.create_meeting_minutes_doc(final_title, struct_data, transcription)
+                                         
+                                         if doc_url:
+                                             st.success("✅ Acta creada exitosamente!")
+                                             st.markdown(f"### [📂 Abrir Documento en Google Docs]({doc_url})")
+                                             st.balloons()
+                                         else:
+                                             st.error(f"Error creando documento: {error_msg}")
+                                             if "403" in str(error_msg) or "permission" in str(error_msg).lower():
+                                                st.warning("⚠️ Parece que faltan permisos para Google Docs.")
+                                                if st.button("🔄 Actualizar Permisos (Re-conectar)", key="fix_perms_audio"):
+                                                    st.session_state.logout_google = True
+                                                    if 'user_data_full' in st.session_state and 'cod_val' in st.session_state.user_data_full:
+                                                        del st.session_state.user_data_full['cod_val']
+                                                    if 'docs_service' in st.session_state:
+                                                        del st.session_state.docs_service
+                                                    st.rerun()
                              else:
                                  st.error(f"Falló la transcripción: {transcription}")
 
