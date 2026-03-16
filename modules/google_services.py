@@ -920,36 +920,39 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
         # Ensure strings
         if not isinstance(start_time, str): start_time = start_time.isoformat()
         
-        # Auto-calculate end_time if missing (Default: 1 hour)
-        if not end_time:
-             try:
-                 import datetime as dt
-                 # Parse start_time to add delta
-                 if 'T' in start_time:
-                     s_dt = dt.datetime.fromisoformat(start_time)
-                     e_dt = s_dt + dt.timedelta(hours=1)
-                     end_time = e_dt.isoformat()
-                 else:
-                     # Fallback for date-only strings (though less common for specific times)
-                     end_time = start_time 
-             except:
-                 return False, "Error calculando fecha fin automática."
+        import datetime as dt
+        is_all_day = 'T' not in start_time if isinstance(start_time, str) else False
         
-        if not isinstance(end_time, str): end_time = end_time.isoformat()
-
         event_body = {
             'summary': summary,
-            'start': {'dateTime': start_time, 'timeZone': 'America/Santiago'}, 
-            'end': {'dateTime': end_time, 'timeZone': 'America/Santiago'},
             'description': description,
             'reminders': {
                 'useDefault': False,
                 'overrides': [
                     {'method': 'popup', 'minutes': 30},
-                    {'method': 'popup', 'minutes': 1440} # 24 hours
+                    {'method': 'popup', 'minutes': 1440}
                 ]
             }
         }
+        
+        if is_all_day:
+            try:
+                format_start = start_time[:10] if isinstance(start_time, str) else start_time.strftime('%Y-%m-%d')
+                s_d = dt.date.fromisoformat(format_start)
+                e_d = s_d + dt.timedelta(days=1)
+                event_body['start'] = {'date': format_start}
+                event_body['end'] = {'date': e_d.isoformat()}
+                end_time = e_d.isoformat() # Consistency
+            except: pass
+        else:
+            if start_time == end_time or not end_time:
+                try:
+                    s_dt = dt.datetime.fromisoformat(start_time.replace('Z', '+00:00') if 'Z' in start_time else start_time)
+                    end_time = (s_dt + dt.timedelta(hours=1)).isoformat()
+                except: pass
+                
+            event_body['start'] = {'dateTime': start_time, 'timeZone': 'America/Santiago'}
+            event_body['end'] = {'dateTime': end_time, 'timeZone': 'America/Santiago'}
         
 
         
