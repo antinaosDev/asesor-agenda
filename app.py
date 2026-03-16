@@ -351,6 +351,14 @@ def render_admin_panel():
 
 
 # === FORCED INSERTION OF MISSING FUNCTION ===
+@st.cache_data
+def load_logo_bytes():
+    try:
+        with open("logo_agent.png", "rb") as f:
+            return f.read()
+    except:
+        return None
+
 def render_login_page():
     # Minimal Login Page
     st.markdown("""
@@ -371,9 +379,10 @@ def render_login_page():
     c1, c2, c3 = st.columns([1, 1.2, 1])
     with c2:
         st.markdown('<br>', unsafe_allow_html=True)
-        try:
-            st.image("logo_agent.png", width=150)
-        except:
+        img_bytes = load_logo_bytes()
+        if img_bytes:
+            st.image(img_bytes, width=150)
+        else:
             st.markdown("<h1 style='text-align: center;'>🗓️</h1>", unsafe_allow_html=True)
 
         st.markdown("""
