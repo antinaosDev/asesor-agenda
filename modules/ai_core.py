@@ -1338,35 +1338,47 @@ def generate_meeting_minutes_ai(content_text):
         
     PROMPT_MEETING_MINUTES = f"""
     Eres un Secretario Ejecutivo Senior experto en Redacción Jurídica e Institucional de Alta Precisión.
-    Tu misión es procesar una transcripción extensa y redactar un ACTA DE REUNIÓN DEFINITIVA que no pierda NINGÚN detalle relevante.
+    Tu misión es procesar una transcripción extensa y redactar un ACTA DE REUNIÓN DEFINITIVA, con un nivel de detalle EXTREMO, sin omitir ninguna declaración, debate o propuesta.
     
-    ⚠️ MANDATO DE VOLUMEN Y DETALLE:
-    - Esta es una reunión larga (18 páginas). El campo "desarrollo" DEBE ser masivo.
-    - Prohibido resumir en párrafos genéricos. 
-    - Por cada punto de la tabla, debes redactar una crónica detallada: quién propuso qué, qué cifras se dieron, qué dudas surgieron y cómo se resolvieron.
-    - Si la transcripción tiene 18 páginas de contenido, el acta debe reflejar esa riqueza de información, no reducirla a 1 párrafo.
+    ⚠️ MANDATO ESTRICTO DE VOLUMEN Y EXTENSIÓN:
+    - EL DESARROLLO DEBE SER EXHAUSTIVO, MASIVO Y DETALLADO. ESTA ES LA REGLA MÁS IMPORTANTE.
+    - PROHIBIDO resumir todo en un solo párrafo genérico. 
+    - Por CADA TEMA tratado en la reunión, debes redactar una crónica profunda y descriptiva (múltiples párrafos) detallando exactamente quién dijo qué, cuáles fueron las posturas, cifras, plazos, discrepancias y resoluciones.
+    - No uses viñetas cortas para el desarrollo. Usa una narrativa progresiva y formal, como un transcriptor judicial analítico.
 
     INPUT (Transcripción):
     "{content_text}"
 
     FECHA REAL: {curr_date}
 
-    ESTRUCTURA DEL CONTENIDO (JSON):
-    1. "asunto": Título institucional jerárquico.
-    2. "asistentes": Lista completa con cargos.
-    3. "tabla_puntos": Índice de temas tratados.
-    4. "desarrollo": [CRÍTICO] Narrativa extensa dividida por temas. IMPORTANTE: Este campo debe ser UN ÚNICO STRING LARGO de texto narrativo formal, NO un objeto ni una lista. Cada tema debe tener:
-       - Contexto Inicial: Por qué se trata el tema.
-       - Discusión Granular: Crónica de las intervenciones, datos técnicos presentados y debates.
-       - Acciones: Qué se decidió específicamente.
-    5. "acuerdos": Lista exhaustiva de compromisos.
+    ESTRUCTURA DEL CONTENIDO (JSON OBLIGATORIO):
+    1. "asunto": "Título formal de la Reunión"
+    2. "fecha": "{curr_date}" (u otra si se menciona)
+    3. "hora_inicio": "HH:MM estimada"
+    4. "hora_termino": "HH:MM estimada"
+    5. "lugar": "Ubicación o plataforma"
+    6. "asistentes": ["Nombre 1 - Cargo", "Nombre 2 - Cargo"]
+    7. "tabla_puntos": ["1. Tema Uno", "2. Tema Dos", "3. Tema Tres"]
+    8. "desarrollo": [CRÍTICO] Un UNICO string formateado con dobles saltos de línea (\\n\\n) donde explayes CADA PUNTO de la tabla de forma EXTENSA.
+          Estructura requerida DENTRO del string 'desarrollo':
+          TEMA 1: [Nombre del Tema]
+          [Párrafo extenso sobre el contexto y la apertura del tema]
+          [Párrafo exhaustivo narrando las intervenciones, datos aportados y debates ocurridos]
+          [Párrafo final del tema con la conclusión o derivación]
+          \\n\\n
+          TEMA 2: [Nombre del Tema]
+          [Párrafo extenso...]
+          [etc.]
+    9. "acuerdos": [ 
+          {{"descripcion": "Detalle exacto de la acción acordada", "responsable": "Nombre de la persona", "plazo": "Fecha o plazo definido"}} 
+       ]
 
     REGLAS DE ORO:
-    - Usa lenguaje técnico-administrativo formal (pasado impersonal).
-    - Si se mencionan nombres de leyes, artículos, montos de dinero o plazos, DEBEN figurar en el acta.
-    - El resultado debe ser un documento que permita a alguien que no asistió entender la PROFUNDIDAD de la discusión.
+    - Usa lenguaje técnico-administrativo formal (pasado impersonal o tercera persona).
+    - Los acuerdos deben ser estrictamente una lista de diccionarios JSON con las claves exactas en minúscula ("descripcion", "responsable", "plazo").
+    - EL DESARROLLO ES LA PRIORIDAD MÁXIMA. Dedica el 80% de tu capacidad analítica a expandir el apartado 'desarrollo', sin escatimar palabras.
 
-    RESPONDE EXCLUSIVAMENTE EN FORMATO JSON.
+    RESPONDE EXCLUSIVAMENTE EN FORMATO JSON. NO agregues comillas invertidas ni markdown fuera del JSON.
     """
     
     try:
