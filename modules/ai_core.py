@@ -26,14 +26,18 @@ def transcribe_audio_groq(audio_file):
     try:
         from pydub import AudioSegment
         import math
-        # Hardcode FFMPEG/FFPROBE paths since they're not in the system PATH of the running Streamlit process
-        ffmpeg_bin_dir = r"C:\Users\alain\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0.1-full_build\bin"
-        AudioSegment.converter = fr"{ffmpeg_bin_dir}\ffmpeg.exe"
-        AudioSegment.ffmpeg = fr"{ffmpeg_bin_dir}\ffmpeg.exe"
+        import os
         
-        # Pydub also requires ffprobe to read files
-        import pydub.utils
-        pydub.utils.get_prober_name = lambda: fr"{ffmpeg_bin_dir}\ffprobe.exe"
+        if os.name == 'nt':
+            # Hardcode FFMPEG/FFPROBE paths since they're not in the system PATH of the running Streamlit process
+            ffmpeg_bin_dir = r"C:\Users\alain\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0.1-full_build\bin"
+            AudioSegment.converter = fr"{ffmpeg_bin_dir}\ffmpeg.exe"
+            AudioSegment.ffmpeg = fr"{ffmpeg_bin_dir}\ffmpeg.exe"
+            
+            # Pydub also requires ffprobe to read files
+            import pydub.utils
+            pydub.utils.get_prober_name = lambda: fr"{ffmpeg_bin_dir}\ffprobe.exe"
+
     except ImportError:
         AudioSegment = None
         st.warning("Dependencia 'pydub' o 'ffmpeg' no encontrada. La app intentará transcribir sin dividir el archivo (puede fallar para archivos >25MB).")
