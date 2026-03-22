@@ -23,3 +23,5 @@ duckduckgo-search
 lxml
 openpyxl
 pydub
+
+audioop-lts
