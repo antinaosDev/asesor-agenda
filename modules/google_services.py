@@ -1338,10 +1338,19 @@ def create_meeting_minutes_doc(title, data, raw_transcription=None):
     Creates a Google Doc with a Professional Corporate Format (Tables + Styling).
     Optionally appends raw transcription at the end as an annex.
     """
+    if isinstance(data, str):
+        try:
+            import json
+            data = json.loads(data)
+        except Exception:
+            data = {"asunto": "Acta AI", "desarrollo": data}
+
+    if not isinstance(data, dict):
+        data = {"asunto": "Acta Generada", "desarrollo": str(data)}
+        
     service = get_docs_service()
     if not service: return None, "No Docs Service available"
 
-    # 1. Create Doc
     # 1. Automatic Filename Generation (Smart Title)
     def _generate_smart_filename(subject, date_str):
         import unicodedata
@@ -1552,10 +1561,15 @@ def create_meeting_minutes_doc(title, data, raw_transcription=None):
         acuerdos = data.get('acuerdos', [])
         if acuerdos:
             for ac in acuerdos:
-                # Clean text to avoid tab breaking
-                d = ac.get('descripcion', '(-)').replace('\t', ' ')
-                r = ac.get('responsable', '(-)').replace('\t', ' ')
-                p = ac.get('plazo', '(-)').replace('\t', ' ')
+                if isinstance(ac, str):
+                    d = ac.replace('\t', ' ')
+                    r, p = '(-)', '(-)'
+                elif isinstance(ac, dict):
+                    d = str(ac.get('descripcion', '(-)')).replace('\t', ' ')
+                    r = str(ac.get('responsable', '(-)')).replace('\t', ' ')
+                    p = str(ac.get('plazo', '(-)')).replace('\t', ' ')
+                else:
+                    d, r, p = str(ac), '(-)', '(-)'
                 
                 # Truncate if too long? No, Docs wraps. But tabs might drift if wrap happens text-wise?
                 # Docs tabs usually handle wrap within the tab stop if hanging indent is set, but that's complex.
