@@ -22,3 +22,4 @@ python-docx
 duckduckgo-search
 lxml
 openpyxl
+pydub
