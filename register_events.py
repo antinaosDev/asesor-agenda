@@ -128,6 +128,13 @@ def create_event(service, event_data: dict, calendar_id: str = 'primary'):
         'description': event_data.get('description', ''),
         'start': start,
         'end': end,
+        'reminders': {
+            'useDefault': False,
+            'overrides': [
+                {'method': 'popup', 'minutes': 30},
+                {'method': 'popup', 'minutes': 1440}
+            ]
+        }
     }
 
     try:

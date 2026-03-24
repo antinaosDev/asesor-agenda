@@ -60,7 +60,7 @@ from modules.google_services import (
     fetch_emails_batch, clean_email_body, 
     get_task_lists, create_task_list, add_task_to_google, 
     delete_task_google, update_task_google, get_existing_tasks_simple,
-    add_event_to_calendar, delete_event, optimize_event, update_event_calendar, COLOR_MAP
+    add_event_to_calendar, delete_event, optimize_event, optimize_event_reminders, update_event_calendar, COLOR_MAP
 )
 from modules.ai_core import (
     analyze_emails_ai, parse_events_ai, analyze_agenda_ai,
@@ -2698,6 +2698,28 @@ def view_optimize():
                 st.rerun()
             else:
                 st.success("✨ No se encontraron duplicados. Tu agenda está limpia.")
+
+    st.divider()
+    st.markdown("### 🔔 Optimizador de Recordatorios")
+    c_rem1, c_rem2 = st.columns([3, 1])
+    c_rem1.info("Esta herramienta revisará los eventos en el rango seleccionado y agregará recordatorio de 1 día antes a los que solo tienen 30 minutos.")
+
+    if c_rem2.button("🔧 Agregar Recordatorio 1 Día", type="secondary"):
+        with st.spinner("Optimizando recordatorios..."):
+            cal_svc = get_calendar_service()
+            if cal_svc:
+                updated_count, updated_events = optimize_event_reminders(cal_svc, calendar_id, days_ahead=30)
+                if updated_count > 0:
+                    st.success(f"✅ Se actualizaron {updated_count} eventos con recordatorio de 1 día antes.")
+                    with st.expander("Ver eventos actualizados"):
+                        for ev in updated_events:
+                            st.write(f"• {ev}")
+                    time.sleep(2)
+                    st.rerun()
+                else:
+                    st.success("✨ Todos los eventos ya tienen recordatorio de 1 día antes o no hay eventos en el período.")
+            else:
+                st.error("Error al conectar con el calendario.")
 
     # --- BULK MANAGEMENT (DELETE) ---
     with st.expander("🗑️ Gestión Masiva (Eliminación)", expanded=False):

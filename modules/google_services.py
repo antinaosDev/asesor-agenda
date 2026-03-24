@@ -1175,6 +1175,69 @@ def optimize_event(service, calendar_id, event_id, new_summary=None, color_id=No
         st.error(f"Error optimizing event: {msg}")
     return ok
 
+def optimize_event_reminders(service, calendar_id='primary', days_ahead=30):
+    """
+    Optimizador: Revisa todos los eventos agendados en los próximos X días
+    y agrega recordatorio de 1 día antes (1440 min) a los que solo tienen 30 min.
+    Retorna: (actualizados_count, lista_eventos_actualizados)
+    """
+    import datetime as dt
+    
+    try:
+        now = dt.datetime.now(dt.timezone.utc)
+        time_min = now.isoformat()
+        time_max = (now + dt.timedelta(days=days_ahead)).isoformat()
+        
+        events_result = service.events().list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime',
+            maxResults=250
+        ).execute()
+        
+        events = events_result.get('items', [])
+        
+        updated_events = []
+        
+        for event in events:
+            event_id = event.get('id')
+            summary = event.get('summary', 'Sin título')
+            
+            reminders = event.get('reminders', {})
+            use_default = reminders.get('useDefault', False)
+            overrides = reminders.get('overrides', [])
+            
+            has_30min = any(r.get('minutes') == 30 for r in overrides)
+            has_1440min = any(r.get('minutes') == 1440 for r in overrides)
+            
+            if has_30min and not has_1440min:
+                new_overrides = [r for r in overrides if r.get('minutes') != 30]
+                new_overrides.append({'method': 'popup', 'minutes': 30})
+                new_overrides.append({'method': 'popup', 'minutes': 1440})
+                
+                event['reminders'] = {
+                    'useDefault': False,
+                    'overrides': new_overrides
+                }
+                
+                try:
+                    service.events().update(
+                        calendarId=calendar_id,
+                        eventId=event_id,
+                        body=event
+                    ).execute()
+                    updated_events.append(summary)
+                except Exception as e:
+                    print(f"Error actualizando {summary}: {e}")
+        
+        return len(updated_events), updated_events
+        
+    except Exception as e:
+        print(f"Error en optimize_event_reminders: {e}")
+        return 0, []
+
 # --- GMAIL LABELING HELPERS ---
 
 def ensure_label(service, label_name):
