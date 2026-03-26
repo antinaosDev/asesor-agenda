@@ -165,7 +165,7 @@ def render_chat_view():
                                     svc = gs.get_calendar_service()
                                     if svc:
                                         # Use Configured Calendar ID (Priority: Config > Connected > Primary)
-                                        target_cal = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+                                        target_cal = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
                                         ok, msg = gs.add_event_to_calendar(svc, params, calendar_id=target_cal)
                                         if ok: 
                                             result_msg = f"✅ Evento creado: {params.get('summary')}"
@@ -364,10 +364,13 @@ def _get_lite_context():
         if not events:
             svc_cal = gs.get_calendar_service()
             if svc_cal:
+                # Use Configured Calendar ID (Priority: Config > Connected > Primary)
+                target_cal = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
+                
                 t_min = now.isoformat() + 'Z'
                 t_max = (now + datetime.timedelta(days=2)).isoformat() + 'Z' # 48 hours window
                 events_result = svc_cal.events().list(
-                    calendarId='primary', timeMin=t_min, timeMax=t_max, 
+                    calendarId=target_cal, timeMin=t_min, timeMax=t_max, 
                     singleEvents=True, orderBy='startTime'
                 ).execute()
                 events = events_result.get('items', [])

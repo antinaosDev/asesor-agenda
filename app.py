@@ -1079,6 +1079,8 @@ Saludos."""
             
             if quick_submit and quick_text:
                 cal_svc = get_calendar_service()
+                # Context Loading (Priority: Config > Connected)
+                calendar_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
                 if not cal_svc:
                     st.error("Conecta tu calendario primero.")
                 else:
@@ -3115,7 +3117,7 @@ def view_time_insights():
             # Obtener eventos de últimos 7 días
             cal_svc = get_calendar_service()
             # Use Configured Calendar ID (Priority: Config > Connected)
-            calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+            calendar_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
             end_date = datetime.now()
             start_date = end_date - timedelta(days=7)
 

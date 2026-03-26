@@ -400,6 +400,9 @@ def _handle_ai_result(result, original_text, user_id=None):
         if st.button("✅ Confirmar y Crear Evento", type="primary", use_container_width=True):
             service = st.session_state.get('calendar_service') or google_services.get_calendar_service()
             
+            # Use Configured Calendar ID (Priority: Config > Connected > Primary)
+            cal_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
+            
             event_data = {
                 "summary": result.get('summary'),
                 "description": result.get('description', original_text),
@@ -407,7 +410,7 @@ def _handle_ai_result(result, original_text, user_id=None):
                 "end_time": result.get('end_time'),
                 "colorId": result.get('colorId', '11')
             }
-            return google_services.add_event_to_calendar(service, event_data)
+            return google_services.add_event_to_calendar(service, event_data, calendar_id=cal_id)
 
     elif action == 'create_task':
         st.info("☑️ La IA sugiere crear una tarea:")
