@@ -2032,6 +2032,10 @@ def save_draft_from_ai(service, email_data, intent="Confirmar recepción", user_
         draft = create_draft(service, user_id, draft_body, to_email, subject)
         
         return draft
+    except Exception as e:
+        print(f"Error save_draft_from_ai: {e}")
+        return None
+
 def quick_add_event(service, text, calendarId='primary'):
     """
     Agrega un evento rápido usando procesamiento de lenguaje natural de Google.
