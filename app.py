@@ -465,8 +465,8 @@ def view_dashboard():
         ctx.render_context_widget()
     # ----------------------
 
-    # Context Loading
-    calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+    # Context Loading (Priority: Config > Connected)
+    calendar_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
     if not calendar_id:
         st.info("⚠️ Por favor conecta tu Google Calendar en configuración para ver tu panel.")
         return
@@ -1020,7 +1020,7 @@ def view_create():
                         service = get_calendar_service()
                         if service:
                             # Use Configured Calendar
-                            target_cal = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', 'primary'))
+                            target_cal = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
                             
                             # Create RRULE
                             # Map days to RRULE format (MO, TU, WE, TH, FR)
@@ -1200,7 +1200,7 @@ Saludos."""
                      
                      with c_t2:
                          if st.button(f"⏱️ Bloquear Tiempo (Focus)", key=f"btn_block_{i}", use_container_width=True):
-                             cal_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email'))
+                             cal_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
                              if not cal_id: st.error("Conecta tu email.")
                              else:
                                  # Create Event Wrapper
@@ -1221,7 +1221,7 @@ Saludos."""
 
                 else:
                     if st.button(f"📅 Confirmar y Agendar '{summary}'", key=f"btn_add_{i}"):
-                        cal_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email'))
+                        cal_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
                         if not cal_id: st.error("Por favor conecta tu email primero.")
                         else:
                             svc = get_calendar_service()
@@ -1263,7 +1263,7 @@ def view_planner():
 
     calendar_context_str = ""
     # Use Configured Calendar ID (Priority: Config > Connected)
-    calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', ''))
+    calendar_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
 
     # Common Calendar Fetch (Optimized with TTL)
     if 'c_events_cache' not in st.session_state:
@@ -2604,7 +2604,7 @@ def view_optimize():
              "Úsalo al principio de la semana para asegurar tiempos de enfoque y evitar el agotamiento."
          ), unsafe_allow_html=True)
 
-    calendar_id = st.session_state.get('conf_calendar_id', st.session_state.get('connected_email', ''))
+    calendar_id = st.session_state.get('conf_calendar_id') or st.session_state.get('connected_email') or 'primary'
     if not calendar_id:
         st.warning("⚠️  Configura tu ID de Calendario en la barra lateral.")
         return

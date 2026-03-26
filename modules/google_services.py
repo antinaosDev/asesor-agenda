@@ -1178,7 +1178,7 @@ def optimize_event(service, calendar_id, event_id, new_summary=None, color_id=No
 def optimize_event_reminders(service, calendar_id='primary', days_ahead=30):
     """
     Optimizador: Revisa todos los eventos agendados en los próximos X días
-    y agrega recordatorio de 1 día antes (1440 min) a los que solo tienen 30 min.
+    y agrega recordatorios de 30 min y 1 día antes (1440 min) si faltan.
     Retorna: (actualizados_count, lista_eventos_actualizados)
     """
     import datetime as dt
@@ -1198,9 +1198,17 @@ def optimize_event_reminders(service, calendar_id='primary', days_ahead=30):
         ).execute()
         
         events = events_result.get('items', [])
-        
         updated_events = []
         
+        # Load SA for fallback if needed
+        svc_sa = None
+        try:
+            creds_sa = _load_service_account_creds()
+            if creds_sa:
+                from googleapiclient.discovery import build
+                svc_sa = build('calendar', 'v3', credentials=creds_sa, cache_discovery=False)
+        except: pass
+
         for event in events:
             event_id = event.get('id')
             summary = event.get('summary', 'Sin título')
@@ -1212,8 +1220,9 @@ def optimize_event_reminders(service, calendar_id='primary', days_ahead=30):
             has_30min = any(r.get('minutes') == 30 for r in overrides)
             has_1440min = any(r.get('minutes') == 1440 for r in overrides)
             
-            if has_30min and not has_1440min:
-                new_overrides = [r for r in overrides if r.get('minutes') != 30]
+            # REFINED LOGIC: If missing either OR using defaults, force our required set
+            if use_default or not has_30min or not has_1440min:
+                new_overrides = [r for r in overrides if r.get('minutes') not in [30, 1440]]
                 new_overrides.append({'method': 'popup', 'minutes': 30})
                 new_overrides.append({'method': 'popup', 'minutes': 1440})
                 
@@ -1222,15 +1231,28 @@ def optimize_event_reminders(service, calendar_id='primary', days_ahead=30):
                     'overrides': new_overrides
                 }
                 
+                success = False
                 try:
                     service.events().update(
                         calendarId=calendar_id,
                         eventId=event_id,
                         body=event
                     ).execute()
-                    updated_events.append(summary)
+                    success = True
                 except Exception as e:
-                    print(f"Error actualizando {summary}: {e}")
+                    # FALLBACK TO ROBOT
+                    if svc_sa and ("403" in str(e) or "404" in str(e)):
+                        try:
+                            svc_sa.events().update(
+                                calendarId=calendar_id,
+                                eventId=event_id,
+                                body=event
+                            ).execute()
+                            success = True
+                        except: pass
+                
+                if success:
+                    updated_events.append(summary)
         
         return len(updated_events), updated_events
         
@@ -2027,10 +2049,45 @@ def quick_add_event(service, text, calendarId='primary'):
         dict: Objeto del evento creado o None si falla
     """
     try:
+        # 1. Create with QuickAdd
         created_event = service.events().quickAdd(
             calendarId=calendarId,
             text=text
         ).execute()
+        
+        # 2. Add Reminders (Patch)
+        event_id = created_event.get('id')
+        reminder_patch = {
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'popup', 'minutes': 30},
+                    {'method': 'popup', 'minutes': 1440}
+                ]
+            }
+        }
+        
+        try:
+            # Try patching with user service
+            service.events().patch(
+                calendarId=calendarId,
+                eventId=event_id,
+                body=reminder_patch
+            ).execute()
+        except:
+            # Fallback to SA if patch fails
+            try:
+                creds_sa = _load_service_account_creds()
+                if creds_sa:
+                    from googleapiclient.discovery import build
+                    svc_sa = build('calendar', 'v3', credentials=creds_sa, cache_discovery=False)
+                    svc_sa.events().patch(
+                        calendarId=calendarId,
+                        eventId=event_id,
+                        body=reminder_patch
+                    ).execute()
+            except: pass
+            
         return created_event
     except Exception as e:
         # Fallback Service Account
