@@ -2032,10 +2032,6 @@ def save_draft_from_ai(service, email_data, intent="Confirmar recepción", user_
         draft = create_draft(service, user_id, draft_body, to_email, subject)
         
         return draft
-    except Exception as e:
-        st.error(f"Error generando borrador con IA: {e}")
-        return None
-
 def quick_add_event(service, text, calendarId='primary'):
     """
     Agrega un evento rápido usando procesamiento de lenguaje natural de Google.
@@ -2048,14 +2044,35 @@ def quick_add_event(service, text, calendarId='primary'):
     Returns:
         dict: Objeto del evento creado o None si falla
     """
+    created_event = None
+    applied_service = service
+
     try:
-        # 1. Create with QuickAdd
+        # 1. Create with Primary Service (OAuth)
         created_event = service.events().quickAdd(
             calendarId=calendarId,
             text=text
         ).execute()
-        
-        # 2. Add Reminders (Patch)
+    except Exception as e:
+        error_str = str(e)
+        if "403" in error_str or "404" in error_str:
+            print(f"QuickAdd OAuth failed for {calendarId}. Retrying with Service Account...")
+            try:
+                creds_sa = _load_service_account_creds()
+                if creds_sa:
+                    from googleapiclient.discovery import build
+                    applied_service = build('calendar', 'v3', credentials=creds_sa, cache_discovery=False)
+                    created_event = applied_service.events().quickAdd(
+                        calendarId=calendarId,
+                        text=text
+                    ).execute()
+            except Exception as e_sa:
+                print(f"Robot Fallback failed: {e_sa}")
+        else:
+            print(f"QuickAdd Terminal Error: {e}")
+
+    # 2. If creation succeeded, Apply Mandatory Reminders (30m & 1440m)
+    if created_event and created_event.get('id'):
         event_id = created_event.get('id')
         reminder_patch = {
             'reminders': {
@@ -2068,14 +2085,14 @@ def quick_add_event(service, text, calendarId='primary'):
         }
         
         try:
-            # Try patching with user service
-            service.events().patch(
+            # Try patching with the same service that created the event
+            applied_service.events().patch(
                 calendarId=calendarId,
                 eventId=event_id,
                 body=reminder_patch
             ).execute()
         except:
-            # Fallback to SA if patch fails
+            # Final fallback: Try Robot for the patch specifically if the create-service lacks patch perms
             try:
                 creds_sa = _load_service_account_creds()
                 if creds_sa:
@@ -2086,26 +2103,7 @@ def quick_add_event(service, text, calendarId='primary'):
                         eventId=event_id,
                         body=reminder_patch
                     ).execute()
-            except: pass
-            
-        return created_event
-    except Exception as e:
-        # Fallback Service Account
-        error_str = str(e)
-        if "403" in error_str or "404" in error_str:
-            print(f"QuickAdd failed for {calendarId}. Retrying with Service Account...")
-            try:
-                # Force load SA
-                creds_sa = _load_service_account_creds()
-                if creds_sa:
-                    from googleapiclient.discovery import build
-                    service_sa = build('calendar', 'v3', credentials=creds_sa, cache_discovery=False)
-                    created_event = service_sa.events().quickAdd(
-                        calendarId=calendarId,
-                        text=text
-                    ).execute()
-                    return created_event
-            except: pass
-            
-        print(f"Error quick_add: {e}")
-        return None
+            except: 
+                pass # Silently proceed, creation succeeded at least
+
+    return created_event
