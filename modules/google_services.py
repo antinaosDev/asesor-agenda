@@ -929,7 +929,7 @@ def add_event_to_calendar(service, event_data, calendar_id='primary'):
             'reminders': {
                 'useDefault': False,
                 'overrides': [
-                    {'method': 'popup', 'minutes': 30},
+                    {'method': 'popup', 'minutes': 25},
                     {'method': 'popup', 'minutes': 1440}
                 ]
             }
@@ -2082,13 +2082,14 @@ def quick_add_event(service, text, calendarId='primary'):
             'reminders': {
                 'useDefault': False,
                 'overrides': [
-                    {'method': 'popup', 'minutes': 30},
+                    {'method': 'popup', 'minutes': 25},
                     {'method': 'popup', 'minutes': 1440}
                 ]
             }
         }
         
         try:
+            time.sleep(1) # Stability sleep for API
             # Try patching with the same service that created the event
             applied_service.events().patch(
                 calendarId=calendarId,
