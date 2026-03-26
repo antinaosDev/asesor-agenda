@@ -22,6 +22,7 @@ def render_chat_view():
     if "recent_actions" not in st.session_state:
         st.session_state.recent_actions = []  # Store last 10 created events/tasks
         st.toast("✅ Código v2.1 cargado - JSON será ocultado", icon="🔧")
+        st.toast("🧪 MODO DEBUG: Recordatorios 25m/1d", icon="🧪") # DIAGNOSTIC TOAST
 
     # 2. Display Chat History
     for msg in st.session_state.chat_history:
